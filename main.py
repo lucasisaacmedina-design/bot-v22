@@ -1,29 +1,40 @@
 import time, requests, os, threading
 from datetime import datetime
 from flask import Flask
-import sys
 
 app = Flask(__name__)
 @app.route('/')
 def home():
     return "BOT V22 LIVE 24/7 - FUNCIONANDO"
 
+def obtener_precio():
+    # Intenta Binance, si falla usa CoinGecko
+    try:
+        url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+        r = requests.get(url, timeout=10).json()
+        if 'price' in r:
+            return float(r['price'])
+    except:
+        pass
+    # Fallback CoinGecko
+    url2 = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+    r2 = requests.get(url2, timeout=10).json()
+    return float(r2['bitcoin']['usd'])
+
 def bot_trading():
-    MONEDA = "BTCUSDT"
     precio_maximo = 0
     en_compra = False
     precio_compra = 0
     print("BOT V22 RENTABLE INICIADO 24/7", flush=True)
     while True:
         try:
-            url = f"https://api.binance.com/api/v3/ticker/price?symbol={MONEDA}"
-            precio_actual = float(requests.get(url, timeout=10).json()['price'])
+            precio_actual = obtener_precio()
             ahora = datetime.now().strftime("%H:%M:%S")
             if not en_compra:
                 if precio_actual > precio_maximo:
                     precio_maximo = precio_actual
                 caida = ((precio_actual - precio_maximo) / precio_maximo) * 100 if precio_maximo > 0 else 0
-                print(f"[{ahora}] Precio: {precio_actual} | Caida: {caida:.2f}%", flush=True)
+                print(f"[{ahora}] BTC: {precio_actual} | Caida: {caida:.2f}%", flush=True)
                 if caida <= -1.0:
                     en_compra = True
                     precio_compra = precio_actual
