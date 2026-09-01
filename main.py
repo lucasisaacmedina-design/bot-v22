@@ -1,54 +1,62 @@
-import time, threading
-from flask import Flask
+import os
+import threading
+import time
 import requests
+from flask import Flask
+
+# --- CONFIG ---
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+TELEGRAM_ID = os.environ.get("TELEGRAM_ID")
+BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY")
+BINANCE_API_SECRET = os.environ.get("BINANCE_API_SECRET")
 
 app = Flask(__name__)
 
-btc_actual = 77143.50
-precio_entrada = 77143.50
-profit = 0.0
-trades = []
-
-def get_btc():
-    try:
-        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
-        return float(r.json()['price'])
-    except:
-        return btc_actual
-
-def track():
-    global btc_actual, profit, trades, precio_entrada
-    while True:
-        btc_actual = get_btc()
-        profit = btc_actual - precio_entrada
-        pct = (profit / precio_entrada) * 100
-        trades.append(f"{time.strftime('%H:%M:%S')} BTC ${btc_actual:.2f} | Profit ${profit:.2f}")
-        if len(trades) > 20: trades.pop(0)
-        print(f"PROFIT ${profit:.2f} ({pct:.2f}%)")
-        time.sleep(60)
-
-@app.route("/")
+@app.route('/')
 def home():
-    pct = (profit / precio_entrada) * 100 if precio_entrada else 0
-    color = "green" if profit >= 0 else "red"
-    lista_trades = "<br>".join(trades[::-1])
-    return f"""
-    <html><head><meta http-equiv='refresh' content='30'><style>
-    body{{font-family:Arial;background:#0d1117;color:white;padding:20px}}
-    .card{{background:#161b22;padding:20px;border-radius:12px;max-width:800px}}
-    .profit{{color:{color};font-size:32px;font-weight:bold}}
-    </style></head><body>
-    <div class=card>
-    <h1>🐺 BOT V25.1 LOBO - PANEL PRO</h1>
-    <h2>BTC: ${btc_actual:.2f}</h2>
-    <div class=profit>GANANCIA: ${profit:.2f} ({pct:.2f}%)</div>
-    <p>Entrada: ${precio_entrada:.2f} | Actualizando cada 30 seg</p>
-    <hr><h3>📊 Ultimos movimientos:</h3>
-    <p>{lista_trades}</p>
-    <p>🔴 LIVE 24/7 en Render</p>
-    </div></body></html>
-    """
+    return "Lobo V22 Live - Bot Telegram Activo"
 
-threading.Thread(target=track, daemon=True).start()
+def send_telegram(text):
+    if not TELEGRAM_TOKEN or not TELEGRAM_ID:
+        print("Falta TOKEN o ID")
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    data = {"chat_id": TELEGRAM_ID, "text": text, "parse_mode": "Markdown"}
+    try:
+        requests.post(url, data=data, timeout=10)
+    except Exception as e:
+        print(f"Error Telegram: {e}")
+
+def telegram_polling():
+    print("Iniciando polling Telegram...")
+    offset = 0
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+            params = {"timeout": 30, "offset": offset}
+            r = requests.get(url, params=params, timeout=35)
+            data = r.json()
+            if data.get("ok"):
+                for update in data.get("result", []):
+                    offset = update["update_id"] + 1
+                    message = update.get("message", {})
+                    text = message.get("text", "")
+                    chat_id = message.get("chat", {}).get("id")
+                    if str(chat_id) == str(TELEGRAM_ID):
+                        if text.lower() in ["/start", "hola", "Hola"]:
+                            send_telegram("🐺 *Lobo, Bot V22 iniciado...*\n\n✅ Conectado a Render + Telegram\n\nMandá /estado para ver estado.")
+                        elif "/estado" in text.lower():
+                            send_telegram(f"✅ Bot V22 Activo\nRender: Live\nTelegram ID: {TELEGRAM_ID}\nBinance: {'Conectado' if BINANCE_API_KEY else 'No'}")
+                        else:
+                            send_telegram(f"Recibido: {text}\nEscribí /estado")
+        except Exception as e:
+            print(f"Error polling: {e}")
+            time.sleep(5)
+        time.sleep(1)
+
+# Iniciar hilo de Telegram al arrancar
+threading.Thread(target=telegram_polling, daemon=True).start()
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
