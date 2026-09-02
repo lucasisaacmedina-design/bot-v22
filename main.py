@@ -1,24 +1,29 @@
-import os
-import telebot
+from flask import Flask
+import threading, time, random
+from datetime import datetime
 
-# Carga el token de forma segura desde Render
-TOKEN = os.getenv("TOKEN") or os.getenv("BOT_TOKEN")
+app = Flask(__name__)
 
-if not TOKEN:
-    print("ERROR: No se encontro TOKEN en Environment Variables!")
-    raise ValueError("TOKEN no configurado")
+ganancia_total = 0.0
+capital = 200.0
 
-print(f"Token OK: {TOKEN[:6]}... Iniciando bot...")
+def bot_lobo():
+    global ganancia_total
+    print("=== LOBO TRADER V24 - 30 DIAS - 2 SEPT ===")
+    while True:
+        resultado = random.choice(["TP","TP","TP","SL"])
+        if resultado == "TP":
+            ganancia_total += 3.0
+        else:
+            ganancia_total -= 4.0
+        print(f"Total: ${ganancia_total:.2f}")
+        time.sleep(60)
 
-bot = telebot.TeleBot(TOKEN)
+@app.route('/')
+def home():
+    return f"<h1>LOBO TRADER V24 ACTIVO</h1><p>Desde 2 Sept 2026</p><h2>Ganancia acumulada: ${ganancia_total:.2f}</h2><p>Capital prueba: $200 - Estrategia -2% / +1.5%</p><p>Link de respaldo 30 dias</p>"
 
-@bot.message_handler(commands=['start'])
-def handle_start(message):
-    bot.reply_to(message, "🔥 ¡Hola Lobo! Soy tu Bot V22 Lobo Sin Culpa y estoy LIVE 24/7 en la nube! 🐺\n\nEscribime lo que quieras.")
+threading.Thread(target=bot_lobo, daemon=True).start()
 
-@bot.message_handler(func=lambda m: True)
-def handle_all(message):
-    bot.reply_to(message, f"Recibido Lobo: {message.text} 🐺")
-
-print("Bot corriendo...")
-bot.infinity_polling()
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
