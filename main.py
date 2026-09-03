@@ -1,71 +1,100 @@
-# LOBO V40.1 - SDE CAPITAL - SIMPLE, HONESTO, CON COMISION - EL QUE VENDE
+# LOBO V41 - TESTNET REAL - SDE CAPITAL - CORRE 7 DIAS
+# Dinero ficticio de Binance Testnet + Precio real + Comision real 0.2%
+
 import os
-from flask import Flask, render_template_string
+import time
+from flask import Flask, render_template_string, jsonify
+from binance.client import Client
+from binance.exceptions import BinanceAPIException
 
 app = Flask(__name__)
 
+# LEE DE RENDER - NO HARDCODEADO
+API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY")
+API_SECRET = os.environ.get("BINANCE_TESTNET_API_SECRET")
+
+client = None
+MODO = "MODO DEMO"
+BALANCE_INICIAL = 145.81
+
+def conectar():
+    global client, MODO
+    if API_KEY and API_SECRET:
+        try:
+            client = Client(API_KEY, API_SECRET, testnet=True)
+            client.API_URL = 'https://testnet.binance.vision/api'
+            client.get_account() # prueba conexion
+            MODO = "TESTNET CONECTADO - DINERO FICTICIO"
+            print("TESTNET OK")
+        except Exception as e:
+            MODO = f"ERROR TESTNET: {str(e)[:60]}"
+            client = None
+    else:
+        MODO = "MODO DEMO - FALTA KEY EN RENDER"
+
+conectar()
+
+# Memoria simple para esta semana
+estado = {"balance": BALANCE_INICIAL, "bruta": 0.0, "comision": 0.0, "trades": []}
+
 HTML = """
 <!DOCTYPE html>
-<html>
-<head>
-<title>Lobo V40.1 - Simple y Humilde</title>
+<html><head>
+<title>Lobo V41 Testnet</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{margin:0;background:#0f0f0f;color:#fff;font-family:Arial}
+.top{background:#ffcc00;color:#000;text-align:center;padding:6px;font-weight:900;font-size:11px}
 .header{padding:12px;text-align:center;background:#000;border-bottom:3px solid #f7931a}
 .card{background:#1a1a1a;margin:8px;border-radius:10px;padding:10px;border:1px solid #333}
-table{width:100%;font-size:11px;border-collapse:collapse}
-th{color:#888;padding:8px;border-bottom:1px solid #333;text-align:left;font-size:10px}
-td{padding:8px;border-bottom:1px solid #222;text-align:left}
-.verde{color:#00ff88;font-weight:900}
-.rojo{color:#ff4444}
+table{width:100%;font-size:11px;border-collapse:collapse} th{color:#888;padding:6px;border-bottom:1px solid #333} td{padding:6px;border-bottom:1px solid #222}
+.verde{color:#00ff88} .rojo{color:#ff4444}
 </style>
-</head>
-<body>
-<div class="header">
-<div style="font-weight:900;font-size:17px">🦁 LOBO V40.1 • SDE CAPITAL</div>
-<div style="font-size:9px;color:#aaa;margin-top:3px">SIMPLE Y HUMILDE • CON COMISION REAL • SER RICO NO PARECERLO ● EN VIVO</div>
-</div>
-
+</head><body>
+<div class="top">🧪 {{modo}} • TESTNET BINANCE • CORRE 7 DIAS • COMISION REAL 0.2%</div>
+<div class="header"><div style="font-weight:900">🦁 LOBO V41 TESTNET - SDE CAPITAL</div><div style="font-size:9px;color:#aaa">PRECIO REAL - BALANCE FICTICIO TESTNET - SIMPLE Y HUMILDE</div></div>
 <div class="card" style="display:flex;justify-content:space-around;text-align:center;border:1px solid #f7931a">
-<div><div style="font-size:8px;color:#888">BALANCE</div><div style="font-size:20px;font-weight:900">145,81 USDT</div></div>
-<div><div style="font-size:8px;color:#888">BRUTA HOY</div><div style="color:#00ff88;font-weight:900">+$65.43</div></div>
-<div style="border:1px solid #ff4444;border-radius:6px;padding:2px 8px"><div style="font-size:7px;color:#888">COMISIONES BINANCE</div><div class="rojo" style="font-weight:900">-$4.89</div><div style="font-size:6px;color:#666">0.1%+0.1% REAL</div></div>
-<div><div style="font-size:8px;color:#888">NETA REAL</div><div style="font-size:22px;font-weight:900;color:#00ff88">+$60.54</div></div>
+<div><div style="font-size:8px;color:#888">BALANCE TESTNET</div><div style="font-size:16px;font-weight:900" id="bal">{{bal}} USDT</div></div>
+<div><div style="font-size:8px;color:#888">GANANCIA BRUTA</div><div class="verde" id="bruta">+$0.00</div></div>
+<div><div style="font-size:8px;color:#888">COMISIONES</div><div class="rojo" id="com">-$0.00</div></div>
+<div><div style="font-size:8px;color:#888">NETA REAL</div><div style="font-size:18px;font-weight:900" class="verde" id="neta">+$0.00</div></div>
 </div>
-
-<div class="card" style="padding:0;overflow:hidden">
-<div style="height:380px" id="tv"></div>
+<div class="card" style="padding:0;height:400px"><div id="tv" style="height:400px"></div></div>
+<div class="card"><table><tr><th>Hora</th><th>Par</th><th>Tipo</th><th>Bruta</th><th>Comision</th><th>Neta</th></tr><tbody id="trades"></tbody></table></div>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <script>
-new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"tv","height":380});
+new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"tv"});
+function cargar(){fetch('/api/data').then(r=>r.json()).then(d=>{document.getElementById('bal').innerText=d.balance+' USDT';document.getElementById('bruta').innerText='+$'+d.bruta;document.getElementById('com').innerText='-$'+d.comision;document.getElementById('neta').innerText='+$'+d.neta;let h='';d.trades.forEach(t=>{h+=`<tr><td>${t.hora}</td><td>${t.par}</td><td>${t.tipo}</td><td class="verde">+${t.bruta}</td><td class="rojo">-${t.com}</td><td class="verde">${t.neta}</td></tr>`});document.getElementById('trades').innerHTML=h;});}
+setInterval(cargar,5000);cargar();
 </script>
-</div>
-
-<div class="card">
-<div style="font-weight:900;font-size:12px;margin-bottom:6px">ULTIMOS 10 TRADES - TODO A LA VISTA</div>
-<table>
-<tr><th>HORA</th><th>TIPO</th><th>BRUTO</th><th>COMISION</th><th>NETO REAL</th><th>R</th></tr>
-<tr><td>19:32</td><td style="color:#00ff88">▲ BUY 78.922</td><td>-</td><td>-</td><td>-</td><td>⏳</td></tr>
-<tr><td>19:45</td><td style="color:#ff4444">▼ SELL 79.105</td><td class="verde">+183.00</td><td class="rojo">-158.02</td><td class="verde">+24.98</td><td>✅</td></tr>
-<tr><td>20:10</td><td style="color:#00ff88">▲ BUY 79.010</td><td>-</td><td>-</td><td>-</td><td>⏳</td></tr>
-<tr><td>20:28</td><td style="color:#ff4444">▼ SELL 79.220</td><td class="verde">+210.00</td><td class="rojo">-158.23</td><td class="verde">+51.77</td><td>✅</td></tr>
-<tr><td>21:05</td><td style="color:#00ff88">▲ BUY 79.150</td><td>-</td><td>-</td><td>-</td><td>⏳</td></tr>
-</table>
-<div style="font-size:8px;color:#666;margin-top:8px">Lobo no te miente: Bruto - Comisión Binance (0.2% total) = Neto Real que te queda. A veces se pierde, la mayoría se gana.</div>
-</div>
-
-<div class="card" style="text-align:center">
-<button style="background:#f7931a;color:#000;padding:12px 25px;border-radius:25px;font-weight:900;border:none;width:90%;font-size:15px">EMPEZAR CON $20 - SIMPLE Y HUMILDE</button>
-<div style="font-size:8px;color:#888;margin-top:5px">Santiago del Estero Capital • Sin humo • Solo números reales</div>
-</div>
-
-</body>
-</html>
+</body></html>
 """
 
 @app.route('/')
-def home(): return render_template_string(HTML)
+def home():
+    bal = estado["balance"]
+    if client:
+        try:
+            b = client.get_asset_balance(asset='USDT')
+            bal = float(b['free'])
+            estado["balance"] = bal
+        except: pass
+    return render_template_string(HTML, bal=round(bal,2), modo=MODO)
+
+@app.route('/api/data')
+def data():
+    if client:
+        try:
+            b = client.get_asset_balance(asset='USDT')
+            estado["balance"] = float(b['free'])
+        except: pass
+    return jsonify({
+        "balance": round(estado["balance"],2),
+        "bruta": round(estado["bruta"],2),
+        "comision": round(estado["comision"],2),
+        "neta": round(estado["bruta"]-estado["comision"],2),
+        "trades": estado["trades"][-20:]
+    })
 
 @app.route('/health')
 def health(): return "OK", 200
