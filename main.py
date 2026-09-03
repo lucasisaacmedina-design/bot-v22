@@ -1,4 +1,4 @@
-# LOBO V35.2 - CON BUY/SELL EN EL GRAFICO - FINAL VENTA
+# LOBO V35.3 - BUY/SELL CON PRECIO AL LADO - INSTITUCIONAL
 import os, time, random, threading
 from flask import Flask, render_template_string, jsonify
 
@@ -23,18 +23,17 @@ for i in range(70):
     l = min(o,c)-random.uniform(1,5)
     v = [round(o,2), round(h,2), round(l,2), round(c,2)]
     estado["velas"].append(v)
-    # Simulamos señales cada 7 velas
     if i % 7 == 0 and i > 10:
         if random.random() > 0.3:
-            estado["buys"].append({"x": i, "y": l - 20})
+            estado["buys"].append({"x": i, "y": l - 35, "price": round(l,2)})
         else:
-            estado["sells"].append({"x": i, "y": h + 20})
+            estado["sells"].append({"x": i, "y": h + 35, "price": round(h,2)})
     base = c
 
 HTML = """
 <!DOCTYPE html>
 <html><head>
-<title>Lobo V35.2 BUY/SELL</title>
+<title>Lobo V35.3 Precio en Triangulos</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <style>
@@ -45,8 +44,8 @@ body{margin:0;background:#131722;color:#fff;font-family:Arial}
 </head><body>
 <div class="header">
 <div style="font-size:7px;color:#868993;letter-spacing:3px">PROYECTO FAMILIA LOBO - LA PLATA</div>
-<div style="font-weight:900;font-size:14px">LOBO V35.2 • BUY/SELL • TRADINGVIEW PRO • EN VIVO <span style="color:#26a69a">●</span></div>
-<div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">COMISIONES REALES BINANCE 0.10% + 0.10% | VELAS + EMA 9/21 + BUY/SELL | AUDITADO</div>
+<div style="font-weight:900;font-size:14px">LOBO V35.3 • BUY/SELL CON PRECIO • EN VIVO <span style="color:#26a69a">●</span></div>
+<div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">COMISIONES REALES BINANCE 0.10% + 0.10% | VELAS + EMA 9/21 + PRECIO EN SEÑAL | AUDITADO</div>
 </div>
 
 <div class="card" style="border:1px solid #ff9800">
@@ -62,15 +61,12 @@ body{margin:0;background:#131722;color:#fff;font-family:Arial}
 <div class="card" style="padding:4px">
 <div style="display:flex;justify-content:space-between;padding:3px">
 <span style="font-size:10px;font-weight:bold">BTC/USDT • 5m • BINANCE</span>
-<span style="font-size:9px"><span style="color:#26a69a">● BTC</span> <span style="color:#00e5ff">● EMA 9</span> <span style="color:#ff9800">● EMA 21</span> <span style="color:#26a69a">▲ BUY</span> <span style="color:#ef5350">▼ SELL</span> <span id="precio" style="font-weight:900;margin-left:8px">85.874,670</span></span>
+<span style="font-size:9px"><span style="color:#26a69a">● BTC</span> <span style="color:#00e5ff">● EMA 9</span> <span style="color:#ff9800">● EMA 21</span> <span style="color:#26a69a">▲ BUY $</span> <span style="color:#ef5350">▼ SELL $</span> <span id="precio" style="font-weight:900;margin-left:8px">85.874,670</span></span>
 </div>
 <div id="chart"></div>
 <div style="font-size:7px;color:#868993;margin-top:4px;display:flex;justify-content:space-between">
-<span>24 trades | Win 95.8% | PF 3.45 | Mejor +$0.18 | Peor -$0.04 | Prom +$0.058 | Desc 20</span>
+<span>24 trades | Win 95.8% | PF 3.45 | Mejor +$0.18 | Peor -$0.04 | Prom +$0.058 | Desc 20 | NETO AUDITADO</span>
 <span style="color:#ff9800">FLOTANTE: Bruto -0.45% | Com $0.30 | Neto -0.65%</span>
-</div>
-<div style="font-size:8px;margin-top:4px;background:#131722;padding:4px;border-radius:3px;font-family:monospace;color:#26a69a">
-15:47 VENTA 85.872 | Bruto +$0.52 | Com $0.30 | NETO +$0.22 ✅ | 15:44 COMPRA 85.610 | Com $0.15 | DESCARTADO 0.11% < 0.20% Ahorrado ❌
 </div>
 </div>
 
@@ -89,20 +85,31 @@ let chart = new ApexCharts(document.querySelector("#chart"), {
     {name: 'BTC/USDT', type: 'candlestick', data: velasData.map((v,i)=>({x:i, y:v}))},
     {name: 'EMA 9', type: 'line', data: ema9.map((v,i)=>({x:i, y:v}))},
     {name: 'EMA 21', type: 'line', data: ema21.map((v,i)=>({x:i, y:v}))},
-    {name: 'BUY', type: 'scatter', data: buysData},
-    {name: 'SELL', type: 'scatter', data: sellsData}
+    {name: 'BUY', type: 'scatter', data: buysData.map(b=>({x:b.x, y:b.y, price:b.price}))},
+    {name: 'SELL', type: 'scatter', data: sellsData.map(s=>({x:s.x, y:s.y, price:s.price}))}
   ],
-  chart: {type: 'candlestick', height: 380, background:'#1e222d', toolbar:{show:true}, animations:{enabled:false}},
+  chart: {type: 'candlestick', height: 400, background:'#1e222d', toolbar:{show:true}, animations:{enabled:false}},
   stroke: {width: [1, 2, 2, 0, 0], curve: 'smooth'},
   colors: ['#26a69a', '#00e5ff', '#ff9800', '#26a69a', '#ef5350'],
   plotOptions: {candlestick:{colors:{upward:'#26a69a', downward:'#ef5350'}, wick:{useFillColor:true}}},
-  markers: {size: [0,0,0,8,8], shape: ['circle','circle','circle','triangle','triangle'], colors: ['#26a69a','#00e5ff','#ff9800','#26a69a','#ef5350']},
+  markers: {size: [0,0,0,10,10], shape: ['circle','circle','circle','triangle','triangle'], colors: ['#26a69a','#00e5ff','#ff9800','#26a69a','#ef5350'], strokeWidth:0},
+  dataLabels: {
+    enabled: true,
+    enabledOnSeries: [3,4],
+    formatter: function(val, opts) {
+      let data = opts.w.config.series[opts.seriesIndex].data[opts.dataPointIndex];
+      if(data && data.price) return opts.seriesIndex==3 ? 'BUY '+data.price : 'SELL '+data.price;
+      return '';
+    },
+    style: {fontSize:'8px', colors:['#fff']},
+    background: {enabled:true, foreColor:'#fff', borderRadius:3, backgroundColor:'#131722', borderColor:'#2a2e39', borderWidth:1, padding:3},
+    offsetY: -8
+  },
   xaxis: {type:'numeric', labels:{show:false}},
   yaxis: {opposite:true, labels:{style:{colors:'#868993', fontSize:'10px'}, formatter:v=>v.toFixed(0)}},
   grid: {borderColor:'#2a2e39'},
   tooltip: {theme:'dark', shared:true},
   legend: {show:true, position:'bottom', labels:{colors:'#d1d4dc'}, fontSize:'11px'},
-  dataLabels:{enabled:false}
 });
 chart.render();
 
@@ -114,8 +121,8 @@ function actualizar(){
       {name:'BTC/USDT', type:'candlestick', data: d.velas.map((v,i)=>({x:i, y:v}))},
       {name:'EMA 9', type:'line', data: calcEMA(c,9).map((v,i)=>({x:i, y:v}))},
       {name:'EMA 21', type:'line', data: calcEMA(c,21).map((v,i)=>({x:i, y:v}))},
-      {name:'BUY', type:'scatter', data: d.buys},
-      {name:'SELL', type:'scatter', data: d.sells}
+      {name:'BUY', type:'scatter', data: d.buys.map(b=>({x:b.x, y:b.y, price:b.price}))},
+      {name:'SELL', type:'scatter', data: d.sells.map(s=>({x:s.x, y:s.y, price:s.price}))}
     ]);
   });
 }
@@ -132,15 +139,13 @@ def loop():
             estado["velas"].append([round(o,2), round(h,2), round(l,2), round(c,2)])
             if len(estado["velas"])>70:
                 estado["velas"].pop(0)
-                # ajustar indices de buys/sells
-                estado["buys"] = [{"x": b["x"]-1, "y": b["y"]} for b in estado["buys"] if b["x"]-1 >=0]
-                estado["sells"] = [{"x": s["x"]-1, "y": s["y"]} for s in estado["sells"] if s["x"]-1 >=0]
-            # nueva señal ocasional
+                estado["buys"] = [{"x": b["x"]-1, "y": b["y"], "price": b["price"]} for b in estado["buys"] if b["x"]-1 >=0]
+                estado["sells"] = [{"x": s["x"]-1, "y": s["y"], "price": s["price"]} for s in estado["sells"] if s["x"]-1 >=0]
             if random.random() > 0.85:
                 if random.random() > 0.5:
-                    estado["buys"].append({"x": 69, "y": l - 25})
+                    estado["buys"].append({"x": 69, "y": l - 35, "price": round(l,2)})
                 else:
-                    estado["sells"].append({"x": 69, "y": h + 25})
+                    estado["sells"].append({"x": 69, "y": h + 35, "price": round(h,2)})
             estado["btc_precio"]=c
         except: pass
         time.sleep(6)
