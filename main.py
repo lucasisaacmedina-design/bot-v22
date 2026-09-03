@@ -1,72 +1,100 @@
-# LOBO BOT V33.3 - REAL NETO CON COMISIONES - PLATA FICTICIA
+# LOBO BOT V33.3 - main.py COMPLETO PARA RENDER
+# Plata ficticia, comisiones reales, puerto abierto 24/7
 # Filosofía: Ser rico, no parecerlo.
 
+import os
 import time
 import random
+import threading
 from datetime import datetime
+from flask import Flask, jsonify
 
-# --- CONFIG REAL BINANCE ---
-COMISION_BINANCE = 0.001  # 0.1% maker/taker spot real
-CAPITAL_FICTICIO_INICIAL = 144.00  # Partimos de donde estás ahora
-OBJETIVO_DIARIO = 15.00 # Objetivo neto real
+app = Flask(__name__)
 
-capital_actual = CAPITAL_FICTICIO_INICIAL
-capital_inicial_hoy = CAPITAL_FICTICIO_INICIAL
-comisiones_totales = 0.0
-trades_totales = 0
-trades_ganados = 0
+# --- CONFIG REAL ---
+COMISION_BINANCE = 0.001  # 0.1% real Binance Spot
+CAPITAL_FICTICIO_INICIAL = 144.00
+OBJETIVO_DIARIO_NETO = 15.00
 
-def ejecutar_trade_ficticio():
-    global capital_actual, comisiones_totales, trades_totales, trades_ganados
+# Estado global del bot
+estado = {
+    "capital_actual": CAPITAL_FICTICIO_INICIAL,
+    "capital_inicial_hoy": CAPITAL_FICTICIO_INICIAL,
+    "comisiones_totales": 0.0,
+    "trades_totales": 0,
+    "trades_ganados": 0,
+    "ganancia_bruta_hoy": 0.0,
+    "ganancia_neta_hoy": 0.0,
+    "ultimo_trade": None,
+    "status": "INICIANDO",
+    "objetivo_cumplido": False
+}
+
+def ejecutar_trade():
+    monto_trade = estado["capital_actual"] * 0.05
     
-    # Simulación de tu estrategia momentum scalper
-    # Entra chiquito como vos querés
-    monto_trade = capital_actual * 0.05  # 5% por trade
+    # Simula tu estrategia (acá va tu lógica real después)
+    variacion = random.uniform(-0.008, 0.012) 
+    ganancia_bruta = monto_trade * variacion
     
-    precio_entrada = 65842.31
-    variacion = random.uniform(-0.008, 0.012)  # Tu edge del V33.2
-    precio_salida = precio_entrada * (1 + variacion)
-    
-    ganancia_bruta = (precio_salida - precio_entrada) / precio_entrada * monto_trade
-    
-    # --- ACA ESTA LA POSTA: COMISION REAL ---
-    comision = monto_trade * COMISION_BINANCE * 2  # Entrada + Salida
+    comision = monto_trade * COMISION_BINANCE * 2
     ganancia_neta = ganancia_bruta - comision
     
-    comisiones_totales += comision
-    capital_actual += ganancia_neta
-    trades_totales += 1
+    estado["capital_actual"] += ganancia_neta
+    estado["comisiones_totales"] += comision
+    estado["ganancia_bruta_hoy"] += ganancia_bruta
+    estado["ganancia_neta_hoy"] += ganancia_neta
+    estado["trades_totales"] += 1
     if ganancia_neta > 0:
-        trades_ganados += 1
+        estado["trades_ganados"] += 1
     
-    return ganancia_bruta, comision, ganancia_neta
+    estado["ultimo_trade"] = {
+        "hora": datetime.now().strftime("%H:%M:%S"),
+        "bruta": round(ganancia_bruta, 4),
+        "comision": round(comision, 4),
+        "neta": round(ganancia_neta, 4)
+    }
+    
+    print(f"[Trade #{estado['trades_totales']}] NETA: ${ganancia_neta:.4f} | Bruta: ${ganancia_bruta:.4f} | Comi: -${comision:.4f} | Capital: ${estado['capital_actual']:.2f}")
 
-def monitor_anti_sueno():
-    ganancia_dia_neta = capital_actual - capital_inicial_hoy
-    profit_factor = (trades_ganados / trades_totales * 100) if trades_totales > 0 else 0
-    
-    print(f"\n--- LOBO V33.3 | {datetime.now().strftime('%H:%M:%S')} ---")
-    print(f"Capital Actual: ${capital_actual:.2f} USDT (FICTICIO)")
-    print(f"Ganancia BRUTA hoy: ${ganancia_dia_neta + comisiones_totales:.2f}")
-    print(f"Comisiones pagadas a Binance: -${comisiones_totales:.2f}")
-    print(f"Ganancia NETA REAL hoy: ${ganancia_dia_neta:.2f}")
-    print(f"Trades: {trades_totales} | Ganados: {profit_factor:.1f}%")
-    print(f"Objetivo: ${OBJETIVO_DIARIO:.2f} | Falta: ${OBJETIVO_DIARIO - ganancia_dia_neta:.2f}")
-    
-    if ganancia_dia_neta >= OBJETIVO_DIARIO:
-        print("🔔 ¡OBJETIVO CUMPLIDO! Campana Anti-Sueño: Podés irte a dormir tranquilo Lobo.")
-        # Acá iría tu envío de comprobante por WhatsApp
-        return True
-    return False
+def loop_bot():
+    estado["status"] = "TRABAJANDO EN SILENCIO"
+    print(f"--- LOBO V33.3 INICIADO con ${CAPITAL_FICTICIO_INICIAL} FICTICIOS ---")
+    while True:
+        ejecutar_trade()
+        
+        if estado["ganancia_neta_hoy"] >= OBJETIVO_DIARIO_NETO and not estado["objetivo_cumplido"]:
+            estado["objetivo_cumplido"] = True
+            estado["status"] = "OBJETIVO CUMPLIDO - CAMPANA"
+            print(f"🔔 OBJETIVO NETO DE ${OBJETIVO_DIARIO_NETO} CUMPLIDO! NETA HOY: ${estado['ganancia_neta_hoy']:.2f}")
+        
+        time.sleep(10)  # Un trade cada 10 seg para test rápido. En real poné 180 (3 min)
 
-# --- BUCLE 24/7 ---
-print(f"Iniciando V33.3 con ${CAPITAL_FICTICIO_INICIAL} FICTICIOS...")
-print("Contando COMISIONES REALES. Mostrando solo NETA.")
-while True:
-    bruta, comi, neta = ejecutar_trade_ficticio()
-    print(f"Trade #{trades_totales}: Bruta ${bruta:.3f} | Comi -${comi:.3f} | NETA ${neta:.3f}")
-    
-    if monitor_anti_sueno():
-        break
-    
-    time.sleep(5)  # En real es cada 3-5 min, acá acelerado para prueba
+# --- RUTAS PARA QUE RENDER NO TE APAGUE ---
+@app.route('/')
+def home():
+    profit_pct = (estado["trades_ganados"] / estado["trades_totales"] * 100) if estado["trades_totales"] > 0 else 0
+    return jsonify({
+        "mensaje": "Lobo V33.3 trabajando en silencio",
+        "filosofia": "Ser rico, no parecerlo",
+        "capital_actual_ficticio": round(estado["capital_actual"], 2),
+        "ganancia_bruta_hoy": round(estado["ganancia_bruta_hoy"], 2),
+        "comisiones_pagadas": round(estado["comisiones_totales"], 2),
+        "ganancia_neta_real": round(estado["ganancia_neta_hoy"], 2),
+        "trades": estado["trades_totales"],
+        "win_rate": f"{profit_pct:.1f}%",
+        "status": estado["status"],
+        "ultimo_trade": estado["ultimo_trade"]
+    })
+
+@app.route('/health')
+def health():
+    return "OK - Lobo vivo", 200
+
+# Iniciar bot en hilo separado
+threading.Thread(target=loop_bot, daemon=True).start()
+
+# --- ESTO ES LO QUE TE FALTABA PARA RENDER ---
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
