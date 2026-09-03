@@ -1,4 +1,4 @@
-# LOBO V38 - SANTIAGO DEL ESTERO CAPITAL - LOGICA CORREGIDA - APRENDIZAJE
+# LOBO V38.1 - SANTIAGO DEL ESTERO CAPITAL - FIX PANTALLA AZUL - LOGICA RENTABLE
 import os, time, random, threading
 from flask import Flask, render_template_string, jsonify
 
@@ -16,28 +16,25 @@ estado = {
     "trades": []
 }
 
-# Generar historial correcto: SIEMPRE BUY primero, SELL despues
 base = 78900
-posicion_abierta = None # None = sin BTC, con valor = precio de compra
+posicion_abierta = None
 for i in range(70):
     o = base + random.uniform(-10, 25)
     c = o + random.uniform(-5, 20)
     h = max(o,c)+random.uniform(1,4)
     l = min(o,c)-random.uniform(1,4)
     estado["velas"].append([round(o,2), round(h,2), round(l,2), round(c,2)])
-
-    # Logica de aprendizaje: solo BUY si no tenemos posicion, solo SELL si tenemos
     if i % 8 == 0 and i > 5:
         hora = f"{random.randint(21,22)}:{random.randint(10,59):02d}"
         if posicion_abierta is None:
             p = round(l,2)
             estado["buys"].append({"x": i, "y": l - 50, "price": p})
             posicion_abierta = p
-            estado["trades"].append({"hora":hora,"tipo":"BUY","precio":p,"neto":0,"result":"⏳"})
+            estado["trades"].append({"hora":hora,"tipo":"BUY","precio":p,"bruto":0,"com":0,"neto":0,"result":"⏳"})
         else:
             p = round(h,2)
             bruto = round(p - posicion_abierta, 2)
-            com = round(p*0.001 + posicion_abierta*0.001, 2) # 0.1% entrada + 0.1% salida
+            com = round(p*0.001 + posicion_abierta*0.001, 2)
             neto = round(bruto - com, 2)
             estado["sells"].append({"x": i, "y": h + 50, "price": p, "profit": neto, "buy": posicion_abierta, "bruto": bruto, "com": com})
             estado["trades"].append({"hora":hora,"tipo":"SELL","precio":p,"compra":posicion_abierta,"bruto":bruto,"com":com,"neto":neto,"result":"✅" if neto>=0 else "❌"})
@@ -47,7 +44,7 @@ for i in range(70):
 HTML = """
 <!DOCTYPE html>
 <html><head>
-<title>Lobo V38 Santiago Capital</title>
+<title>Lobo V38.1 Santiago Capital</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <style>
@@ -60,9 +57,9 @@ td{padding:4px;border-bottom:1px solid #1e222d}
 </style>
 </head><body>
 <div class="header">
-<div style="font-size:7px;color:#868993;letter-spacing:3px">🦁 LOBO V38 - SANTIAGO DEL ESTERO CAPITAL - APRENDIENDO LOGICA CORRECTA</div>
-<div style="font-weight:900;font-size:14px">LOBO V38 • LOGICA BUY->SELL CORREGIDA • EN VIVO <span style="color:#26a69a">●</span></div>
-<div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">SDE CAPITAL | SOLO VENDE SI ANTES COMPRO | COMISION 0.1% BINANCE</div>
+<div style="font-size:7px;color:#868993;letter-spacing:3px">🦁 LOBO V38.1 - SANTIAGO DEL ESTERO CAPITAL - FIX GRAFICO</div>
+<div style="font-weight:900;font-size:14px">LOBO V38.1 • LOGICA BUY->SELL • GRAFICO FIX • EN VIVO <span style="color:#26a69a">●</span></div>
+<div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">SDE CAPITAL | SOLO VENDE SI COMPRO ANTES | COMISION 0.1% REAL</div>
 </div>
 <div class="card" style="border:1px solid #ff9800;display:flex;justify-content:space-between">
 <div><div style="font-size:8px;color:#868993">BALANCE</div><div style="font-size:20px;font-weight:900">145,81 USDT</div></div>
@@ -81,7 +78,7 @@ td{padding:4px;border-bottom:1px solid #1e222d}
 <div class="card">
 <div style="font-size:10px;font-weight:bold;margin-bottom:4px">ULTIMOS 10 TRADES - LOGICA REAL - SANTIAGO DEL ESTERO CAPITAL</div>
 <table id="tabla"></table>
-<div style="font-size:8px;color:#868993;margin-top:6px">APRENDIZAJE: Fijate que ahora siempre hay un BUY y despues un SELL. Bruto = SELL - BUY. Neto = Bruto - Comision.</div>
+<div style="font-size:8px;color:#868993;margin-top:6px">APRENDIZAJE: Solo SELL despues de BUY. Neto = (SELL-BUY) - Comision.</div>
 </div>
 <script>
 let velasData = {{velas_json | safe}};
@@ -101,28 +98,22 @@ let chart = new ApexCharts(document.querySelector("#chart"), {
     {name: 'SELL', type: 'scatter', data: sellsData.map(s=>({x:s.x, y:s.y, price:s.price, profit:s.profit, buy:s.buy, bruto:s.bruto, com:s.com}))}
   ],
   chart: {type: 'candlestick', height: 380, background:'#1e222d', toolbar:{show:true}, animations:{enabled:false}},
-  stroke: {width: [1][2][2][0][0]},
+  stroke: {width: [1][2][2][0][0], curve: 'smooth'},
   colors: ['#26a69a', '#00e5ff', '#ff9800', '#26a69a', '#ef5350'],
-  markers: {size: [0][0][0][0][0]},
+  markers: {size: [0][0][0][5][5]},
   dataLabels: {
-    enabled: true, enabledOnSeries: [3][4],
+    enabled: true,
+    enabledOnSeries: [3][4],
     formatter: function(val, opts) {
       let d = opts.w.config.series[opts.seriesIndex].data[opts.dataPointIndex];
       if(opts.seriesIndex==3) return '▲ BUY '+d.price;
-      if(opts.seriesIndex==4) return '▼ SELL '+d.price+' '+(d.profit>=0?'+':'')+d.profit;
+      if(opts.seriesIndex==4) return '▼ SELL '+d.price;
       return '';
     },
     style: {fontSize:'9px', fontWeight:'900'},
     background: {enabled:true, backgroundColor:'#131722', borderWidth:1, borderRadius:3, padding:4},
   },
-  tooltip: {theme:'dark',
-    custom: function({series, seriesIndex, dataPointIndex, w}) {
-      let d = w.config.series[seriesIndex].data[dataPointIndex];
-      if(seriesIndex==3) return '<div style="padding:8px;background:#1e222d;border:1px solid #26a69a"><b>▲ BUY</b><br>Precio: $'+d.price+'<br>Ahora esperamos subida para vender</div>';
-      if(seriesIndex==4) return '<div style="padding:8px;background:#1e222d;border:1px solid #26a69a"><b>▼ SELL</b><br>Compra: $'+d.buy+'<br>Venta: $'+d.price+'<br>Bruto: +$'+d.bruto+'<br>Com: -$'+d.com+'<br><b>NETO: $'+d.profit+'</b></div>';
-      return '';
-    }
-  },
+  tooltip: {theme:'dark'},
   xaxis: {type:'numeric', labels:{show:false}},
   yaxis: {opposite:true, labels:{style:{colors:'#868993'}, formatter:v=>v.toFixed(0)}},
   grid: {borderColor:'#2a2e39'},
@@ -142,14 +133,36 @@ function renderTabla(trades){
   document.getElementById('tabla').innerHTML = html;
 }
 renderTabla(tradesData);
+
+function actualizar(){
+  fetch('/api').then(r=>r.json()).then(d=>{
+    document.getElementById('precio').innerText = d.btc_precio.toLocaleString('de-DE',{minimumFractionDigits:2});
+    let c = d.velas.map(v=>v[3]);
+    function calcEMA2(prices,p){let k=2/(p+1);let e=[prices[0]];for(let i=1;i<prices.length;i++)e.push(prices[i]*k+e[i-1]*(1-k));return e;}
+    let e9 = calcEMA2(c,9); let e21 = calcEMA2(c,21);
+    chart.updateSeries([
+      {name:'BTC', type:'candlestick', data: d.velas.map((v,i)=>({x:i, y:v}))},
+      {name:'EMA 9', type:'line', data: e9.map((v,i)=>({x:i, y:v}))},
+      {name:'EMA 21', type:'line', data: e21.map((v,i)=>({x:i, y:v}))},
+      {name:'BUY', type:'scatter', data: d.buys.map(b=>({x:b.x, y:b.y, price:b.price}))},
+      {name:'SELL', type:'scatter', data: d.sells.map(s=>({x:s.x, y:s.y, price:s.price, profit:s.profit, buy:s.buy, bruto:s.bruto, com:s.com}))}
+    ]);
+    let tbody = document.getElementById('tabla');
+    let html = '<tr><th>HORA</th><th>TIPO</th><th>PRECIO</th><th>BRUTO</th><th>COM</th><th>NETO</th><th>RESULT</th></tr>';
+    d.trades.slice(-10).reverse().forEach(t=>{
+      if(t.tipo=='BUY'){ html += `<tr><td>${t.hora}</td><td style="color:#26a69a">▲ BUY</td><td>${t.precio}</td><td>-</td><td>-</td><td>-</td><td>⏳</td></tr>`;}
+      else { let col=t.neto>=0?'#26a69a':'#ef5350'; html+=`<tr><td>${t.hora}</td><td style="color:#ef5350">▼ SELL</td><td>${t.precio}</td><td style="color:#26a69a">+$${t.bruto}</td><td style="color:#ef5350">-$${t.com}</td><td style="color:${col};font-weight:900">${t.neto>=0?'+':''}$${t.neto}</td><td>${t.result}</td></tr>`;}
+    });
+    tbody.innerHTML=html;
+  });
+}
+setInterval(actualizar, 5000);
 </script>
 </body></html>
 """
 
 def loop():
-    import random, time
     posicion = None
-    # encontrar si ultima es buy
     if estado["buys"] and (not estado["sells"] or estado["buys"][-1]["x"] > estado["sells"][-1]["x"]):
         posicion = estado["buys"][-1]["price"]
     while True:
@@ -166,7 +179,7 @@ def loop():
                 if posicion is None:
                     p = round(l,2)
                     estado["buys"].append({"x":69,"y":l-50,"price":p})
-                    estado["trades"].append({"hora":hora,"tipo":"BUY","precio":p,"neto":0,"result":"⏳"})
+                    estado["trades"].append({"hora":hora,"tipo":"BUY","precio":p,"bruto":0,"com":0,"neto":0,"result":"⏳"})
                     posicion = p
                 else:
                     p = round(h,2)
