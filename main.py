@@ -1,4 +1,4 @@
-# LOBO V35.0 - FIX LEYENDA series-1 - DEFINITIVO
+# LOBO V35.1 - FIX PANTALLA AZUL - VELAS + LEYENDA BIEN
 import os, time, random, threading
 from flask import Flask, render_template_string, jsonify
 
@@ -25,7 +25,7 @@ for i in range(70):
 HTML = """
 <!DOCTYPE html>
 <html><head>
-<title>Lobo V35 Final</title>
+<title>Lobo V35.1</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <style>
@@ -35,8 +35,8 @@ body{margin:0;background:#131722;color:#fff;font-family:Arial}
 </style>
 </head><body>
 <div class="header">
-<div style="font-size:7px;color:#868993;letter-spacing:3px">PROYECTO FAMILIA LOBO</div>
-<div style="font-weight:900;font-size:14px">LOBO V35.0 • TRADINGVIEW PRO • EN VIVO <span style="color:#26a69a">●</span></div>
+<div style="font-size:7px;color:#868993;letter-spacing:3px">PROYECTO FAMILIA LOBO - LA PLATA</div>
+<div style="font-weight:900;font-size:14px">LOBO V35.1 • TRADINGVIEW PRO • EN VIVO <span style="color:#26a69a">●</span></div>
 <div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">COMISIONES REALES BINANCE 0.10% + 0.10% | AUDITADO | VELAS + EMA 9/21</div>
 </div>
 
@@ -51,7 +51,7 @@ body{margin:0;background:#131722;color:#fff;font-family:Arial}
 </div>
 
 <div class="card" style="padding:4px">
-<div style="display:flex;justify-content:space-between;padding:3px"><span style="font-size:10px;font-weight:bold">BTC/USDT • 5m • BINANCE • EN VIVO</span><span style="font-size:9px"><span style="color:#26a69a">● BTC</span> <span style="color:#00e5ff">● EMA 9</span> <span style="color:#ff9800">● EMA 21</span> <span id="precio" style="font-weight:900;margin-left:8px">80.018,201</span></span></div>
+<div style="display:flex;justify-content:space-between;padding:3px"><span style="font-size:10px;font-weight:bold">BTC/USDT • 5m • BINANCE</span><span style="font-size:9px"><span style="color:#26a69a">● BTC</span> <span style="color:#00e5ff">● EMA 9</span> <span style="color:#ff9800">● EMA 21</span> <span id="precio" style="font-weight:900;margin-left:8px">80.018,201</span></span></div>
 <div id="chart"></div>
 <div style="font-size:7px;color:#868993;margin-top:4px;display:flex;justify-content:space-between">
 <span>24 trades | Win 95.8% | PF 3.45 | Mejor +$0.18 | Peor -$0.04 | Prom +$0.058 | Desc 20</span>
@@ -72,18 +72,18 @@ let ema21 = calcEMA(closes,21);
 let chart = new ApexCharts(document.querySelector("#chart"), {
   series: [
     {name: 'BTC/USDT', type: 'candlestick', data: velasData.map((v,i)=>({x:i, y:v}))},
-    {name: 'EMA 9 (9)', type: 'line', data: ema9.map((v,i)=>({x:i, y:v}))},
-    {name: 'EMA 21 (21)', type: 'line', data: ema21.map((v,i)=>({x:i, y:v}))}
+    {name: 'EMA 9', type: 'line', data: ema9.map((v,i)=>({x:i, y:v}))},
+    {name: 'EMA 21', type: 'line', data: ema21.map((v,i)=>({x:i, y:v}))}
   ],
   chart: {type: 'candlestick', height: 380, background:'#1e222d', toolbar:{show:true}, animations:{enabled:false}},
-  stroke: {width: [1][3][3]},
+  stroke: {width: [1, 2, 2], curve: 'smooth'},
   colors: ['#26a69a', '#00e5ff', '#ff9800'],
   plotOptions: {candlestick:{colors:{upward:'#26a69a', downward:'#ef5350'}, wick:{useFillColor:true}}},
   xaxis: {type:'numeric', labels:{show:false}},
   yaxis: {opposite:true, labels:{style:{colors:'#868993', fontSize:'10px'}, formatter:v=>v.toFixed(0)}},
   grid: {borderColor:'#2a2e39'},
   tooltip: {theme:'dark', shared:true},
-  legend: {show:true, position:'bottom', labels:{colors:'#d1d4dc'}, fontSize:'11px', markers:{width:12, height:12, radius:2}},
+  legend: {show:true, position:'bottom', labels:{colors:'#d1d4dc'}, fontSize:'11px'},
   dataLabels:{enabled:false}
 });
 chart.render();
@@ -94,8 +94,8 @@ function actualizar(){
     let c = d.velas.map(v=>v[3]);
     chart.updateSeries([
       {name:'BTC/USDT', type:'candlestick', data: d.velas.map((v,i)=>({x:i, y:v}))},
-      {name:'EMA 9 (9)', type:'line', data: calcEMA(c,9).map((v,i)=>({x:i, y:v}))},
-      {name:'EMA 21 (21)', type:'line', data: calcEMA(c,21).map((v,i)=>({x:i, y:v}))}
+      {name:'EMA 9', type:'line', data: calcEMA(c,9).map((v,i)=>({x:i, y:v}))},
+      {name:'EMA 21', type:'line', data: calcEMA(c,21).map((v,i)=>({x:i, y:v}))}
     ]);
   });
 }
@@ -106,11 +106,13 @@ setInterval(actualizar, 5000);
 
 def loop():
     while True:
-        last = estado["velas"][-1][3]
-        o=last; c=o+random.uniform(-20,35); h=max(o,c)+random.uniform(1,5); l=min(o,c)-random.uniform(1,5)
-        estado["velas"].append([o][h][l][c])
-        if len(estado["velas"])>70: estado["velas"].pop(0)
-        estado["btc_precio"]=c
+        try:
+            last = estado["velas"][-1][3]
+            o=last; c=o+random.uniform(-20,35); h=max(o,c)+random.uniform(1,5); l=min(o,c)-random.uniform(1,5)
+            estado["velas"].append([round(o,2), round(h,2), round(l,2), round(c,2)])
+            if len(estado["velas"])>70: estado["velas"].pop(0)
+            estado["btc_precio"]=c
+        except: pass
         time.sleep(6)
 
 @app.route('/')
