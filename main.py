@@ -1,4 +1,4 @@
-# LOBO V37 - TRIANGULOS BIEN ORIENTADOS + TABLA TRADES - FINAL FINAL
+# LOBO V37 - SANTIAGO DEL ESTERO CAPITAL PARA EL MUNDO - TRIANGULOS CORREGIDOS + TABLA
 import os, time, random, threading
 from flask import Flask, render_template_string, jsonify
 
@@ -44,7 +44,7 @@ for i in range(70):
 HTML = """
 <!DOCTYPE html>
 <html><head>
-<title>Lobo V37 Triangulos Corregidos</title>
+<title>Lobo V37 Santiago del Estero Capital</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <style>
@@ -57,9 +57,9 @@ td{padding:3px;border-bottom:1px solid #1e222d}
 </style>
 </head><body>
 <div class="header">
-<div style="font-size:7px;color:#868993;letter-spacing:3px">PROYECTO FAMILIA LOBO - LA PLATA</div>
+<div style="font-size:7px;color:#868993;letter-spacing:3px">🦁 LOBO - SANTIAGO DEL ESTERO CAPITAL - MADRE DE CIUDADES PARA EL MUNDO 🌎</div>
 <div style="font-weight:900;font-size:14px">LOBO V37 • ▲ BUY ▼ SELL CORREGIDO + TABLA • EN VIVO <span style="color:#26a69a">●</span></div>
-<div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">BUY ▲ ARRIBA | SELL ▼ ABAJO | COMISIONES REALES BINANCE | AUDITADO</div>
+<div style="background:#2962ff;color:#fff;display:inline-block;padding:2px 10px;border-radius:10px;font-size:8px">SANTIAGO DEL ESTERO CAPITAL | ▲ BUY ARRIBA | ▼ SELL ABAJO | COMISIONES REALES BINANCE</div>
 </div>
 
 <div class="card" style="border:1px solid #ff9800">
@@ -74,14 +74,14 @@ td{padding:3px;border-bottom:1px solid #1e222d}
 
 <div class="card" style="padding:4px">
 <div style="display:flex;justify-content:space-between;padding:3px">
-<span style="font-size:10px;font-weight:bold">BTC/USDT • 5m • BINANCE</span>
+<span style="font-size:10px;font-weight:bold">BTC/USDT • 5m • BINANCE • SDE CAPITAL</span>
 <span style="font-size:9px"><span style="color:#26a69a">▲ BUY ARRIBA</span> <span style="color:#ef5350">▼ SELL ABAJO</span> <span id="precio" style="font-weight:900;margin-left:8px">79.341,22</span></span>
 </div>
 <div id="chart"></div>
 </div>
 
 <div class="card">
-<div style="font-size:9px;font-weight:bold;margin-bottom:4px">ULTIMOS 10 TRADES AUDITADOS - COMISION REAL</div>
+<div style="font-size:9px;font-weight:bold;margin-bottom:4px">ULTIMOS 10 TRADES AUDITADOS - COMISION REAL - SANTIAGO DEL ESTERO CAPITAL</div>
 <table id="tabla"></table>
 </div>
 
@@ -96,7 +96,6 @@ let closes = velasData.map(v=>v[3]);
 let ema9 = calcEMA(closes,9);
 let ema21 = calcEMA(closes,21);
 
-// Para que los triangulos apunten bien, usamos dataLabels con unicode ▲ ▼ en lugar de markers
 let chart = new ApexCharts(document.querySelector("#chart"), {
   series: [
     {name: 'BTC/USDT', type: 'candlestick', data: velasData.map((v,i)=>({x:i, y:v}))},
@@ -109,30 +108,29 @@ let chart = new ApexCharts(document.querySelector("#chart"), {
   stroke: {width: [1, 2, 2, 0, 0], curve: 'smooth'},
   colors: ['#26a69a', '#00e5ff', '#ff9800', '#26a69a', '#ef5350'],
   plotOptions: {candlestick:{colors:{upward:'#26a69a', downward:'#ef5350'}, wick:{useFillColor:true}}},
-  markers: {size: [0,0,0,0,0]}, // ocultamos markers, usamos dataLabels para triangulos orientados
+  markers: {size: [0,0,0,0,0]},
   dataLabels: {
     enabled: true,
     enabledOnSeries: [3,4],
     formatter: function(val, opts) {
       let data = opts.w.config.series[opts.seriesIndex].data[opts.dataPointIndex];
-      if(opts.seriesIndex==3) return '▲ BUY '+data.price; // triangulo hacia arriba
-      if(opts.seriesIndex==4) return '▼ SELL '+data.price; // triangulo hacia abajo
+      if(opts.seriesIndex==3) return '▲ BUY '+data.price;
+      if(opts.seriesIndex==4) return '▼ SELL '+data.price;
       return '';
     },
-    style: {fontSize:'9px', fontWeight:'900', colors:['#fff']},
-    background: {enabled:true, backgroundColor:'#131722', borderColor:'#26a69a', borderWidth:1, borderRadius:3, padding:4},
-    offsetY: 0
+    style: {fontSize:'9px', fontWeight:'900'},
+    background: {enabled:true, backgroundColor:'#131722', borderWidth:1, borderRadius:3, padding:4},
   },
   tooltip: {
     theme:'dark',
     custom: function({series, seriesIndex, dataPointIndex, w}) {
       let d = w.config.series[seriesIndex].data[dataPointIndex];
       if(seriesIndex==3){
-        return '<div style="padding:8px;background:#1e222d;border:1px solid #26a69a"><b style="color:#26a69a">▲ BUY HACIA ARRIBA</b><br>Precio: $'+d.price+'<br>Comision BUY: $'+(d.price*0.001).toFixed(2)+'</div>';
+        return '<div style="padding:8px;background:#1e222d;border:1px solid #26a69a"><b style="color:#26a69a">▲ BUY ARRIBA</b><br>Precio: $'+d.price+'<br>Comision: $'+(d.price*0.001).toFixed(2)+'</div>';
       }
       if(seriesIndex==4){
         let color = d.profit>=0? '#26a69a' : '#ef5350';
-        return '<div style="padding:8px;background:#1e222d;border:1px solid '+color+'"><b style="color:#ef5350">▼ SELL HACIA ABAJO</b><br>SELL: $'+d.price+'<br>BUY: $'+d.buy+'<br>Bruto: +$'+d.bruto+'<br>Com: -$'+d.com+'<br><b style="color:'+color+'">NETO: '+(d.profit>=0?'+':'')+'$'+d.profit+'</b> '+(d.profit>=0?'✅':'❌')+'</div>';
+        return '<div style="padding:8px;background:#1e222d;border:1px solid '+color+'"><b style="color:#ef5350">▼ SELL ABAJO</b><br>SELL: $'+d.price+'<br>BUY: $'+d.buy+'<br>Bruto: +$'+d.bruto+'<br>Com: -$'+d.com+'<br><b style="color:'+color+'">NETO: '+(d.profit>=0?'+':'')+'$'+d.profit+'</b></div>';
       }
       return '';
     }
@@ -142,7 +140,6 @@ let chart = new ApexCharts(document.querySelector("#chart"), {
   grid: {borderColor:'#2a2e39'},
   legend: {show:true, position:'bottom', labels:{colors:'#d1d4dc'}, fontSize:'11px'},
 });
-
 chart.render();
 
 function renderTabla(trades){
@@ -152,7 +149,7 @@ function renderTabla(trades){
       html += `<tr><td>${t.hora}</td><td style="color:#26a69a">▲ BUY</td><td>${t.precio}</td><td>-</td><td>⏳</td></tr>`;
     } else {
       let c = t.neto>=0?'#26a69a':'#ef5350';
-      html += `<tr><td>${t.hora}</td><td style="color:#ef5350">▼ SELL</td><td>${t.precio} (c: ${t.compra})</td><td style="color:${c};font-weight:900">${t.neto>=0?'+':''}$${t.neto}</td><td>${t.neto>=0?'✅':''}❌</td></tr>`;
+      html += `<tr><td>${t.hora}</td><td style="color:#ef5350">▼ SELL</td><td>${t.precio}</td><td style="color:${c};font-weight:900">${t.neto>=0?'+':''}$${t.neto}</td><td>${t.neto>=0?'✅':'❌'}</td></tr>`;
     }
   });
   document.getElementById('tabla').innerHTML = html;
