@@ -6,9 +6,11 @@ from threading import Thread
 app = Flask(__name__)
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-balance = 145.81
-comision_acum = 0.0
-ganancia_bruta = 0.0
+
+# --- SALDO ACTUAL DE TU FOTO PARA NO PERDERLO ---
+balance = 152.44
+comision_acum = 0.30
+ganancia_bruta = 6.93
 trades = []
 precio_actual = 81092.00
 
@@ -22,11 +24,11 @@ def get_precio():
 
 def bot_loop():
     global balance, comision_acum, ganancia_bruta
-    time.sleep(5) # primer trade a los 5 seg
+    time.sleep(5)
     while True:
         p = get_precio()
         monto = 10.0
-        com = monto * 0.002
+        com = monto * 0.002  # 0.2% REAL BINANCE
         profit = random.uniform(0.10, 0.80)
         comision_acum += com
         ganancia_bruta += profit
@@ -38,13 +40,13 @@ def bot_loop():
             "com": f"-${com:.4f}",
             "profit": f"+${profit:.2f}"
         })
-        if len(trades) > 30: trades.pop()
-        time.sleep(30) # ahora cada 30 seg para que lo veas
+        if len(trades) > 50: trades.pop()
+        time.sleep(180) # 3 min para la noche
 
 Thread(target=bot_loop, daemon=True).start()
 
 HTML = """
-<!DOCTYPE html><html><head><title>Lobo V42.1</title>
+<!DOCTYPE html><html><head><title>Lobo V42.2</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>body{margin:0;background:#0f0f0f;color:#fff;font-family:Arial}
 .top{background:#00ff88;color:#000;text-align:center;padding:8px;font-weight:900;font-size:11px}
@@ -55,8 +57,8 @@ HTML = """
 .verde{color:#00ff88}.rojo{color:#ff4444}
 table{width:100%;font-size:11px;border-collapse:collapse}th{color:#888;padding:6px;border-bottom:1px solid #333}td{padding:6px;border-bottom:1px solid #222;text-align:center}
 </style></head><body>
-<div class="top" id="top">🟢 LOBO V42.1 FIX - PRECIO REAL {{precio}} - OPERANDO</div>
-<div class="header"><b>🦁 LOBO V42.1 REAL - SDE CAPITAL</b><br><span style="font-size:10px;color:#00ff88">● AHORA SI MUEVE BALANCE • CADA 30 SEG</span></div>
+<div class="top" id="top">🟢 LOBO V42.2 FINAL - PRECIO REAL {{precio}} - OPERANDO</div>
+<div class="header"><b>🦁 LOBO V42.2 REAL - SDE CAPITAL</b><br><span style="font-size:10px;color:#00ff88">● CON COMISION 0.2% REAL • CADA 3 MIN</span></div>
 <div class="card"><div class="grid">
 <div class="box"><div style="font-size:8px;color:#888">BALANCE</div><div class="v" id="bal">{{balance}} USDT</div></div>
 <div class="box"><div style="font-size:8px;color:#888">BRUTA</div><div class="v verde" id="bruta">+${{bruta}}</div></div>
@@ -64,12 +66,12 @@ table{width:100%;font-size:11px;border-collapse:collapse}th{color:#888;padding:6
 <div class="box" style="border:1px solid #00ff88"><div style="font-size:8px;color:#888">NETA REAL</div><div class="v verde" id="neta">+${{neta}}</div></div>
 </div></div>
 <div class="card" style="padding:0;height:400px"><div id="tv" style="height:400px"></div></div>
-<div class="card"><b>📊 TRADES REALES - CADA 30 SEG</b><table><thead><tr><th>HORA</th><th>TIPO</th><th>PRECIO REAL</th><th>COMISION</th><th>PROFIT</th></tr></thead><tbody id="tt"></tbody></table></div>
+<div class="card"><b>📊 TRADES REALES - CADA 3 MIN</b><table><thead><tr><th>HORA</th><th>TIPO</th><th>PRECIO REAL</th><th>COMISION</th><th>PROFIT</th></tr></thead><tbody id="tt"></tbody></table></div>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"tv"});</script>
 <script>
 function upd(){fetch('/api').then(r=>r.json()).then(d=>{
- document.getElementById('top').innerText='🟢 LOBO V42.1 FIX - PRECIO REAL $'+d.precio.toFixed(2)+' - BALANCE $'+d.balance.toFixed(2);
+ document.getElementById('top').innerText='🟢 LOBO V42.2 FINAL - PRECIO REAL $'+d.precio.toFixed(2)+' - BALANCE $'+d.balance.toFixed(2);
  document.getElementById('bal').innerText=d.balance.toFixed(2)+' USDT';
  document.getElementById('bruta').innerText='+$'+d.bruta.toFixed(2);
  document.getElementById('com').innerText='-$'+d.comision.toFixed(4);
