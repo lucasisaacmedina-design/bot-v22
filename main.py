@@ -7,6 +7,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 app = Flask(__name__)
+# --- TRUCO IP RENDER PARA BINANCE ---
+try:
+    ip_render = requests.get('https://api.ipify.org', timeout=5).text
+    print(f"===== MI IP DE RENDER ES: {ip_render} =====")
+except Exception as e:
+    print(f"No pude obtener IP: {e}")
+# --- FIN TRUCO ---
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8924629316:AAEO6LHyF_bemen9rxD822RR5KsXmvdyf94")
 bot = telebot.TeleBot(BOT_TOKEN)
