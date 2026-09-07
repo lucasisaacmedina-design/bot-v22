@@ -10,22 +10,25 @@ BTC = 0.0
 TRADES = []
 PROFIT_TOTAL = 0.0
 LAST_PRICE = 79200.0
+UPDATE_ID = 0
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_ID = os.environ.get("TELEGRAM_ID")
 
-def send_telegram(msg):
-    if not TELEGRAM_TOKEN or not TELEGRAM_ID:
+def send_telegram(msg, chat_id=None):
+    if not TELEGRAM_TOKEN:
+        return
+    cid = chat_id or TELEGRAM_ID
+    if not cid:
         return
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.post(url, json={"chat_id": TELEGRAM_ID, "text": msg}, timeout=5)
+        requests.post(url, json={"chat_id": cid, "text": msg}, timeout=5)
     except:
         pass
 
 def get_btc_price():
     global LAST_PRICE
-    # Intento 1: Binance
     try:
         r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=4)
         data = r.json()
@@ -34,15 +37,12 @@ def get_btc_price():
             return LAST_PRICE
     except:
         pass
-    # Intento 2: CoinGecko
     try:
         r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=4)
         LAST_PRICE = float(r.json()['bitcoin']['usd'])
         return LAST_PRICE
     except:
-        pass
-    # Si falla todo, devuelve el último precio guardado, nunca 0
-    return LAST_PRICE
+        return LAST_PRICE
 
 def estrategia_lobo(price):
     global CAPITAL, BTC, PROFIT_TOTAL
@@ -55,8 +55,6 @@ def estrategia_lobo(price):
         return
 
     ultimo = TRADES[-1]['precio']
-
-    # STOP LOSS 3%
     if BTC > 0 and price < ultimo * 0.97:
         btc_v = BTC
         perdida = btc_v * price - btc_v * ultimo
@@ -64,18 +62,16 @@ def estrategia_lobo(price):
         BTC = 0
         PROFIT_TOTAL += perdida
         TRADES.append({"tipo":"STOP LOSS -3%","precio":price,"profit":perdida,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🐺 LoboBot22\n🛑 STOP LOSS -3%\nVendido a ${price:,.2f}\nPerdida: ${perdida:.2f}")
+        send_telegram(f"🛑 STOP LOSS -3%\nVendido a ${price:,.2f}\nPerdida: ${perdida:.2f}")
         return
 
-    # COMPRA -1%
     if price < ultimo * 0.99 and CAPITAL > 5:
         btc_c = (CAPITAL * 0.3) / price
         BTC += btc_c
         CAPITAL -= btc_c * price
         TRADES.append({"tipo":"COMPRA -1%","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🐺 LoboBot22\n🟢 COMPRA -1%\nPrecio: ${price:,.2f}")
+        send_telegram(f"🟢 COMPRA -1%\nPrecio: ${price:,.2f}")
 
-    # VENTA +1.5%
     elif price > ultimo * 1.015 and BTC > 0.00001:
         btc_v = BTC * 0.5
         ganancia = btc_v * price - btc_v * ultimo
@@ -83,16 +79,43 @@ def estrategia_lobo(price):
         BTC -= btc_v
         PROFIT_TOTAL += ganancia
         TRADES.append({"tipo":"VENTA +1.5%","precio":price,"profit":ganancia,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🐺 LoboBot22\n🔴 VENTA +1.5%\nPrecio: ${price:,.2f}\nProfit: ${ganancia:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
+        send_telegram(f"🔴 VENTA +1.5%\nPrecio: ${price:,.2f}\nProfit: ${ganancia:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
 
 def loop_caza():
-    send_telegram("🐺 LoboBot22 V22 TradingView PRO Iniciado ✅\nEstrategia -1% / +1.5% / Stop -3%\nNunca más $0.00")
+    send_telegram("🐺 LoboBot22 V22 PRO + /estado Iniciado ✅\nEscribí /estado para ver balance")
     while True:
         price = get_btc_price()
         estrategia_lobo(price)
         time.sleep(30)
 
+def loop_telegram():
+    global UPDATE_ID
+    while True:
+        try:
+            if not TELEGRAM_TOKEN:
+                time.sleep(10)
+                continue
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={UPDATE_ID+1}&timeout=10"
+            r = requests.get(url, timeout=15)
+            data = r.json()
+            if "result" in data:
+                for upd in data["result"]:
+                    UPDATE_ID = upd["update_id"]
+                    if "message" in upd and "text" in upd["message"]:
+                        texto = upd["message"]["text"].lower()
+                        chat = upd["message"]["chat"]["id"]
+                        if "/estado" in texto or "/balance" in texto or "/start" in texto:
+                            price = get_btc_price()
+                            total = CAPITAL + BTC * price
+                            pct = ((total - CAPITAL_INICIAL)/CAPITAL_INICIAL*100)
+                            msg = f"🐺 LoboBot22 V22 ESTADO\n\n💰 Capital: ${CAPITAL:.2f}\n₿ BTC: {BTC:.6f}\n📊 Precio BTC: ${price:,.2f}\n💵 Total: ${total:.2f}\n📈 Beneficio: ${PROFIT_TOTAL:.2f} ({pct:.2f}%)\n🔄 Trades: {len(TRADES)}"
+                            send_telegram(msg, chat)
+        except:
+            pass
+        time.sleep(2)
+
 threading.Thread(target=loop_caza, daemon=True).start()
+threading.Thread(target=loop_telegram, daemon=True).start()
 
 HTML = """
 <!DOCTYPE html>
@@ -113,14 +136,12 @@ th { background:#2a2e39; padding:6px; } td { padding:6px; border-bottom:1px soli
 <b>🐺 LoboBot22 V22 PRO</b>
 <span>BTC: ${{price}}</span>
 </div>
-
 <div style="padding:5px">
 <div class="card">Capital<br><b>${{capital}}</b></div>
 <div class="card">BTC<br><b>{{btc}}</b></div>
 <div class="card">Total<br><b class="{{'green' if total>=30 else 'red'}}">${{total}}</b></div>
 <div class="card">Beneficio<br><b class="{{'green' if profit>=0 else 'red'}}">${{profit}} ({{pct}}%)</b></div>
 </div>
-
 <div class="tradingview-widget-container" style="height:500px">
   <div id="tradingview_chart" style="height:500px"></div>
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -141,7 +162,6 @@ th { background:#2a2e39; padding:6px; } td { padding:6px; border-bottom:1px soli
   });
   </script>
 </div>
-
 <div style="padding:10px">
 <b>📈 Intercambios Lobo ({{trades|length}})</b>
 <table>
@@ -155,7 +175,7 @@ th { background:#2a2e39; padding:6px; } td { padding:6px; border-bottom:1px soli
 </tr>
 {% endfor %}
 </table>
-<p style="font-size:11px; color:#888; margin-top:10px">Estrategia: Compra -1% / Venta +1.5% / Stop Loss -3% | Papel Real</p>
+<p style="font-size:11px; color:#888; margin-top:10px">Escribí /estado en Telegram | Estrategia -1% / +1.5% / Stop -3%</p>
 </div>
 </body>
 </html>
