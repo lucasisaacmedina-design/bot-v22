@@ -9,6 +9,7 @@ CAPITAL = CAPITAL_INICIAL
 BTC = 0.0
 TRADES = []
 PROFIT_TOTAL = 0.0
+PRECIO_HIST = []
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_ID = os.environ.get("TELEGRAM_ID")
@@ -23,70 +24,61 @@ def send_telegram(msg):
         pass
 
 def get_btc_price():
-    # Intento 1: Binance
     try:
         r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
-        data = r.json()
-        if 'price' in data:
-            return float(data['price'])
+        if 'price' in r.json():
+            return float(r.json()['price'])
     except:
         pass
-    # Intento 2: CoinGecko - no falla nunca
     try:
         r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=5)
         return float(r.json()['bitcoin']['usd'])
-    except:
-        pass
-    # Intento 3: Kraken
-    try:
-        r = requests.get("https://api.kraken.com/0/public/Ticker?pair=BTCUSD", timeout=5)
-        return float(r.json()['result']['XXBTZUSD']['c'][0])
     except:
         return None
 
 def estrategia_lobo(price):
     global CAPITAL, BTC, PROFIT_TOTAL
+    PRECIO_HIST.append(price)
+    if len(PRECIO_HIST) > 100:
+        PRECIO_HIST.pop(0)
+
     if not TRADES:
         btc_c = (CAPITAL * 0.5) / price
         BTC = btc_c
         CAPITAL -= btc_c * price
-        TRADES.append({"tipo":"COMPRA","precio":price,"profit":0})
-        send_telegram(f"🐺 LoboBot22 REAL INICIADO\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}\nBTC: {btc_c:.6f}")
+        TRADES.append({"tipo":"COMPRA","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
+        send_telegram(f"🐺 LoboBot22 REAL\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}")
         return
 
     ultimo = TRADES[-1]['precio']
-
-    # STOP LOSS 3% - salvavidas
     if BTC > 0 and price < ultimo * 0.97:
         btc_v = BTC
         perdida = btc_v * price - btc_v * ultimo
         CAPITAL += btc_v * price
         BTC = 0
         PROFIT_TOTAL += perdida
-        TRADES.append({"tipo":"STOP LOSS 3%","precio":price,"profit":perdida})
-        send_telegram(f"🐺 LoboBot22\n🛑 STOP LOSS -3%\nVendido a ${price:,.2f}\nPerdida: ${perdida:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
+        TRADES.append({"tipo":"STOP LOSS -3%","precio":price,"profit":perdida,"hora":time.strftime("%H:%M")})
+        send_telegram(f"🛑 STOP LOSS -3%\nVendido a ${price:,.2f}")
         return
 
-    # COMPRA -1%
     if price < ultimo * 0.99 and CAPITAL > 5:
         btc_c = (CAPITAL * 0.3) / price
         BTC += btc_c
         CAPITAL -= btc_c * price
-        TRADES.append({"tipo":"COMPRA -1%","precio":price,"profit":0})
-        send_telegram(f"🐺 LoboBot22\n🟢 COMPRA -1%\nPrecio: ${price:,.2f}")
+        TRADES.append({"tipo":"COMPRA -1%","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
+        send_telegram(f"🟢 COMPRA -1%\n${price:,.2f}")
 
-    # VENTA +1.5%
     elif price > ultimo * 1.015 and BTC > 0.00001:
         btc_v = BTC * 0.5
         ganancia = btc_v * price - btc_v * ultimo
         CAPITAL += btc_v * price
         BTC -= btc_v
         PROFIT_TOTAL += ganancia
-        TRADES.append({"tipo":"VENTA +1.5%","precio":price,"profit":ganancia})
-        send_telegram(f"🐺 LoboBot22\n🔴 VENTA +1.5%\nPrecio: ${price:,.2f}\nProfit: ${ganancia:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
+        TRADES.append({"tipo":"VENTA +1.5%","precio":price,"profit":ganancia,"hora":time.strftime("%H:%M")})
+        send_telegram(f"🔴 VENTA +1.5%\n${price:,.2f}\nProfit: ${ganancia:.2f}")
 
 def loop_caza():
-    send_telegram("🐺 LoboBot22 PAPEL REAL V22\nEstrategia: Compra -1% / Venta +1.5% / Stop -3%\nPrecio REAL. Iniciado ✅")
+    send_telegram("🐺 LoboBot22 V22 TradingView PRO Iniciado ✅\n-1% / +1.5% / Stop -3%")
     while True:
         price = get_btc_price()
         if price:
@@ -96,17 +88,80 @@ def loop_caza():
 threading.Thread(target=loop_caza, daemon=True).start()
 
 HTML = """
-<h1>LoboBot22 V22 REAL</h1>
-<p>Estrategia: -1% / +1,5% / Stop -3%</p>
-<p>BTC REAL: ${{price}} | Capital: ${{capital}} | BTC: {{btc}} | Ganancia: ${{profit}} | Total: ${{total}}</p>
-<p>{{trades}}</p>
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#131722; color:white; font-family:Arial; margin:0; }
+.header { background:#1e222d; padding:10px; display:flex; justify-content:space-between; }
+.card { background:#1e222d; margin:5px; padding:10px; border-radius:8px; display:inline-block; min-width:110px; }
+.green { color:#26a69a; } .red { color:#ef5350; }
+table { width:100%; font-size:12px; border-collapse:collapse; }
+th { background:#2a2e39; padding:5px; } td { padding:5px; border-bottom:1px solid #2a2e39; text-align:center; }
+</style>
+</head>
+<body>
+<div class="header">
+<b>🐺 LoboBot22 V22 PRO</b>
+<span>BTC: ${{price}}</span>
+</div>
+
+<div style="padding:5px">
+<div class="card">Capital<br><b>${{capital}}</b></div>
+<div class="card">BTC<br><b>{{btc}}</b></div>
+<div class="card">Total<br><b class="{{'green' if total>=30 else 'red'}}">${{total}}</b></div>
+<div class="card">Profit<br><b class="{{'green' if profit>=0 else 'red'}}">${{profit}} ({{pct}}%)</b></div>
+</div>
+
+<!-- TradingView Widget -->
+<div class="tradingview-widget-container" style="height:500px">
+  <div id="tradingview_chart" style="height:500px"></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script type="text/javascript">
+  new TradingView.widget({
+    "autosize": true,
+    "symbol": "BINANCE:BTCUSDT",
+    "interval": "5",
+    "timezone": "America/Argentina/Buenos_Aires",
+    "theme": "dark",
+    "style": "1",
+    "locale": "es",
+    "toolbar_bg": "#131722",
+    "enable_publishing": false,
+    "hide_top_toolbar": false,
+    "save_image": false,
+    "container_id": "tradingview_chart"
+  });
+  </script>
+</div>
+
+<div style="padding:10px">
+<b>📈 Trades Lobo ({{trades|length}})</b>
+<table>
+<tr><th>Hora</th><th>Tipo</th><th>Precio</th><th>Profit</th></tr>
+{% for t in trades[::-1] %}
+<tr>
+<td>{{t.hora}}</td>
+<td style="color:{{'#26a69a' if 'COMPRA' in t.tipo else '#ef5350'}}">{{t.tipo}}</td>
+<td>${{t.precio}}</td>
+<td class="{{'green' if t.profit>0 else 'red' if t.profit<0 else ''}}">${{"%.2f"|format(t.profit)}}</td>
+</tr>
+{% endfor %}
+</table>
+<p style="font-size:11px; color:#888">Estrategia: Compra -1% / Venta +1.5% / Stop Loss -3% | Papel Real</p>
+</div>
+
+</body>
+</html>
 """
 
 @app.route("/")
 def home():
     price = get_btc_price() or 0
     total = CAPITAL + BTC * price
-    return render_template_string(HTML, price=price, capital=round(CAPITAL,2), btc=round(BTC,6), profit=round(PROFIT_TOTAL,2), total=round(total,2), trades=TRADES[-15:])
+    profit_pct = ((total - CAPITAL_INICIAL)/CAPITAL_INICIAL*100) if CAPITAL_INICIAL else 0
+    return render_template_string(HTML, price=f"{price:,.2f}", capital=round(CAPITAL,2), btc=round(BTC,6), profit=round(PROFIT_TOTAL,2), total=round(total,2), pct=round(profit_pct,2), trades=TRADES[-20:])
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
