@@ -9,7 +9,7 @@ CAPITAL = CAPITAL_INICIAL
 BTC = 0.0
 TRADES = []
 PROFIT_TOTAL = 0.0
-PRECIO_HIST = []
+LAST_PRICE = 79200.0
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_ID = os.environ.get("TELEGRAM_ID")
@@ -24,33 +24,39 @@ def send_telegram(msg):
         pass
 
 def get_btc_price():
+    global LAST_PRICE
+    # Intento 1: Binance
     try:
-        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
-        if 'price' in r.json():
-            return float(r.json()['price'])
+        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=4)
+        data = r.json()
+        if 'price' in data:
+            LAST_PRICE = float(data['price'])
+            return LAST_PRICE
     except:
         pass
+    # Intento 2: CoinGecko
     try:
-        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=5)
-        return float(r.json()['bitcoin']['usd'])
+        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=4)
+        LAST_PRICE = float(r.json()['bitcoin']['usd'])
+        return LAST_PRICE
     except:
-        return None
+        pass
+    # Si falla todo, devuelve el último precio guardado, nunca 0
+    return LAST_PRICE
 
 def estrategia_lobo(price):
     global CAPITAL, BTC, PROFIT_TOTAL
-    PRECIO_HIST.append(price)
-    if len(PRECIO_HIST) > 100:
-        PRECIO_HIST.pop(0)
-
     if not TRADES:
         btc_c = (CAPITAL * 0.5) / price
         BTC = btc_c
         CAPITAL -= btc_c * price
         TRADES.append({"tipo":"COMPRA","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🐺 LoboBot22 REAL\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}")
+        send_telegram(f"🐺 LoboBot22 REAL INICIADO\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}\nBTC: {btc_c:.6f}")
         return
 
     ultimo = TRADES[-1]['precio']
+
+    # STOP LOSS 3%
     if BTC > 0 and price < ultimo * 0.97:
         btc_v = BTC
         perdida = btc_v * price - btc_v * ultimo
@@ -58,16 +64,18 @@ def estrategia_lobo(price):
         BTC = 0
         PROFIT_TOTAL += perdida
         TRADES.append({"tipo":"STOP LOSS -3%","precio":price,"profit":perdida,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🛑 STOP LOSS -3%\nVendido a ${price:,.2f}")
+        send_telegram(f"🐺 LoboBot22\n🛑 STOP LOSS -3%\nVendido a ${price:,.2f}\nPerdida: ${perdida:.2f}")
         return
 
+    # COMPRA -1%
     if price < ultimo * 0.99 and CAPITAL > 5:
         btc_c = (CAPITAL * 0.3) / price
         BTC += btc_c
         CAPITAL -= btc_c * price
         TRADES.append({"tipo":"COMPRA -1%","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🟢 COMPRA -1%\n${price:,.2f}")
+        send_telegram(f"🐺 LoboBot22\n🟢 COMPRA -1%\nPrecio: ${price:,.2f}")
 
+    # VENTA +1.5%
     elif price > ultimo * 1.015 and BTC > 0.00001:
         btc_v = BTC * 0.5
         ganancia = btc_v * price - btc_v * ultimo
@@ -75,14 +83,13 @@ def estrategia_lobo(price):
         BTC -= btc_v
         PROFIT_TOTAL += ganancia
         TRADES.append({"tipo":"VENTA +1.5%","precio":price,"profit":ganancia,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🔴 VENTA +1.5%\n${price:,.2f}\nProfit: ${ganancia:.2f}")
+        send_telegram(f"🐺 LoboBot22\n🔴 VENTA +1.5%\nPrecio: ${price:,.2f}\nProfit: ${ganancia:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
 
 def loop_caza():
-    send_telegram("🐺 LoboBot22 V22 TradingView PRO Iniciado ✅\n-1% / +1.5% / Stop -3%")
+    send_telegram("🐺 LoboBot22 V22 TradingView PRO Iniciado ✅\nEstrategia -1% / +1.5% / Stop -3%\nNunca más $0.00")
     while True:
         price = get_btc_price()
-        if price:
-            estrategia_lobo(price)
+        estrategia_lobo(price)
         time.sleep(30)
 
 threading.Thread(target=loop_caza, daemon=True).start()
@@ -94,11 +101,11 @@ HTML = """
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body { background:#131722; color:white; font-family:Arial; margin:0; }
-.header { background:#1e222d; padding:10px; display:flex; justify-content:space-between; }
-.card { background:#1e222d; margin:5px; padding:10px; border-radius:8px; display:inline-block; min-width:110px; }
+.header { background:#1e222d; padding:12px; display:flex; justify-content:space-between; align-items:center; }
+.card { background:#1e222d; margin:5px; padding:10px; border-radius:8px; display:inline-block; min-width:105px; }
 .green { color:#26a69a; } .red { color:#ef5350; }
 table { width:100%; font-size:12px; border-collapse:collapse; }
-th { background:#2a2e39; padding:5px; } td { padding:5px; border-bottom:1px solid #2a2e39; text-align:center; }
+th { background:#2a2e39; padding:6px; } td { padding:6px; border-bottom:1px solid #2a2e39; text-align:center; }
 </style>
 </head>
 <body>
@@ -111,10 +118,9 @@ th { background:#2a2e39; padding:5px; } td { padding:5px; border-bottom:1px soli
 <div class="card">Capital<br><b>${{capital}}</b></div>
 <div class="card">BTC<br><b>{{btc}}</b></div>
 <div class="card">Total<br><b class="{{'green' if total>=30 else 'red'}}">${{total}}</b></div>
-<div class="card">Profit<br><b class="{{'green' if profit>=0 else 'red'}}">${{profit}} ({{pct}}%)</b></div>
+<div class="card">Beneficio<br><b class="{{'green' if profit>=0 else 'red'}}">${{profit}} ({{pct}}%)</b></div>
 </div>
 
-<!-- TradingView Widget -->
 <div class="tradingview-widget-container" style="height:500px">
   <div id="tradingview_chart" style="height:500px"></div>
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -137,7 +143,7 @@ th { background:#2a2e39; padding:5px; } td { padding:5px; border-bottom:1px soli
 </div>
 
 <div style="padding:10px">
-<b>📈 Trades Lobo ({{trades|length}})</b>
+<b>📈 Intercambios Lobo ({{trades|length}})</b>
 <table>
 <tr><th>Hora</th><th>Tipo</th><th>Precio</th><th>Profit</th></tr>
 {% for t in trades[::-1] %}
@@ -149,19 +155,18 @@ th { background:#2a2e39; padding:5px; } td { padding:5px; border-bottom:1px soli
 </tr>
 {% endfor %}
 </table>
-<p style="font-size:11px; color:#888">Estrategia: Compra -1% / Venta +1.5% / Stop Loss -3% | Papel Real</p>
+<p style="font-size:11px; color:#888; margin-top:10px">Estrategia: Compra -1% / Venta +1.5% / Stop Loss -3% | Papel Real</p>
 </div>
-
 </body>
 </html>
 """
 
 @app.route("/")
 def home():
-    price = get_btc_price() or 0
+    price = get_btc_price()
     total = CAPITAL + BTC * price
-    profit_pct = ((total - CAPITAL_INICIAL)/CAPITAL_INICIAL*100) if CAPITAL_INICIAL else 0
-    return render_template_string(HTML, price=f"{price:,.2f}", capital=round(CAPITAL,2), btc=round(BTC,6), profit=round(PROFIT_TOTAL,2), total=round(total,2), pct=round(profit_pct,2), trades=TRADES[-20:])
+    pct = ((total - CAPITAL_INICIAL)/CAPITAL_INICIAL*100) if CAPITAL_INICIAL else 0
+    return render_template_string(HTML, price=f"{price:,.2f}", capital=round(CAPITAL,2), btc=round(BTC,6), profit=round(PROFIT_TOTAL,2), total=round(total,2), pct=round(pct,2), trades=TRADES[-20:])
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
