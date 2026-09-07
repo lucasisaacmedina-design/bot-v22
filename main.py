@@ -23,9 +23,24 @@ def send_telegram(msg):
         pass
 
 def get_btc_price():
+    # Intento 1: Binance
     try:
         r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
-        return float(r.json()['price'])
+        data = r.json()
+        if 'price' in data:
+            return float(data['price'])
+    except:
+        pass
+    # Intento 2: CoinGecko - no falla nunca
+    try:
+        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=5)
+        return float(r.json()['bitcoin']['usd'])
+    except:
+        pass
+    # Intento 3: Kraken
+    try:
+        r = requests.get("https://api.kraken.com/0/public/Ticker?pair=BTCUSD", timeout=5)
+        return float(r.json()['result']['XXBTZUSD']['c'][0])
     except:
         return None
 
@@ -36,11 +51,11 @@ def estrategia_lobo(price):
         BTC = btc_c
         CAPITAL -= btc_c * price
         TRADES.append({"tipo":"COMPRA","precio":price,"profit":0})
-        send_telegram(f"🐺 LoboBot22 REAL INICIADO\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}")
+        send_telegram(f"🐺 LoboBot22 REAL INICIADO\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}\nBTC: {btc_c:.6f}")
         return
 
     ultimo = TRADES[-1]['precio']
-    
+
     # STOP LOSS 3% - salvavidas
     if BTC > 0 and price < ultimo * 0.97:
         btc_v = BTC
@@ -49,7 +64,7 @@ def estrategia_lobo(price):
         BTC = 0
         PROFIT_TOTAL += perdida
         TRADES.append({"tipo":"STOP LOSS 3%","precio":price,"profit":perdida})
-        send_telegram(f"🐺 LoboBot22\n🛑 STOP LOSS -3%\nVendido todo a ${price:,.2f}\nPerdida: ${perdida:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
+        send_telegram(f"🐺 LoboBot22\n🛑 STOP LOSS -3%\nVendido a ${price:,.2f}\nPerdida: ${perdida:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
         return
 
     # COMPRA -1%
@@ -59,7 +74,7 @@ def estrategia_lobo(price):
         CAPITAL -= btc_c * price
         TRADES.append({"tipo":"COMPRA -1%","precio":price,"profit":0})
         send_telegram(f"🐺 LoboBot22\n🟢 COMPRA -1%\nPrecio: ${price:,.2f}")
-    
+
     # VENTA +1.5%
     elif price > ultimo * 1.015 and BTC > 0.00001:
         btc_v = BTC * 0.5
@@ -71,7 +86,7 @@ def estrategia_lobo(price):
         send_telegram(f"🐺 LoboBot22\n🔴 VENTA +1.5%\nPrecio: ${price:,.2f}\nProfit: ${ganancia:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
 
 def loop_caza():
-    send_telegram("🐺 LoboBot22 PAPEL REAL V22\nEstrategia: Compra -1% / Venta +1.5% / Stop -3%\nPrecio REAL Binance. Iniciado ✅")
+    send_telegram("🐺 LoboBot22 PAPEL REAL V22\nEstrategia: Compra -1% / Venta +1.5% / Stop -3%\nPrecio REAL. Iniciado ✅")
     while True:
         price = get_btc_price()
         if price:
@@ -82,8 +97,8 @@ threading.Thread(target=loop_caza, daemon=True).start()
 
 HTML = """
 <h1>LoboBot22 V22 REAL</h1>
-<p>Estrategia: -1% / +1.5% / Stop -3%</p>
-<p>BTC REAL: ${{price}} | Capital: ${{capital}} | BTC: {{btc}} | Profit: ${{profit}} | Total: ${{total}}</p>
+<p>Estrategia: -1% / +1,5% / Stop -3%</p>
+<p>BTC REAL: ${{price}} | Capital: ${{capital}} | BTC: {{btc}} | Ganancia: ${{profit}} | Total: ${{total}}</p>
 <p>{{trades}}</p>
 """
 
