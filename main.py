@@ -5,8 +5,8 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 CHAT_ID = os.environ.get("CHAT_ID", "")
 
 estado = {
-  "BTCUSDT": {"precio": 78626, "entry": 78626, "pnl": 0.0, "en_posicion": False},
-  "BNBUSDT": {"precio": 753.67, "entry": 753.67, "pnl": 0.0, "en_posicion": False},
+  "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
+  "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
   "cuenta": {"balance": 1000.0, "ganancia": 0.0, "ops": 0}
 }
 
@@ -30,7 +30,7 @@ def tg(m):
 HTML = """<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
-<h3>🐺 LOBO V28.3 FAST AUTO 0.25% - 87L</h3>
+<h3>🐺 LOBO V28.4 SL -0.8% / TP +0.25% AUTO</h3>
 <div>Bal ${{ "%.2f"|format(cuenta.balance) }} | Neta ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div>
 <div>BTC ${{ "%.2f"|format(btc.precio) }} {{ "%+.2f"|format(btc.pnl) }}% {{ "🟢 EN POS" if btc.en_posicion else "🔴 ESPERANDO" }} | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
 </div>
@@ -61,10 +61,18 @@ def loop():
                         estado["cuenta"]["ganancia"] += 0.18
                         estado["cuenta"]["ops"] += 1
                         tg(f"✅ TP +0.25% {s} ${p:.2f} +$0.18 Bal ${estado['cuenta']['balance']:.2f}")
-                        # AUTO-RECOMPRA PARA MOVIMIENTOS CORTOS
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
-                        tg(f"🔄 RECOMPRA AUTO {s} ${p:.2f} FAST ON")
+                        tg(f"🔄 RECOMPRA TP {s} ${p:.2f}")
+                    if estado[s]["pnl"] <= -0.8:
+                        estado["cuenta"]["balance"] -= 0.18
+                        estado["cuenta"]["ganancia"] -= 0.18
+                        estado["cuenta"]["ops"] += 1
+                        tg(f"❌ SL -0.8% {s} ${p:.2f} -$0.18 Bal ${estado['cuenta']['balance']:.2f}")
+                        estado[s]["entry"] = p
+                        estado[s]["pnl"] = 0
+                        tg(f"🔄 RECOMPRA SL {s} ${p:.2f}")
+
         try:
             r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last+1}&timeout=3", timeout=10).json()
             if r.get("ok"):
@@ -79,9 +87,9 @@ def loop():
                             estado[s]["entry"] = p
                             estado[s]["en_posicion"] = True
                             estado[s]["pnl"] = 0
-                        tg(f"🟢 COMPRA 87 LINEAS\nBTC ${estado['BTCUSDT']['precio']:.2f}\nBNB ${estado['BNBUSDT']['precio']:.2f}\nTP +0.25% AUTO ON")
+                        tg(f"🟢 COMPRA SL/TP\nBTC ${estado['BTCUSDT']['precio']:.2f}\nBNB ${estado['BNBUSDT']['precio']:.2f}\nTP +0.25% SL -0.8% AUTO ON")
                     if "/balance" in txt:
-                        tg(f"🏦 V28.3 FAST AUTO 0.25% 87L\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}")
+                        tg(f"🏦 V28.4 SL/TP\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
         except Exception as e:
             print(e)
         time.sleep(5)
