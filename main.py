@@ -3,8 +3,8 @@ from flask import Flask
 import threading
 
 SYMBOL = "BTCUSDT"
-CAPITAL_INICIAL = 105.0 # 100 + 5 BNB
-TP = 0.006 # 0.6% scalping
+CAPITAL_INICIAL = 105.0
+TP = 0.006
 SL = 0.006
 
 app = Flask(__name__)
@@ -17,7 +17,7 @@ estado = {
     "victorias": 0,
     "trades": 0,
     "entry": 0.0,
-    "precio": 78384.01
+    "precio": 78490.0
 }
 
 def get_price():
@@ -34,13 +34,13 @@ def dashboard():
     precio = get_price()
     win_rate = (estado["victorias"]/estado["trades"]*100) if estado["trades"] else 0
     
-    # Calculos para el cuadro "Proxima"
     if estado["btc"] > 0 and estado["entry"] > 0:
         vendiendo_pct = ((precio - estado["entry"]) / estado["entry"] * 100)
-        objetivo = estado["entry"] * (1 + TP)
-        texto_vendiendo = f"Vendiendo: {vendiendo_pct:+.2f}% -><br>Objetivo +0.6% (${objetivo:.0f}) |<br>SL -0,6%"
+        objetivo = estado["entry"] * 1.006
+        stop = estado["entry"] * 0.994
+        texto_vendiendo = f"Vendiendo: {vendiendo_pct:+.2f}%<br>Objetivo: ${objetivo:.0f} (+0.6%)<br>SL: ${stop:.0f} (-0.6%)"
     else:
-        texto_vendiendo = f"Esperando entrada...<br>Objetivo +0.6% |<br>SL -0,6%<br>RSI < 42"
+        texto_vendiendo = f"Esperando entrada...<br>Objetivo +0.6% | SL -0,6%<br>RSI < 42"
 
     total_color = "red" if estado["total"] < CAPITAL_INICIAL else "green"
     benef_color = "red" if estado["beneficio"] < 0 else "green"
@@ -56,7 +56,8 @@ def dashboard():
     .red{{color:#ff5555}} .green{{color:#00ff88}}
     .timebar{{display:flex;gap:8px;padding:8px;background:#1c1c1c;border-radius:10px;margin-bottom:8px}}
     .timebar div{{padding:6px 10px;border-radius:8px;background:#2a2a2a;font-size:13px}} .active{{background:#3a3a3a !important}}
-    .chartbox{{background:#1c1c1c;border-radius:12px;height:400px}}
+    .chartbox{{background:#1c1c1c;border-radius:12px;height:750px;overflow:hidden}}
+    #tv{{height:750px}}
     </style></head><body>
     <div class="grid">
       <div class="card"><span>Capital</span><b>${estado['capital']:.2f}</b></div>
@@ -69,27 +70,42 @@ def dashboard():
       <div class="card"><span>🎯 Próxima 💰<br><b>{texto_vendiendo}</b></span></div>
     </div>
     <div class="timebar"><div>1m</div><div>30m</div><div>1h</div><div class="active">5m</div><div>▼</div><div style="margin-left:auto">SCALPING 0.6% $100+$5</div></div>
-    <div class="chartbox"><div id="tv"></div>
-    <script src="https://s3.tradingview.com/tv.js"></script>
-    <script>new TradingView.widget({{"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","style":"1","locale":"es","container_id":"tv","height":400}})</script>
+    
+    <div class="chartbox">
+      <div id="tv"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget({{
+        "autosize": true,
+        "symbol": "BINANCE:BTCUSDT",
+        "interval": "5",
+        "timezone": "America/Argentina/Buenos_Aires",
+        "theme": "dark",
+        "style": "1",
+        "locale": "es",
+        "enable_publishing": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "container_id": "tv",
+        "height": 750,
+        "width": "100%"
+      }});
+      </script>
     </div>
+
     <div class="card" style="margin-top:8px"><b>📜 ÚLTIMOS TRADES - V24 SCALPING 0.6%</b><br>
     <span style="font-size:12px">Entrada: ${estado['entry']:.2f} | Actual: ${precio:.2f} | TP: +0.6% | SL: -0.6%</span></div>
-    <div style="text-align:center;color:#555;font-size:11px;margin-top:10px">Lobo V24 SCALPING RENTABLE • Telegram Activo ✅</div>
-    <meta http-equiv="refresh" content="30"></body></html>
+    <div style="text-align:center;color:#555;font-size:11px;margin-top:10px">Lobo V24 SCALPING • Gráfico Grande ✅</div>
+    <meta http-equiv="refresh" content="60">
+    </body></html>
     """
 
 def loop_scalping():
     while True:
         try:
             precio = get_price()
-            # Lógica simple scalping RSI < 42 y venta 0.6%
-            if estado["btc"] == 0:
-                # simula señal de compra (después le metemos RSI real)
-                pass
             if estado["btc"] > 0:
                 if precio >= estado["entry"]*1.006 or precio <= estado["entry"]*0.994:
-                    # vende
                     estado["capital"] = estado["btc"] * precio
                     estado["total"] = estado["capital"] + 5.0
                     estado["beneficio"] = estado["total"] - CAPITAL_INICIAL
