@@ -1,99 +1,88 @@
-import os, time, requests, threading
+import os, time, requests, threading, io
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from flask import Flask
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-CHAT_ID = os.environ.get("CHAT_ID", "")
+BOT_TOKEN = os.environ.get("BOT_TOKEN","")
+CHAT_ID = os.environ.get("CHAT_ID","")
 URL_BOT = "https://bot-v22.onrender.com"
-
-TP = 0.006 # 0.6% SCALPING
+TP = 0.006
 SL = 0.006
 
 app = Flask(__name__)
-estado = {"capital":0.0,"btc":0.000189,"total":15.0,"beneficio":-0.04,"beneficio_pct":-0.27,"trades":1,"victorias":1,"entry":80000,"precio":79149,"rsi":38,"ema200":80200}
 
-def get_price_and_indicadores():
-    try:
-        # precio
-        p = float(requests.get("https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT", timeout=10).json()["price"])
-        estado["precio"] = p
-        # klines para EMA200 + RSI
-        klines = requests.get("https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=250", timeout=10).json()
-        closes = [float(k[4]) for k in klines]
-        # EMA 200
-        ema = closes[0]
-        k = 2/(200+1)
-        for c in closes[1:]: ema = c*k + ema*(1-k)
-        estado["ema200"] = ema
-        # RSI 14 simple
-        gains = []; losses = []
-        for i in range(1,15):
-            diff = closes[-i] - closes[-i-1]
-            if diff>0: gains.append(diff)
-            else: losses.append(abs(diff))
-        rs = (sum(gains)/14) / (sum(losses)/14 + 0.00001)
-        rsi = 100 - (100/(1+rs))
-        estado["rsi"] = rsi
-        estado["total"] = estado["capital"] + (estado["btc"]*p)
-        return p, ema, rsi
-    except:
-        return estado["precio"], estado["ema200"], estado["rsi"]
+estado = {
+ "BTC": {"symbol":"BTCUSDT","entry":78085,"qty":0.000189},
+ "BNB": {"symbol":"BNBUSDT","entry":640,"qty":0.02}
+}
 
-def formato_vendiendo():
-    precio, ema, rsi = estado["precio"], estado["ema200"], estado["rsi"]
-    entry = estado["entry"]
-    pct = ((precio - entry)/entry*100) if entry else 0
-    objetivo = entry * (1+TP)
-    stop = entry * (1-SL)
-    return f"💰 Vendiendo: {pct:+.2f}% -> Objetivo +0.6% (${objetivo:.0f}) | SL -0.6%\nTP +0.6% | SL -0.6% | EMA200 + RSI ({rsi:.0f})\n🔗 {URL_BOT}"
+def get_data(symbol):
+    k = requests.get(f"https://data-api.binance.vision/api/v3/klines?symbol={symbol}&interval=1m&limit=100", timeout=10).json()
+    closes = [float(x[4]) for x in k]
+    precio = closes[-1]
+    ema = closes[0]
+    mult = 2/(50+1)
+    for c in closes[1:]: ema = c*mult + ema*(1-mult)
+    return closes, precio, ema
 
-def send_msg(text):
-    if not BOT_TOKEN or not CHAT_ID: return
-    try: requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHAT_ID,"text":text}, timeout=10)
+def grafico(closes, ema, symbol, precio):
+    plt.figure(figsize=(6,3), facecolor='black')
+    ax = plt.gca(); ax.set_facecolor('black')
+    plt.plot(closes, color='#00ff88', lw=1.5)
+    plt.axhline(ema, color='orange', ls='--', lw=0.8)
+    plt.title(f'{symbol} {precio:.2f} | EMA50 {ema:.2f} | SCALP 0.6%', color='white', fontsize=8)
+    plt.tick_params(colors='gray')
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', facecolor='black', bbox_inches='tight')
+    plt.close(); buf.seek(0); return buf
+
+def send_text(t):
+    try: requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHAT_ID,"text":t}, timeout=10)
     except: pass
 
-def telegram_loop():
+def send_photo(buf,caption):
+    try: requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", data={"chat_id":CHAT_ID,"caption":caption}, files={"photo":buf}, timeout=20)
+    except: pass
+
+def loop():
     last = 0
     while True:
         try:
-            precio, ema, rsi = get_price_and_indicadores()
             # /estado
             try:
-                upd = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last+1}&timeout=5", timeout=10).json()
-                for u in upd.get("result",[]):
+                r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last+1}&timeout=5", timeout=10).json()
+                for u in r.get("result",[]):
                     last = u["update_id"]
-                    if u.get("message",{}).get("text") == "/estado":
-                        txt = f"""💰 ESTADO LOBO V24 SCALPING 0.6%
-
-💵 Capital: ${estado['capital']:.2f}
-₿ BTC: {estado['btc']:.6f}
-📈 BTC: ${precio:,.0f} | EMA200: ${ema:,.0f}
-💼 Total: ${estado['total']:.2f}
-📊 P&L: ${estado['beneficio']:.2f} ({estado['beneficio_pct']:.2f}%) | RSI: {rsi:.0f}
-🔄 Trades: {estado['trades']} | Win: {int(estado['victorias']/estado['trades']*100) if estado['trades'] else 0}%
-
-{formato_vendiendo()}"""
-                        send_msg(txt)
+                    if "/estado" in u.get("message",{}).get("text",""):
+                        txt = "💰 ESTADO LOBO V25 DUAL SCALPING 0.6%\n\n"
+                        for k,v in estado.items():
+                            _, precio, ema = get_data(v["symbol"])
+                            pct = (precio-v["entry"])/v["entry"]*100
+                            txt += f"💵 {k}: ${precio:.2f} | EMA50 {ema:.0f} | {pct:+.2f}%\n"
+                        txt += f"\n🔗 {URL_BOT}"
+                        send_text(txt)
             except: pass
 
-            # auto cada 5 min
-            if int(time.time()) % 300 < 5:
-                send_msg(formato_vendiendo())
-                time.sleep(20)
-            time.sleep(5)
-        except: time.sleep(5)
+            if int(time.time()) % 300 < 10:
+                for k,v in estado.items():
+                    closes, precio, ema = get_data(v["symbol"])
+                    pct = (precio-v["entry"])/v["entry"]*100
+                    objetivo = v["entry"]*(1+TP)
+                    buf = grafico(closes, ema, k, precio)
+                    cap = f"📈 LOBO V25 {k} SCALPING\n💰 Vendiendo: {pct:+.2f}% -> Objetivo +0.6% (${objetivo:.2f}) | SL -0.6%\n{k} ${precio:.2f} EMA50 {ema:.0f}\n{URL_BOT}"
+                    send_photo(buf, cap)
+                time.sleep(30)
+            time.sleep(3)
+        except Exception as e:
+            print(e); time.sleep(5)
 
 @app.route('/')
-def dash():
-    precio = estado["precio"]
-    return f"""<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-    body{{background:#0e0e0e;color:white;font-family:Arial;padding:8px;margin:0}}.chart{{height:750px}}#tv{{height:750px}}</style></head><body>
-    <h3>🐺 LOBO V24 SCALPING 0.6% | BTC ${precio:.0f} | RSI {estado['rsi']:.0f}</h3>
-    <div class="chart"><div id="tv"></div></div>
-    <script src="https://s3.tradingview.com/tv.js"></script>
-    <script>new TradingView.widget({{"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv","height":750}})</script>
-    </body></html>"""
+def home():
+    return f"<h1>Lobo V25 DUAL BTC+BNB VIVO</h1><a href='{URL_BOT}'>Dashboard</a>"
+
+threading.Thread(target=loop, daemon=True).start()
 
 if __name__ == "__main__":
-    threading.Thread(target=telegram_loop, daemon=True).start()
-    send_msg("🐺 LoboBot22 V24 SCALPING 0.6% + Formato Lindo - VIVO")
+    send_text("🐺 Lobo V25 DUAL BTC+BNB SCALPING 0.6% - VIVO Y FIJO")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT",10000)))
