@@ -1,5 +1,4 @@
-flask
-requests
-pyTelegramBotAPI
-matplotlib
-pillow
+flask==2.3.3
+ccxt==4.1.13
+requests==2.31.0
+python-telegram-bot==20.7
