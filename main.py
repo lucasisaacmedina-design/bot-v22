@@ -5,13 +5,14 @@ import ccxt, datetime
 BOT_TOKEN=os.environ.get("TELEGRAM_TOKEN","")
 CHAT_ID=os.environ.get("TELEGRAM_CHAT_ID","")
 DASHBOARD_URL = "https://bot-v22.onrender.com"
+INITIAL_CAP = 15.0  # Capital inicial real
 
 ESTADO={
- "cap":15.0,
+ "cap":0.0,  # CORREGIDO: si compró, el capital en mano es 0
  "btc":0.000189,
- "buy":79146.0,
+ "buy":79014.0,
  "trades":1,
- "max":79146.0,
+ "max":79014.0,
  "price":79149.0,
  "win_trades":1,
  "history":[
@@ -35,6 +36,14 @@ def get_price():
  except:
   return ESTADO["price"]
 
+def get_next_action(p):
+ # CORREGIDO: mensaje claro según si tiene BTC o no
+ if ESTADO["btc"] > 0.000001:
+  target = ESTADO["buy"] * 1.008  # +0.8% para vender
+  return f"💰 Vendiendo: Esperando +0.8% (${target:.0f})"
+ else:
+  return f"🎯 Comprando: Esperando caída -1.0% (actual {p:.0f})"
+
 def telegram_loop():
  offset=0
  enviar(f"🐺 *LoboBot22 V22 PRO CONECTADO* ✅\n\n📊 *Dashboard PRO:* {DASHBOARD_URL}\nEscribí /estado para ver balance")
@@ -49,9 +58,11 @@ def telegram_loop():
     if txt.startswith("/estado"):
      p=get_price()
      total=ESTADO["cap"]+ESTADO["btc"]*p
-     ben=total-30.0; perc=ben/30*100
+     ben=total-INITIAL_CAP
+     perc=ben/INITIAL_CAP*100 if INITIAL_CAP else 0
      win_rate = 100 if ESTADO["trades"]>0 else 0
-     msg = f"💰 *ESTADO LOBO V22 PRO*\n\n💵 Capital: ${ESTADO['cap']:.2f}\n₿ BTC: {ESTADO['btc']}\n📈 BTC: ${p:,.0f}\n💼 Total: ${total:.2f}\n📊 P&L: ${ben:.2f} ({perc:.2f}%)\n🔁 Trades: {ESTADO['trades']} | Win: {win_rate}%\n\n🎯 Próxima: Esperando caída -1.0% para comprar\n\n🔗 *Dashboard:* {DASHBOARD_URL}"
+     next_action = get_next_action(p)
+     msg = f"💰 *ESTADO LOBO V22 PRO*\n\n💵 Capital: ${ESTADO['cap']:.2f}\n₿ BTC: {ESTADO['btc']}\n📈 BTC: ${p:,.0f}\n💼 Total: ${total:.2f}\n📊 P&L: ${ben:.2f} ({perc:.2f}%)\n🔁 Trades: {ESTADO['trades']} | Win: {win_rate}%\n\n{next_action}\n\n🔗 *Dashboard:* {DASHBOARD_URL}"
      enviar(msg)
   except: time.sleep(5)
 
@@ -112,10 +123,10 @@ HTML="""
 def dash():
  p=get_price()
  total=ESTADO["cap"]+ESTADO["btc"]*p
- ben=total-30.0
- perc=ben/30*100
+ ben=total-INITIAL_CAP
+ perc=ben/INITIAL_CAP*100 if INITIAL_CAP else 0
  win_rate=100 if ESTADO["trades"]>0 else 0
- next_action = f"Esperando caída -1.0% (actual {p:.0f})"
+ next_action = get_next_action(p)
  return render_template_string(HTML, price=f"{p:,.0f}", cap=f"{ESTADO['cap']:.2f}", btc=ESTADO["btc"],
   total=f"{total:.2f}", abs_b=f"{abs(ben):.2f}", sign="+" if ben>=0 else "-", perc=f"{perc:.2f}",
   cls="green" if ben>=0 else "red", trades=ESTADO["trades"], win=ESTADO["win_trades"], win_rate=win_rate,
