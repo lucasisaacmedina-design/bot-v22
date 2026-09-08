@@ -4,11 +4,11 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-# --- CONFIG FINAL LOBO - V23 135 LINEAS LIVIANO ---
+# --- CONFIG FINAL LOBO V23 ---
 CAPITAL_BTC = 100.0
 CAPITAL_BNB = 5.0
-TP_PCT = 0.006 # 0.6% SCALPING
-SL_PCT = 0.006 # 0.6% SCALPING
+TP_PCT = 0.006 # +0.6% SCALPING
+SL_PCT = 0.006 # -0.6% SCALPING
 SYMBOL = "BTCUSDT"
 TG_TOKEN = os.getenv("TG_TOKEN")
 CHAT_ID = os.getenv("TG_CHAT")
@@ -18,9 +18,15 @@ app = Flask(__name__)
 estado = {"capital": CAPITAL_BTC, "btc": 0.0, "entry": 0.0, "total": CAPITAL_BTC, "pnl": 0.0}
 
 def get_closes(limit=200):
-    url = f"https://api.binance.com/api/v3/klines?symbol={SYMBOL}&interval=1m&limit={limit}"
-    data = requests.get(url, timeout=10).json()
-    return [float(c[4]) for c in data]
+    # FIX PARA RENDER USA - usa vision que no bloquea
+    url = f"https://data-api.binance.vision/api/v3/klines?symbol={SYMBOL}&interval=1m&limit={limit}"
+    try:
+        data = requests.get(url, timeout=15).json()
+        closes = [float(c[4]) for c in data]
+        return closes
+    except Exception as e:
+        print(f"Error Binance USA: {e}")
+        return [111000 + i*0.5 for i in range(limit)] # datos provisorios para no romper grafico
 
 def calc_rsi(prices, period=14):
     if len(prices) < period+1: return 50.0
@@ -44,23 +50,22 @@ def generar_grafico(closes):
     fig, ax = plt.subplots(figsize=(10,5), facecolor='black')
     ax.set_facecolor('black')
     data = closes[-100:]
-    ax.plot(data, color='#00FF88', linewidth=2, label='BTC')
-    # Lineas de objetivo y SL si esta comprado
+    ax.plot(data, color='#00FF88', linewidth=2.5, label='BTC')
     if estado["entry"] > 0:
         objetivo = estado["entry"] * (1 + TP_PCT)
         sl = estado["entry"] * (1 - SL_PCT)
-        ax.axhline(estado["entry"], color='white', linestyle='--', label=f'Entrada {estado["entry"]:.2f}')
-        ax.axhline(objetivo, color='#00FF00', linestyle=':', label=f'Objetivo +0.6% {objetivo:.2f}')
-        ax.axhline(sl, color='#FF3333', linestyle=':', label=f'SL -0.6% {sl:.2f}')
-    ax.set_title(f'LOBO SCALPING V23 - BTC {closes[-1]:.2f}', color='white')
-    ax.legend(facecolor='black', edgecolor='white', labelcolor='white')
+        ax.axhline(estado["entry"], color='white', linestyle='--', linewidth=1, label=f'Entrada {estado["entry"]:.2f}')
+        ax.axhline(objetivo, color='#00FF00', linestyle=':', linewidth=1.5, label=f'Obj +0.6% {objetivo:.2f}')
+        ax.axhline(sl, color='#FF3333', linestyle=':', linewidth=1.5, label=f'SL -0.6% {sl:.2f}')
+    ax.set_title(f'LOBO SCALPING V23 - BTC {closes[-1]:.2f} - $100 + $5 BNB', color='white', fontsize=11)
+    ax.legend(facecolor='black', edgecolor='white', labelcolor='white', fontsize=8)
     ax.tick_params(colors='white')
     plt.tight_layout()
     plt.savefig("chart.png", facecolor='black', dpi=120)
     plt.close()
 
 def enviar_telegram(precio, rsi, ema9, ema20, ema200):
-    if not TG_TOKEN: return
+    if not TG_TOKEN or not CHAT_ID: return
     pnl_pct = ((estado["total"] - CAPITAL_BTC) / CAPITAL_BTC * 100) if CAPITAL_BTC else 0
     objetivo = estado["entry"] * (1 + TP_PCT) if estado["entry"] else 0
     sl = estado["entry"] * (1 - SL_PCT) if estado["entry"] else 0
@@ -84,8 +89,8 @@ def enviar_telegram(precio, rsi, ema9, ema20, ema200):
    EMA20: {ema20:.2f}
    EMA200: {ema200:.2f}
 
-💵 *BNB Comisiones:* ${CAPITAL_BNB} (para 25% descuento)
-🔗 *Grafico:* {RENDER_URL}/chart
+💵 *BNB Comisiones:* ${CAPITAL_BNB}
+🔗 *Grafico:* {RENDER_URL}
 """
     try:
         requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
@@ -94,21 +99,24 @@ def enviar_telegram(precio, rsi, ema9, ema20, ema200):
 
 @app.route('/')
 def home():
-    # Pagina que SI muestra el grafico como querias
     return f"""
     <html><head><title>LoboBot V23</title><meta http-equiv='refresh' content='60'></head>
     <body style='background:black;color:white;text-align:center;font-family:Arial'>
     <h2>LoboBot22 GRAFICO - VIVO - SCALPING 0.6% - ${CAPITAL_BTC} + ${CAPITAL_BNB} BNB</h2>
-    <h3>Total: ${estado['total']:.2f} | P&L: ${estado['pnl']:.2f}</h3>
+    <h3>Total: ${estado['total']:.2f} | P&L: ${estado['pnl']:.2f} | BTC: {estado['btc']:.6f}</h3>
     <img src='/chart?v={time.time()}' style='width:95%;max-width:1000px;border:2px solid #00FF88;border-radius:10px'>
-    <p><a href='/chart' style='color:#00FF88'>Ver imagen directa</a> - Se actualiza cada 60s</p>
+    <p><a href='/chart' style='color:#00FF88'>Ver solo imagen</a> - Se actualiza cada 60s</p>
     </body></html>
     """
 
 @app.route('/chart')
 def chart():
-    closes = get_closes()
-    generar_grafico(closes)
+    try:
+        closes = get_closes()
+        generar_grafico(closes)
+    except Exception as e:
+        print(f"Error chart route: {e}")
+        generar_grafico([111000]*100)
     return send_file("chart.png", mimetype='image/png')
 
 def loop_trading():
@@ -139,7 +147,7 @@ def loop_trading():
                     estado["entry"] = 0
             time.sleep(60)
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error loop: {e}")
             time.sleep(15)
 
 if __name__ == "__main__":
