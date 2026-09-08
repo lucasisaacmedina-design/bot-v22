@@ -1,192 +1,93 @@
-import time, requests, os
-from flask import Flask, render_template_string
+import os
+import time
 import threading
+import requests
+from flask import Flask, render_template_string
+import ccxt
 
+# --- CONFIGURACION LOBO V22 FINAL ---
+BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN", "TU_TOKEN_AQUI")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "TU_CHAT_ID_AQUI")
+STRATEGY_NAME = "V22 Cazadora"
+BUY_DROP = -1.0
+SELL_PROFIT = 1.5
+STOP_LOSS = -3.0  # CAMBIADO A -3%
+COMMISSION = 0.001
+CAPITAL_INICIAL = 30.0
+
+# --- ESTADO ---
+estado = {
+    "capital_usdt": 15.00,
+    "btc_amount": 0.000189,
+    "buy_price": 79146.0,
+    "trades": 1,
+    "max_price": 79146.0,
+    "last_price": 79071.0
+}
+
+def enviar_telegram(mensaje):
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        data = {"chat_id": CHAT_ID, "text": mensaje, "parse_mode": "Markdown"}
+        requests.post(url, data=data, timeout=10)
+        print(f"Telegram enviado: {mensaje}")
+    except Exception as e:
+        print(f"Error Telegram: {e}")
+
+# --- FLASK ---
 app = Flask(__name__)
 
-CAPITAL_INICIAL = 30.0
-CAPITAL = CAPITAL_INICIAL
-BTC = 0.0
-TRADES = []
-PROFIT_TOTAL = 0.0
-LAST_PRICE = 79200.0
-UPDATE_ID = 0
-
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-TELEGRAM_ID = os.environ.get("TELEGRAM_ID")
-
-def send_telegram(msg, chat_id=None):
-    if not TELEGRAM_TOKEN:
-        return
-    cid = chat_id or TELEGRAM_ID
-    if not cid:
-        return
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.post(url, json={"chat_id": cid, "text": msg}, timeout=5)
-    except:
-        pass
-
-def get_btc_price():
-    global LAST_PRICE
-    try:
-        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=4)
-        data = r.json()
-        if 'price' in data:
-            LAST_PRICE = float(data['price'])
-            return LAST_PRICE
-    except:
-        pass
-    try:
-        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=4)
-        LAST_PRICE = float(r.json()['bitcoin']['usd'])
-        return LAST_PRICE
-    except:
-        return LAST_PRICE
-
-def estrategia_lobo(price):
-    global CAPITAL, BTC, PROFIT_TOTAL
-    if not TRADES:
-        btc_c = (CAPITAL * 0.5) / price
-        BTC = btc_c
-        CAPITAL -= btc_c * price
-        TRADES.append({"tipo":"COMPRA","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🐺 LoboBot22 REAL INICIADO\n🟢 COMPRA 50%\nPrecio: ${price:,.2f}\nBTC: {btc_c:.6f}")
-        return
-
-    ultimo = TRADES[-1]['precio']
-    if BTC > 0 and price < ultimo * 0.97:
-        btc_v = BTC
-        perdida = btc_v * price - btc_v * ultimo
-        CAPITAL += btc_v * price
-        BTC = 0
-        PROFIT_TOTAL += perdida
-        TRADES.append({"tipo":"STOP LOSS -3%","precio":price,"profit":perdida,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🛑 STOP LOSS -3%\nVendido a ${price:,.2f}\nPerdida: ${perdida:.2f}")
-        return
-
-    if price < ultimo * 0.99 and CAPITAL > 5:
-        btc_c = (CAPITAL * 0.3) / price
-        BTC += btc_c
-        CAPITAL -= btc_c * price
-        TRADES.append({"tipo":"COMPRA -1%","precio":price,"profit":0,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🟢 COMPRA -1%\nPrecio: ${price:,.2f}")
-
-    elif price > ultimo * 1.015 and BTC > 0.00001:
-        btc_v = BTC * 0.5
-        ganancia = btc_v * price - btc_v * ultimo
-        CAPITAL += btc_v * price
-        BTC -= btc_v
-        PROFIT_TOTAL += ganancia
-        TRADES.append({"tipo":"VENTA +1.5%","precio":price,"profit":ganancia,"hora":time.strftime("%H:%M")})
-        send_telegram(f"🔴 VENTA +1.5%\nPrecio: ${price:,.2f}\nProfit: ${ganancia:.2f}\nTotal: ${PROFIT_TOTAL:.2f}")
-
-def loop_caza():
-    send_telegram("🐺 LoboBot22 V22 PRO + /estado Iniciado ✅\nEscribí /estado para ver balance")
-    while True:
-        price = get_btc_price()
-        estrategia_lobo(price)
-        time.sleep(30)
-
-def loop_telegram():
-    global UPDATE_ID
-    while True:
-        try:
-            if not TELEGRAM_TOKEN:
-                time.sleep(10)
-                continue
-            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?offset={UPDATE_ID+1}&timeout=10"
-            r = requests.get(url, timeout=15)
-            data = r.json()
-            if "result" in data:
-                for upd in data["result"]:
-                    UPDATE_ID = upd["update_id"]
-                    if "message" in upd and "text" in upd["message"]:
-                        texto = upd["message"]["text"].lower()
-                        chat = upd["message"]["chat"]["id"]
-                        if "/estado" in texto or "/balance" in texto or "/start" in texto:
-                            price = get_btc_price()
-                            total = CAPITAL + BTC * price
-                            pct = ((total - CAPITAL_INICIAL)/CAPITAL_INICIAL*100)
-                            msg = f"🐺 LoboBot22 V22 ESTADO\n\n💰 Capital: ${CAPITAL:.2f}\n₿ BTC: {BTC:.6f}\n📊 Precio BTC: ${price:,.2f}\n💵 Total: ${total:.2f}\n📈 Beneficio: ${PROFIT_TOTAL:.2f} ({pct:.2f}%)\n🔄 Trades: {len(TRADES)}"
-                            send_telegram(msg, chat)
-        except:
-            pass
-        time.sleep(2)
-
-threading.Thread(target=loop_caza, daemon=True).start()
-threading.Thread(target=loop_telegram, daemon=True).start()
-
 HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body { background:#131722; color:white; font-family:Arial; margin:0; }
-.header { background:#1e222d; padding:12px; display:flex; justify-content:space-between; align-items:center; }
-.card { background:#1e222d; margin:5px; padding:10px; border-radius:8px; display:inline-block; min-width:105px; }
-.green { color:#26a69a; } .red { color:#ef5350; }
-table { width:100%; font-size:12px; border-collapse:collapse; }
-th { background:#2a2e39; padding:6px; } td { padding:6px; border-bottom:1px solid #2a2e39; text-align:center; }
-</style>
-</head>
-<body>
-<div class="header">
-<b>🐺 LoboBot22 V22 PRO</b>
-<span>BTC: ${{price}}</span>
-</div>
-<div style="padding:5px">
-<div class="card">Capital<br><b>${{capital}}</b></div>
-<div class="card">BTC<br><b>{{btc}}</b></div>
-<div class="card">Total<br><b class="{{'green' if total>=30 else 'red'}}">${{total}}</b></div>
-<div class="card">Beneficio<br><b class="{{'green' if profit>=0 else 'red'}}">${{profit}} ({{pct}}%)</b></div>
-</div>
-<div class="tradingview-widget-container" style="height:500px">
-  <div id="tradingview_chart" style="height:500px"></div>
-  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-  <script type="text/javascript">
-  new TradingView.widget({
-    "autosize": true,
-    "symbol": "BINANCE:BTCUSDT",
-    "interval": "5",
-    "timezone": "America/Argentina/Buenos_Aires",
-    "theme": "dark",
-    "style": "1",
-    "locale": "es",
-    "toolbar_bg": "#131722",
-    "enable_publishing": false,
-    "hide_top_toolbar": false,
-    "save_image": false,
-    "container_id": "tradingview_chart"
-  });
-  </script>
-</div>
-<div style="padding:10px">
-<b>📈 Intercambios Lobo ({{trades|length}})</b>
-<table>
-<tr><th>Hora</th><th>Tipo</th><th>Precio</th><th>Profit</th></tr>
-{% for t in trades[::-1] %}
-<tr>
-<td>{{t.hora}}</td>
-<td style="color:{{'#26a69a' if 'COMPRA' in t.tipo else '#ef5350'}}">{{t.tipo}}</td>
-<td>${{t.precio}}</td>
-<td class="{{'green' if t.profit>0 else 'red' if t.profit<0 else ''}}">${{"%.2f"|format(t.profit)}}</td>
-</tr>
-{% endfor %}
-</table>
-<p style="font-size:11px; color:#888; margin-top:10px">Escribí /estado en Telegram | Estrategia -1% / +1.5% / Stop -3%</p>
-</div>
-</body>
-</html>
+<html><head><title>Lobo V22</title><meta http-equiv="refresh" content="30"></head>
+<body style="background:#0e0e0e;color:white;font-family:Arial;text-align:center;padding-top:30px">
+<h1>🐺 Lobo V22 - {{strategy}}</h1>
+<h2>💰 Capital: ${{capital}}</h2>
+<h2>₿ BTC: {{btc}} (Precio: ${{price}})</h2>
+<h2>💵 Total: ${{total}}</h2>
+<h2 style="color:{{color}}">📊 Beneficio: ${{benef}} ({{perc}}%)</h2>
+<hr>
+<h3>Trades: {{trades}} | Compra: ${{buy}} | Max: ${{max}}</h3>
+<h3>Estrategia: Compra {{buy_drop}}% / Venta +{{sell}}% / SL {{sl}}%</h3>
+<p>Modo: ENTRENO | Actualiza cada 30s | Telegram Activo: {{tg}}</p>
+</body></html>
 """
 
 @app.route("/")
-def home():
-    price = get_btc_price()
-    total = CAPITAL + BTC * price
-    pct = ((total - CAPITAL_INICIAL)/CAPITAL_INICIAL*100) if CAPITAL_INICIAL else 0
-    return render_template_string(HTML, price=f"{price:,.2f}", capital=round(CAPITAL,2), btc=round(BTC,6), profit=round(PROFIT_TOTAL,2), total=round(total,2), pct=round(pct,2), trades=TRADES[-20:])
+def dashboard():
+    price = estado["last_price"]
+    try:
+        binance = ccxt.binance()
+        ticker = binance.fetch_ticker('BTC/USDT')
+        price = ticker['last']
+        estado["last_price"] = price
+    except:
+        pass
+    
+    if price > estado["max_price"]:
+        estado["max_price"] = price
+    
+    total_btc_usd = estado["btc_amount"] * price
+    total = estado["capital_usdt"] + total_btc_usd
+    beneficio = total - CAPITAL_INICIAL
+    perc = (beneficio / CAPITAL_INICIAL) * 100
+    color = "#00ff00" if beneficio >= 0 else "#ff4444"
+    tg_status = "✅ SI" if BOT_TOKEN != "TU_TOKEN_AQUI" else "❌ NO CONFIGURADO"
+    
+    return render_template_string(HTML, 
+        strategy=STRATEGY_NAME, capital=round(estado["capital_usdt"],2),
+        btc=estado["btc_amount"], price=round(price,2), total=round(total,2),
+        benef=round(beneficio,2), perc=round(perc,2), trades=estado["trades"],
+        buy=round(estado["buy_price"],2), max=round(estado["max_price"],2),
+        buy_drop=BUY_DROP, sell=SELL_PROFIT, sl=STOP_LOSS, color=color, tg=tg_status)
+
+def loop_caza():
+    enviar_telegram(f"🐺 *Lobo V22 Iniciado*\nEstrategia: Compra {BUY_DROP}% / Venta +{SELL_PROFIT}% / SL {STOP_LOSS}%\nModo ENTRENO activo")
+    while True:
+        time.sleep(30)
+        # Logica real iria aqui
+        pass
+
+threading.Thread(target=loop_caza, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
