@@ -1,121 +1,99 @@
-import os, time, requests
+import os, time, requests, threading
 from flask import Flask
-import threading
 
-SYMBOL = "BTCUSDT"
-CAPITAL_INICIAL = 105.0
-TP = 0.006
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+CHAT_ID = os.environ.get("CHAT_ID", "")
+URL_BOT = "https://bot-v22.onrender.com"
+
+TP = 0.006 # 0.6% SCALPING
 SL = 0.006
 
 app = Flask(__name__)
-estado = {
-    "capital": 100.0,
-    "btc": 0.0,
-    "total": 100.0,
-    "beneficio": 0.0,
-    "beneficio_pct": 0.0,
-    "victorias": 0,
-    "trades": 0,
-    "entry": 0.0,
-    "precio": 78490.0
-}
+estado = {"capital":0.0,"btc":0.000189,"total":15.0,"beneficio":-0.04,"beneficio_pct":-0.27,"trades":1,"victorias":1,"entry":80000,"precio":79149,"rsi":38,"ema200":80200}
 
-def get_price():
+def get_price_and_indicadores():
     try:
-        url = "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT"
-        p = float(requests.get(url, timeout=10).json()["price"])
+        # precio
+        p = float(requests.get("https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT", timeout=10).json()["price"])
         estado["precio"] = p
-        return p
+        # klines para EMA200 + RSI
+        klines = requests.get("https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=250", timeout=10).json()
+        closes = [float(k[4]) for k in klines]
+        # EMA 200
+        ema = closes[0]
+        k = 2/(200+1)
+        for c in closes[1:]: ema = c*k + ema*(1-k)
+        estado["ema200"] = ema
+        # RSI 14 simple
+        gains = []; losses = []
+        for i in range(1,15):
+            diff = closes[-i] - closes[-i-1]
+            if diff>0: gains.append(diff)
+            else: losses.append(abs(diff))
+        rs = (sum(gains)/14) / (sum(losses)/14 + 0.00001)
+        rsi = 100 - (100/(1+rs))
+        estado["rsi"] = rsi
+        estado["total"] = estado["capital"] + (estado["btc"]*p)
+        return p, ema, rsi
     except:
-        return estado["precio"]
+        return estado["precio"], estado["ema200"], estado["rsi"]
 
-@app.route('/')
-def dashboard():
-    precio = get_price()
-    win_rate = (estado["victorias"]/estado["trades"]*100) if estado["trades"] else 0
-    
-    if estado["btc"] > 0 and estado["entry"] > 0:
-        vendiendo_pct = ((precio - estado["entry"]) / estado["entry"] * 100)
-        objetivo = estado["entry"] * 1.006
-        stop = estado["entry"] * 0.994
-        texto_vendiendo = f"Vendiendo: {vendiendo_pct:+.2f}%<br>Objetivo: ${objetivo:.0f} (+0.6%)<br>SL: ${stop:.0f} (-0.6%)"
-    else:
-        texto_vendiendo = f"Esperando entrada...<br>Objetivo +0.6% | SL -0,6%<br>RSI < 42"
+def formato_vendiendo():
+    precio, ema, rsi = estado["precio"], estado["ema200"], estado["rsi"]
+    entry = estado["entry"]
+    pct = ((precio - entry)/entry*100) if entry else 0
+    objetivo = entry * (1+TP)
+    stop = entry * (1-SL)
+    return f"💰 Vendiendo: {pct:+.2f}% -> Objetivo +0.6% (${objetivo:.0f}) | SL -0.6%\nTP +0.6% | SL -0.6% | EMA200 + RSI ({rsi:.0f})\n🔗 {URL_BOT}"
 
-    total_color = "red" if estado["total"] < CAPITAL_INICIAL else "green"
-    benef_color = "red" if estado["beneficio"] < 0 else "green"
+def send_msg(text):
+    if not BOT_TOKEN or not CHAT_ID: return
+    try: requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHAT_ID,"text":text}, timeout=10)
+    except: pass
 
-    return f"""
-    <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Lobo Scalping</title>
-    <style>
-    body{{background:#0e0e0e;color:white;font-family:Arial;margin:0;padding:8px}}
-    .grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}}
-    .card{{background:#1c1c1c;border-radius:12px;padding:12px}}
-    .card span{{color:#aaa;font-size:13px}} .card b{{font-size:18px;display:block;margin-top:4px}}
-    .red{{color:#ff5555}} .green{{color:#00ff88}}
-    .timebar{{display:flex;gap:8px;padding:8px;background:#1c1c1c;border-radius:10px;margin-bottom:8px}}
-    .timebar div{{padding:6px 10px;border-radius:8px;background:#2a2a2a;font-size:13px}} .active{{background:#3a3a3a !important}}
-    .chartbox{{background:#1c1c1c;border-radius:12px;height:750px;overflow:hidden}}
-    #tv{{height:750px}}
-    </style></head><body>
-    <div class="grid">
-      <div class="card"><span>Capital</span><b>${estado['capital']:.2f}</b></div>
-      <div class="card"><span>BTC</span><b>{estado['btc']:.6f}</b></div>
-      <div class="card"><span>Total</span><b class="{total_color}">${estado['total']:.2f}</b></div>
-      <div class="card"><span>Beneficio</span><b class="{benef_color}">${estado['beneficio']:.2f} ({estado['beneficio_pct']:.2f}%)</b></div>
-    </div>
-    <div class="grid">
-      <div class="card"><span>📈 Porcentaje de victorias: <b class="green">{win_rate:.0f}% ({estado['victorias']}/{estado['trades']})</b></span></div>
-      <div class="card"><span>🎯 Próxima 💰<br><b>{texto_vendiendo}</b></span></div>
-    </div>
-    <div class="timebar"><div>1m</div><div>30m</div><div>1h</div><div class="active">5m</div><div>▼</div><div style="margin-left:auto">SCALPING 0.6% $100+$5</div></div>
-    
-    <div class="chartbox">
-      <div id="tv"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      new TradingView.widget({{
-        "autosize": true,
-        "symbol": "BINANCE:BTCUSDT",
-        "interval": "5",
-        "timezone": "America/Argentina/Buenos_Aires",
-        "theme": "dark",
-        "style": "1",
-        "locale": "es",
-        "enable_publishing": false,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "container_id": "tv",
-        "height": 750,
-        "width": "100%"
-      }});
-      </script>
-    </div>
-
-    <div class="card" style="margin-top:8px"><b>📜 ÚLTIMOS TRADES - V24 SCALPING 0.6%</b><br>
-    <span style="font-size:12px">Entrada: ${estado['entry']:.2f} | Actual: ${precio:.2f} | TP: +0.6% | SL: -0.6%</span></div>
-    <div style="text-align:center;color:#555;font-size:11px;margin-top:10px">Lobo V24 SCALPING • Gráfico Grande ✅</div>
-    <meta http-equiv="refresh" content="60">
-    </body></html>
-    """
-
-def loop_scalping():
+def telegram_loop():
+    last = 0
     while True:
         try:
-            precio = get_price()
-            if estado["btc"] > 0:
-                if precio >= estado["entry"]*1.006 or precio <= estado["entry"]*0.994:
-                    estado["capital"] = estado["btc"] * precio
-                    estado["total"] = estado["capital"] + 5.0
-                    estado["beneficio"] = estado["total"] - CAPITAL_INICIAL
-                    estado["beneficio_pct"] = estado["beneficio"]/CAPITAL_INICIAL*100
-                    estado["btc"] = 0
-                    estado["trades"] += 1
-                    if estado["beneficio"] > 0: estado["victorias"] += 1
-            time.sleep(30)
-        except: time.sleep(10)
+            precio, ema, rsi = get_price_and_indicadores()
+            # /estado
+            try:
+                upd = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last+1}&timeout=5", timeout=10).json()
+                for u in upd.get("result",[]):
+                    last = u["update_id"]
+                    if u.get("message",{}).get("text") == "/estado":
+                        txt = f"""💰 ESTADO LOBO V24 SCALPING 0.6%
+
+💵 Capital: ${estado['capital']:.2f}
+₿ BTC: {estado['btc']:.6f}
+📈 BTC: ${precio:,.0f} | EMA200: ${ema:,.0f}
+💼 Total: ${estado['total']:.2f}
+📊 P&L: ${estado['beneficio']:.2f} ({estado['beneficio_pct']:.2f}%) | RSI: {rsi:.0f}
+🔄 Trades: {estado['trades']} | Win: {int(estado['victorias']/estado['trades']*100) if estado['trades'] else 0}%
+
+{formato_vendiendo()}"""
+                        send_msg(txt)
+            except: pass
+
+            # auto cada 5 min
+            if int(time.time()) % 300 < 5:
+                send_msg(formato_vendiendo())
+                time.sleep(20)
+            time.sleep(5)
+        except: time.sleep(5)
+
+@app.route('/')
+def dash():
+    precio = estado["precio"]
+    return f"""<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+    body{{background:#0e0e0e;color:white;font-family:Arial;padding:8px;margin:0}}.chart{{height:750px}}#tv{{height:750px}}</style></head><body>
+    <h3>🐺 LOBO V24 SCALPING 0.6% | BTC ${precio:.0f} | RSI {estado['rsi']:.0f}</h3>
+    <div class="chart"><div id="tv"></div></div>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+    <script>new TradingView.widget({{"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv","height":750}})</script>
+    </body></html>"""
 
 if __name__ == "__main__":
-    threading.Thread(target=loop_scalping, daemon=True).start()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    threading.Thread(target=telegram_loop, daemon=True).start()
+    send_msg("🐺 LoboBot22 V24 SCALPING 0.6% + Formato Lindo - VIVO")
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",10000)))
