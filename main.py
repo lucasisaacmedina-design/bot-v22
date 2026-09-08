@@ -4,194 +4,234 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from flask import Flask, render_template_string
 
+# CONFIGURACION LOBO V25 DUAL COMPLETO 227 LINEAS
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 CHAT_ID = os.environ.get("CHAT_ID", "")
 URL_BOT = "https://bot-v22.onrender.com"
 
-# CONFIG SCALPING FIJO DUAL
-TP = 0.006 # 0.6%
-SL = 0.006 # 0.6%
+TP_PORCENTAJE = 0.006 # 0.6% SCALPING
+SL_PORCENTAJE = 0.006 # 0.6% STOP LOSS
 EMA_PERIODO = 50
 RSI_PERIODO = 14
-SYMBOLS = ["BTCUSDT", "BNBUSDT"]
+SYMBOLS_LIST = ["BTCUSDT", "BNBUSDT"]
 
 app = Flask(__name__)
 
+# ESTADO GLOBAL DUAL
 estado_global = {
-    "BTCUSDT": {"entry": 78085.0, "qty": 0.000189, "capital": 0.0, "trades": 1, "wins": 1, "pnl": -0.04, "pnl_pct": -0.27, "precio": 78085, "ema": 78336, "rsi": 42},
-    "BNBUSDT": {"entry": 640.0, "qty": 0.02, "capital": 0.0, "trades": 1, "wins": 1, "pnl": 0.1, "pnl_pct": 0.15, "precio": 640, "ema": 642, "rsi": 45}
+    "BTCUSDT": {
+        "entry": 78085.0,
+        "qty": 0.000189,
+        "capital": 14.76,
+        "trades": 1,
+        "wins": 1,
+        "pnl": -0.04,
+        "pnl_pct": -0.27,
+        "precio": 78830.0,
+        "ema": 78452.0,
+        "rsi": 74.0,
+        "closes": [78830]*100
+    },
+    "BNBUSDT": {
+        "entry": 640.0,
+        "qty": 0.02,
+        "capital": 12.80,
+        "trades": 1,
+        "wins": 1,
+        "pnl": 0.10,
+        "pnl_pct": 0.15,
+        "precio": 756.0,
+        "ema": 751.0,
+        "rsi": 79.0,
+        "closes": [756]*100
+    }
 }
 
-def binance_klines(symbol, limit=200):
+def obtener_klines_binance(symbol, limit=200):
     try:
         url = f"https://data-api.binance.vision/api/v3/klines?symbol={symbol}&interval=5m&limit={limit}"
-        data = requests.get(url, timeout=10).json()
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
         closes = [float(k[4]) for k in data]
         return closes
-    except:
+    except Exception as e:
+        print(f"Error klines {symbol}: {e}")
         return [estado_global[symbol]["precio"]]*limit
 
-def calcular_ema(closes, periodo):
-    ema = closes[0]
-    k = 2/(periodo+1)
-    for c in closes[1:]:
-        ema = c*k + ema*(1-k)
-    return ema
-
-def calcular_rsi(closes, periodo=14):
+def calcular_ema_lobo(closes, periodo):
     try:
-        deltas = [closes[i]-closes[i-1] for i in range(1,len(closes))]
-        gains = [d if d>0 else 0 for d in deltas[-periodo:]]
-        losses = [-d if d<0 else 0 for d in deltas[-periodo:]]
-        avg_gain = sum(gains)/periodo
-        avg_loss = sum(losses)/periodo + 0.000001
-        rs = avg_gain/avg_loss
-        rsi = 100 - (100/(1+rs))
+        ema = closes[0]
+        k = 2 / (periodo + 1)
+        for c in closes[1:]:
+            ema = c * k + ema * (1 - k)
+        return ema
+    except:
+        return closes[-1]
+
+def calcular_rsi_lobo(closes, periodo=14):
+    try:
+        deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+        gains = [d if d > 0 else 0 for d in deltas[-periodo:]]
+        losses = [-d if d < 0 else 0 for d in deltas[-periodo:]]
+        avg_gain = sum(gains) / periodo
+        avg_loss = sum(losses) / periodo + 0.000001
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
         return rsi
     except:
-        return 50
+        return 50.0
 
-def actualizar_simbolo(symbol):
-    closes = binance_klines(symbol, 200)
-    precio = closes[-1]
-    ema = calcular_ema(closes, EMA_PERIODO)
-    rsi = calcular_rsi(closes, RSI_PERIODO)
-    estado_global[symbol]["precio"] = precio
-    estado_global[symbol]["ema"] = ema
-    estado_global[symbol]["rsi"] = rsi
+def actualizar_datos_simbolo(symbol):
+    closes = obtener_klines_binance(symbol, 200)
+    precio_actual = closes[-1]
+    ema_actual = calcular_ema_lobo(closes, EMA_PERIODO)
+    rsi_actual = calcular_rsi_lobo(closes, RSI_PERIODO)
+    estado_global[symbol]["precio"] = precio_actual
+    estado_global[symbol]["ema"] = ema_actual
+    estado_global[symbol]["rsi"] = rsi_actual
     estado_global[symbol]["closes"] = closes
-    return closes, precio, ema, rsi
+    return closes, precio_actual, ema_actual, rsi_actual
 
-def crear_grafico_lobo(symbol, closes, ema, precio, rsi):
-    plt.figure(figsize=(8,4), facecolor='#0e0e0e')
+def crear_grafico_estilo_lobo(symbol, closes, ema_val, precio_val, rsi_val):
+    plt.figure(figsize=(8, 4.5), facecolor='#000000')
     ax = plt.gca()
-    ax.set_facecolor('#0e0e0e')
-    plt.plot(closes[-100:], color='#00ff88', linewidth=1.8, label='Precio')
+    ax.set_facecolor('#000000')
+    plt.plot(closes[-100:], color='#00ff88', linewidth=1.9, label=f'Precio {symbol}')
     ema_line = []
     e = closes[0]
-    k = 2/(EMA_PERIODO+1)
+    k = 2 / (EMA_PERIODO + 1)
     for c in closes:
-        e = c*k + e*(1-k)
+        e = c * k + e * (1 - k)
         ema_line.append(e)
-    plt.plot(ema_line[-100:], color='orange', linestyle='--', linewidth=1.2, label=f'EMA{EMA_PERIODO}')
-    plt.title(f'{symbol} ${precio:.2f} | EMA{EMA_PERIODO} ${ema:.2f} | RSI {rsi:.0f} | SCALPING 0.6%', color='white', fontsize=10)
-    plt.legend(facecolor='#1a1a1a', edgecolor='gray', fontsize=7, labelcolor='white')
-    plt.tick_params(colors='gray', labelsize=7)
-    plt.grid(color='#222222', linestyle='--', linewidth=0.5)
+    plt.plot(ema_line[-100:], color='#ffaa00', linestyle='--', linewidth=1.3, label=f'EMA{EMA_PERIODO}')
+    pct_actual = ((precio_val - estado_global[symbol]["entry"]) / estado_global[symbol]["entry"] * 100)
+    plt.title(f'{symbol} ${precio_val:.2f} | EMA{EMA_PERIODO} ${ema_val:.0f} | RSI {rsi_val:.0f} | {pct_actual:+.2f}%', color='white', fontsize=10, fontweight='bold')
+    plt.legend(facecolor='#1a1a1a', edgecolor='#333333', fontsize=7, labelcolor='white', loc='upper left')
+    plt.tick_params(colors='#888888', labelsize=7)
+    plt.grid(color='#222222', linestyle='--', linewidth=0.4, alpha=0.6)
+    plt.xlabel('Velas 5m', color='gray', fontsize=7)
+    plt.ylabel('Precio USDT', color='gray', fontsize=7)
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', facecolor='#0e0e0e', bbox_inches='tight', dpi=150)
+    plt.savefig(buf, format='png', facecolor='#000000', bbox_inches='tight', dpi=150)
     plt.close()
     buf.seek(0)
     return buf
 
-def send_text(text):
-    if not BOT_TOKEN or not CHAT_ID: return
+def enviar_texto_telegram(texto):
+    if not BOT_TOKEN or not CHAT_ID:
+        return
     try:
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}, timeout=15)
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": CHAT_ID, "text": texto, "parse_mode": "HTML"}
+        requests.post(url, data=payload, timeout=15)
     except Exception as e:
-        print(f"Error send_text: {e}")
+        print(f"Error telegram texto: {e}")
 
-def send_photo(buf, caption):
-    if not BOT_TOKEN or not CHAT_ID: return
+def enviar_foto_telegram(buf, caption_text):
+    if not BOT_TOKEN or not CHAT_ID:
+        return
     try:
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", data={"chat_id": CHAT_ID, "caption": caption}, files={"photo": ("grafico.png", buf, "image/png")}, timeout=25)
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+        files = {"photo": ("grafico_lobo.png", buf, "image/png")}
+        data = {"chat_id": CHAT_ID, "caption": caption_text}
+        requests.post(url, data=data, files=files, timeout=25)
     except Exception as e:
-        print(f"Error send_photo: {e}")
+        print(f"Error telegram foto: {e}")
 
-def loop_principal():
+def loop_principal_lobo():
     last_update_id = 0
-    print("LOOP DUAL BTC+BNB INICIADO")
+    print("LOOP LOBO V25 DUAL 227 LINEAS INICIADO")
     while True:
         try:
-            # 1. Actualizar datos de ambos
-            for sym in SYMBOLS:
-                actualizar_simbolo(sym)
-
-            # 2. Manejar /estado
+            for sym in SYMBOLS_LIST:
+                actualizar_datos_simbolo(sym)
             try:
-                url_updates = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id+1}&timeout=10"
-                r = requests.get(url_updates, timeout=15).json()
-                for upd in r.get("result", []):
+                url_updates = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id+1}&timeout=8"
+                resp = requests.get(url_updates, timeout=12).json()
+                for upd in resp.get("result", []):
                     last_update_id = upd["update_id"]
-                    mensaje = upd.get("message", {}).get("text", "")
-                    if "/estado" in mensaje:
-                        texto = f"💰 ESTADO LOBO V25 DUAL SCALPING 0.6% - {datetime.datetime.now().strftime('%H:%M:%S')}\n\n"
-                        total_global = 0
-                        for sym in SYMBOLS:
-                            d = estado_global[sym]
-                            pct = ((d["precio"] - d["entry"]) / d["entry"] * 100) if d["entry"] else 0
-                            objetivo = d["entry"] * (1+TP)
-                            total_global += d["qty"] * d["precio"]
-                            texto += f"--- {sym} ---\n"
-                            texto += f"💵 Capital: ${d['capital']:.2f}\n"
-                            texto += f"₿ Qty: {d['qty']}\n"
-                            texto += f"📈 Precio: ${d['precio']:.2f} | EMA{EMA_PERIODO}: ${d['ema']:.2f} | RSI: {d['rsi']:.0f}\n"
-                            texto += f"💼 Entry: ${d['entry']:.2f} | Ahora: {pct:+.2f}%\n"
-                            texto += f"💰 Vendiendo: {pct:+.2f}% -> Objetivo +0.6% (${objetivo:.2f}) | SL -0.6%\n\n"
-                        texto += f"💼 Total Cuenta: ${total_global:.2f}\n"
-                        texto += f"TP +0.6% | SL -0.6% | EMA{EMA_PERIODO} + RSI SCALPING DUAL\n"
-                        texto += f"🔗 {URL_BOT}"
-                        send_text(texto)
+                    mensaje_texto = upd.get("message", {}).get("text", "")
+                    if "/estado" in mensaje_texto:
+                        hora_now = datetime.datetime.now().strftime('%H:%M:%S')
+                        texto_respuesta = f"💰 ESTADO LOBO V25 DUAL COMPLETO 227 LINEAS - {hora_now}\n\n"
+                        total_cuenta = 0.0
+                        for s in SYMBOLS_LIST:
+                            d = estado_global[s]
+                            precio = d["precio"]
+                            entry = d["entry"]
+                            pct = ((precio - entry) / entry * 100) if entry else 0
+                            objetivo_tp = entry * (1 + TP_PORCENTAJE)
+                            objetivo_sl = entry * (1 - SL_PORCENTAJE)
+                            total_cuenta += d["qty"] * precio
+                            texto_respuesta += f"--- {s} ---\n"
+                            texto_respuesta += f"💵 Capital: ${d['capital']:.2f}\n"
+                            texto_respuesta += f"₿ Qty: {d['qty']}\n"
+                            texto_respuesta += f"📈 Precio: ${precio:.2f} | EMA{EMA_PERIODO}: ${d['ema']:.0f} | RSI: {d['rsi']:.0f}\n"
+                            texto_respuesta += f"💼 Entry: ${entry:.2f} | P&L: {pct:+.2f}%\n"
+                            texto_respuesta += f"💰 Vendiendo: {pct:+.2f}% -> Objetivo +0.6% (${objetivo_tp:.2f}) | SL -0.6% (${objetivo_sl:.2f})\n\n"
+                        texto_respuesta += f"💼 Total Cuenta: ${total_cuenta:.2f}\n"
+                        texto_respuesta += f"TP +0.6% | SL -0.6% | EMA{EMA_PERIODO}+RSI SCALPING DUAL\n"
+                        texto_respuesta += f"🔗 {URL_BOT}"
+                        enviar_texto_telegram(texto_respuesta)
             except Exception as e:
-                print(f"Error telegram check: {e}")
-
-            # 3. Envio automatico cada 5 minutos con grafico
+                print(f"Error check telegram: {e}")
             if int(time.time()) % 300 < 12:
-                for sym in SYMBOLS:
-                    d = estado_global[sym]
+                for s in SYMBOLS_LIST:
+                    d = estado_global[s]
                     closes = d.get("closes", [d["precio"]]*100)
                     pct = ((d["precio"] - d["entry"]) / d["entry"] * 100) if d["entry"] else 0
-                    objetivo = d["entry"] * (1+TP)
-                    buf = crear_grafico_lobo(sym, closes, d["ema"], d["precio"], d["rsi"])
-                    caption = f"📈 LOBO V25 DUAL SCALPING 0.6%\n{sym}: ${d['precio']:.2f} | EMA{EMA_PERIODO} ${d['ema']:.0f}\n💰 Vendiendo: {pct:+.2f}% -> Obj +0.6% (${objetivo:.2f}) | SL -0.6%\nTP +0.6% | SL -0.6% | EMA{EMA_PERIODO}+RSI {d['rsi']:.0f}\n🔗 {URL_BOT}"
-                    send_photo(buf, caption)
+                    objetivo = d["entry"] * (1 + TP_PORCENTAJE)
+                    buf_img = crear_grafico_estilo_lobo(s, closes, d["ema"], d["precio"], d["rsi"])
+                    caption_final = f"📈 LOBO V25 DUAL 227L - {s}\n💵 ${d['precio']:.2f} | EMA{EMA_PERIODO} ${d['ema']:.0f} | RSI {d['rsi']:.0f}\n💰 Vendiendo: {pct:+.2f}% -> Objetivo +0.6% (${objetivo:.2f}) | SL -0.6%\nTP +0.6% | SL -0.6% | SCALPING DUAL\n🔗 {URL_BOT}"
+                    enviar_foto_telegram(buf_img, caption_final)
                 time.sleep(40)
-
             time.sleep(4)
-
         except Exception as e:
             print(f"Error loop principal: {e}")
             time.sleep(10)
 
-HTML_DASH = """
+HTML_DASHBOARD_COMPLETO = """
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lobo V25 DUAL</title>
+<title>Lobo V25 Dual 227L</title>
 <style>
-body{background:#0e0e0e;color:white;font-family:Arial;margin:0;padding:10px}
-.card{background:#1a1a1a;border:1px solid #333;padding:12px;border-radius:10px;margin-bottom:10px}
-.chart{height:750px;border:1px solid #333;border-radius:10px;overflow:hidden}
+body{background:#0e0e0e;color:white;font-family:Arial;margin:0;padding:12px}
+.card{background:#1a1a1a;border:1px solid #333;padding:12px;border-radius:12px;margin-bottom:12px}
+.badge{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:bold}
+.green{background:#00ff8844;color:#00ff88;border:1px solid #00ff88}
+.orange{background:#ffaa0044;color:#ffaa00;border:1px solid #ffaa00}
+.chart{height:750px;border:1px solid #333;border-radius:12px;overflow:hidden;margin-top:10px;background:#000}
 #tv{height:750px}
-.badge{padding:4px 8px;border-radius:6px;font-size:12px}
-.green{background:#00ff8844;color:#00ff88}
-.orange{background:#ffaa0044;color:orange}
+h2{color:#00ff88}
 </style></head><body>
-<h2>🐺 LOBO V25 DUAL BTC+BNB SCALPING 0.6%</h2>
-<div style="display:flex;gap:10px;flex-wrap:wrap">
+<h2>🐺 LOBO V25 DUAL 227 LINEAS - SCALPING 0.6% BTC+BNB</h2>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
 {% for sym,data in estado.items() %}
 <div class="card">
-<b>{{sym}}</b> <span class="badge green">SCALPING 0.6%</span><br>
-Precio: ${{ "%.2f"|format(data.precio) }} | EMA{{ema}}: ${{ "%.2f"|format(data.ema) }} | RSI: {{ "%.0f"|format(data.rsi) }}<br>
-Entry: ${{ data.entry }} | P&L: {{ "%.2f"|format(((data.precio-data.entry)/data.entry*100)) }}%<br>
-Qty: {{data.qty}}
+<b style="font-size:16px">{{sym}}</b> <span class="badge green">SCALPING 0.6%</span> <span class="badge orange">EMA{{ema}}+RSI</span><br><br>
+💵 Capital: ${{ "%.2f"|format(data.capital) }}<br>
+₿ Qty: {{data.qty}}<br>
+📈 Precio: ${{ "%.2f"|format(data.precio) }} | EMA{{ema}}: ${{ "%.0f"|format(data.ema) }} | RSI: {{ "%.0f"|format(data.rsi) }}<br>
+💼 Entry: ${{ data.entry }} | P&L: {{ "%.2f"|format(((data.precio-data.entry)/data.entry*100)) }}%<br>
+💰 Vendiendo: {{ "%.2f"|format(((data.precio-data.entry)/data.entry*100)) }}% -> Objetivo +0.6% (${{ "%.2f"|format(data.entry*1.006) }}) | SL -0.6%<br>
 </div>
 {% endfor %}
 </div>
 <div class="chart"><div id="tv"></div></div>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <script>
-new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv","height":750})
+new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv","height":750,"style":"1","timezone":"America/Argentina/Buenos_Aires"})
 </script>
-<p><a href="{{url}}" style="color:gray">{{url}}</a> | Actualizado: {{hora}}</p>
+<p style="color:gray;font-size:12px">🔗 {{url}} | Actualizado: {{hora}} | V25 227L DUAL COMPLETO</p>
 </body></html>
 """
 
 @app.route('/')
-def dashboard():
-    return render_template_string(HTML_DASH, estado=estado_global, ema=EMA_PERIODO, url=URL_BOT, hora=datetime.datetime.now().strftime("%H:%M:%S"))
+def dashboard_completo():
+    hora_str = datetime.datetime.now().strftime("%H:%M:%S")
+    return render_template_string(HTML_DASHBOARD_COMPLETO, estado=estado_global, ema=EMA_PERIODO, url=URL_BOT, hora=hora_str)
 
-# Iniciar hilo
-threading.Thread(target=loop_principal, daemon=True).start()
+threading.Thread(target=loop_principal_lobo, daemon=True).start()
 
 if __name__ == "__main__":
-    send_text("🐺 LoboBot V25 DUAL COMPLETO BTC+BNB SCALPING 0.6% + GRAFICO + FORMATO LINDO - VIVO")
+    enviar_texto_telegram("🐺 LoboBot V25 DUAL 227 LINEAS COMPLETO BTC+BNB SCALPING 0.6% + GRAFICO NEGRO LINEA VERDE + DASH 750PX - VIVO")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
