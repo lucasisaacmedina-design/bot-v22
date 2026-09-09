@@ -71,13 +71,13 @@ HTML = """
 <html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
-<h3>🐺 LOBO V29.2 ALFA SOCIOS $100+$100</h3>
+<h3>🐺 LOBO V29.3 ALFA SOCIOS FIX $100+$100</h3>
 <div>Bal ${{ "%.2f"|format(cuenta.balance) }} | Neta ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div>
 <div style="margin-top:6px;background:#222;padding:8px;border-radius:8px;border-left:4px solid #f5a623">
 <div>MERCADO: {{ mercado }} | MODO: {{ modo.name }} {{ modo.emoji }}</div>
 <div style="font-size:12px">TP +{{ modo.tp }}% | SL -{{ modo.sl }}% | ATR {{ "%.2f"|format(atr) }}%</div>
 </div>
-<div style="margin-top:8px">BTC ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(btc.pnl) }}% | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
+<div style="margin-top:8px">BTC ${{ "%.2f"|format(btc.precio) }} {{ "%+.2f"|format(btc.pnl) }}% {{ '🟢EN POS' if btc.en_posicion else '🔴ESPERA' }} | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
 </div>
 <div style="max-width:900px;margin:10px auto"><div id="tv_btc" style="height:350px"></div></div>
 <div style="max-width:900px;margin:10px auto"><div id="tv_bnb" style="height:350px"></div></div>
@@ -154,7 +154,7 @@ def loop():
                 if txt.startswith("/start"):
                     modo_actual = estado.get("modo", {}).get("name","LOBO 🐺")
                     mercado_actual = estado.get("mercado","ANALIZANDO...")
-                    texto_start = f"""🐺 LOBO V29.2 ALFA ASESINO - BOT AUTOMATICO 24HS
+                    texto_start = f"""🐺 LOBO V29.3 ALFA ASESINO - BOT AUTOMATICO 24HS
 
 Que hace este bot?
 Caza BTC y BNB con $100 en cada moneda, con TP/SL neto automático. Vos solo mirás.
@@ -188,7 +188,7 @@ Comandos:
 """
                     tg(texto_start)
                 elif txt.startswith("/balance"):
-                    tg(f"🏦 V29.2\n{estado['mercado']}\nMODO {estado['modo']['name']} TP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
+                    tg(f"🏦 V29.3\n{estado['mercado']}\nMODO {estado['modo']['name']} TP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
         except: pass
         time.sleep(5)
 
