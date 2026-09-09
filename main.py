@@ -95,7 +95,6 @@ def loop():
         pass
 
     while True:
-        # --- LÓGICA DE TRADING ---
         en_pausa = (time.time() - estado["ultimo_sl"]) < PAUSA_SL_SEG
         for s in ["BTCUSDT", "BNBUSDT"]:
             p = get_precio(s)
@@ -132,25 +131,21 @@ def loop():
                         tg(f"🔄RECOMPRA SL {s} ${p:.2f} - Esperando 10min")
                         guardar_estado()
 
-        # --- LÓGICA DE TELEGRAM ARREGLADA /START Y /BALANCE ---
+        # --- TELEGRAM ARREGLADO ---
         try:
             r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id+1}&timeout=5", timeout=10).json()
             for upd in r.get("result", []):
                 last_update_id = upd["update_id"]
                 txt = upd.get("message", {}).get("text", "")
-
                 if txt.startswith("/start"):
-                    tg(f"🐺 LOBO V28.7 ACTIVO\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nComandos: /balance")
+                    tg(f"🐺 LOBO V28.7 ACTIVO\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nComandos: /balance")
                 elif txt.startswith("/balance"):
                     btc_var = estado["BTCUSDT"]["pnl"]
                     bnb_var = estado["BNBUSDT"]["pnl"]
-                    tg(f"🏦 V28.7 $100+$100\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {btc_var:+.2f}% BNB {bnb_var:+.2f}%\nTP neto +$0.20 SL neto -$0.80")
+                    tg(f"🏦 V28.7 $100+$100\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {btc_var:+.2f}% BNB {bnb_var:+.2f}%\nTP +$0.20 neto SL -$0.80 neto")
         except:
             pass
 
         time.sleep(5)
 
 threading.Thread(target=loop, daemon=True).start()
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
