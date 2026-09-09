@@ -11,17 +11,26 @@ COMISION_TOTAL = 0.001
 TP_PORC = 0.30
 SL_PORC = 0.70
 PAUSA_SL_SEG = 600
-
 ARCHIVO_ESTADO = "/data/estado.json"
 
 def cargar_estado():
     if os.path.exists(ARCHIVO_ESTADO):
         try:
             with open(ARCHIVO_ESTADO, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+                # BLINDAJE LOBO: si viene $195.95 lo resetea a $200
+                if data.get("cuenta", {}).get("balance", 200) < 199:
+                    print("Reseteando balance viejo a $200")
+                    return {
+                        "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
+                        "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
+                        "cuenta": {"balance": 200.0, "ganancia": 0.0, "ops": 0},
+                        "historial": [],
+                        "ultimo_sl": 0
+                    }
+                return data
         except:
             pass
-    # estado inicial si no existe archivo
     return {
         "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
         "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
@@ -57,6 +66,7 @@ def tg(m):
     except:
         pass
 
+# --- TU HTML CON GRAFICOS INTACTO ---
 HTML = """<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
@@ -79,8 +89,15 @@ def home():
     return render_template_string(HTML, btc=estado["BTCUSDT"], bnb=estado["BNBUSDT"], cuenta=estado["cuenta"])
 
 def loop():
-    last = 0
+    last_update_id = 0
+    # Borra webhook viejo para que funcione /start
+    try:
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook", timeout=5)
+    except:
+        pass
+
     while True:
+        # --- LÓGICA DE TRADING ---
         en_pausa = (time.time() - estado["ultimo_sl"]) < PAUSA_SL_SEG
         for s in ["BTCUSDT", "BNBUSDT"]:
             p = get_precio(s)
@@ -117,11 +134,22 @@ def loop():
                         tg(f"🔄RECOMPRA SL {s} ${p:.2f} - Esperando 10min")
                         guardar_estado()
 
+        # --- LÓGICA DE TELEGRAM ARREGLADA /START Y /BALANCE ---
         try:
-            r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last+1}&timeout=3", timeout=10).json()
-            # acá sigue tu lógica de comandos de telegram
+            r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id+1}&timeout=5", timeout=10).json()
+            for upd in r.get("result", []):
+                last_update_id = upd["update_id"]
+                txt = upd.get("message", {}).get("text", "")
+
+                if txt.startswith("/start"):
+                    tg(f"🐺 LOBO V28.7 ACTIVO\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nComandos: /balance")
+                elif txt.startswith("/balance"):
+                    btc_var = estado["BTCUSDT"]["pnl"]
+                    bnb_var = estado["BNBUSDT"]["pnl"]
+                    tg(f"🏦 V28.7 $100+$100\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {btc_var:+.2f}% BNB {bnb_var:+.2f}%\nTP neto +$0.20 SL neto -$0.80")
         except:
             pass
+
         time.sleep(5)
 
 threading.Thread(target=loop, daemon=True).start()
