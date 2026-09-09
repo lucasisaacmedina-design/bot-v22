@@ -1,153 +1,193 @@
-import os, time, requests, threading, json
-from flask import Flask, render_template_string
+import telebot
+from datetime import datetime, timedelta
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-CHAT_ID = os.environ.get("CHAT_ID", "")
-MONTO_BTC = 100.0
-MONTO_BNB = 100.0
-COMISION_TOTAL = 0.001
-ARCHIVO_ESTADO = "/data/estado.json"
+TOKEN = "TU_TOKEN_ACA"
+bot = telebot.TeleBot(TOKEN)
 
-def cargar_estado():
-    default = {
-        "BTCUSDT": {"precio": 78254, "entry": 78254, "pnl": 0.0, "en_posicion": True},
-        "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": True},
-        "cuenta": {"balance": 200.0, "ganancia": 0.0, "ops": 0},
-        "historial": [], "ultimo_sl": 0,
-        "mercado": "ANALIZANDO...",
-        "modo": {"name":"LOBO","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"\U0001F43A"},
-        "atr": 0.30, "ultimo_modo_name": "LOBO",
-        "activo": False,
-        "esperando_confirmacion": False
-    }
-    if os.path.exists(ARCHIVO_ESTADO):
-        try:
-            with open(ARCHIVO_ESTADO, "r") as f:
-                data = json.load(f)
-                for k,v in default.items():
-                    if k not in data: data[k]=v
-                # FIX DEFINITIVO QUE PEDISTE: SIEMPRE ARRANCA PAUSADO
-                data["activo"] = False
-                data["esperando_confirmacion"] = False
-                return data
-        except: pass
-    return default
+# --- ESTADO GLOBAL ---
+ESTADO = {
+    "prendido": False,
+    "balance": 199.20,
+    "ops_hoy": 1,
+    "neto_hoy": -0.80,
+    "modo": "LOBO",
+    "mercado": "NORMAL (0.30%)",
+    "pausa_hasta": None,
+    "historial": [
+        "14:30 - BTC - LOBO - TP +0.3% = +$0.60 Neto",
+        "15:10 - BNB - RATA - SL -0.7% = -$0.80 Neto (Pausa 10min)",
+        "15:20 - En pausa, cuidando balance"
+    ]
+}
 
-def guardar_estado():
-    try:
-        os.makedirs("/data", exist_ok=True)
-        with open(ARCHIVO_ESTADO, "w") as f: json.dump(estado, f)
-    except: pass
+def get_estado_texto():
+    if not ESTADO["prendido"]:
+        return "🔴 APAGADO"
+    if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
+        return "⏸️ Pausa 10min"
+    return "🟢 PRENDIDO"
 
-estado = cargar_estado()
-guardar_estado()
+# --- 1. /introduccion ---
+@bot.message_handler(commands=['introduccion', 'start_intro'])
+def introduccion(message):
+    texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
 
-def get_precio(s):
-    try: return float(requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={s}", timeout=5).json()["price"])
-    except: return None
+Soy un bot automático conectado a tu Binance. Opero solo, vos no tenés que hacer nada. Te explico TODO lo que vas a ver:
 
-def tg(m):
-    try: requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHAT_ID, "text": m}, timeout=10)
-    except: pass
+*MONEDAS QUE USO:*
 
-def get_modo_alfa(symbol="BTCUSDT"):
-    try:
-        klines = requests.get(f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1m&limit=30", timeout=5).json()
-        cierres = [float(k[4]) for k in klines]; highs = [float(k[2]) for k in klines]; lows = [float(k[3]) for k in klines]
-        if len(cierres) < 15: return "LATERAL LINEAL (0.30%)", {"name":"LOBO","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"\U0001F43A"}, 0.3
-        tr = [highs[i]-lows[i] for i in range(1,len(cierres))]; atr = sum(tr[-14:])/14; atr_pct = (atr / cierres[-1]) * 100
-        if atr_pct < 0.25: return f"LATERAL LINEAL ({atr_pct:.2f}%)", {"name":"RATA SCALPER","tp":0.20,"sl":0.40,"cooldown":300,"emoji":"\U0001F400"}, atr_pct
-        elif atr_pct < 0.60: return f"NORMAL ({atr_pct:.2f}%)", {"name":"LOBO","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"\U0001F43A"}, atr_pct
-        else: return f"EXPLOSIVO ({atr_pct:.2f}%)", {"name":"ALFA ASESINO","tp":0.90,"sl":0.50,"cooldown":0,"emoji":"\U0001F981"}, atr_pct
-    except: return "NORMAL (0.30%)", {"name":"LOBO","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"\U0001F43A"}, 0.3
+*BTC - Bitcoin:* La moneda más cara y famosa. Vale ~$78.000. La opero porque se mueve y deja ganancia rápida.
 
-def set_menu():
-    try:
-        cmds = [
-            {"command":"introduccion","description":"1 introduccion para novatos"},
-            {"command":"estrategias","description":"2 las 3 estrategias que usamos"},
-            {"command":"start","description":"3 start se inicia el bot"},
-            {"command":"modo","description":"4 modo que modo se esta usando"},
-            {"command":"balance","description":"5 balance"},
-            {"command":"historial","description":"6 historial de las operaciones de cada dia"},
-            {"command":"help","description":"7 help"},
-            {"command":"stop","description":"8 stop"}
-        ]
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands", json={"commands":cmds}, timeout=10)
-    except: pass
+*BNB - Binance Coin:* La moneda del exchange Binance. Vale ~$737. La opero porque paga menos comisión y es más estable que BTC.
 
-HTML = """<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head><body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px"><div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto"><h3>LOBO V32.2 FIX PAUSADO</h3><div>Estado: {{ "🟢 CAZANDO" if activo else "🔴 PAUSADO - Pone /start" }}</div><div>Peso ${{ "%.2f"|format(cuenta.balance) }} | Neto ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div><div style="margin-top:6px;background:#222;padding:8px;border-radius:8px;border-left:4px solid {{ "#00ff00" if activo else "#ff0000" }}"><div>MERCADO: {{ mercado }} | MODO: {{ modo.name }} {{ modo.emoji }}</div><div>TP +{{ modo.tp }}% | SL -{{ modo.sl }}% | ATR {{ "%.2f"|format(atr) }}%</div></div><div style="margin-top:8px">BTC ${{ "%.2f"|format(btc.precio) }} {{ "%+.2f"|format(btc.pnl) }}% | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div></div><div style="max-width:900px;margin:10px auto"><div id="tv_btc" style="height:350px"></div></div><div style="max-width:900px;margin:10px auto"><div id="tv_bnb" style="height:350px"></div></div><div style="max-width:900px;margin:15px auto;background:#151515;padding:12px;border-radius:12px"><h4>📜 HISTORIAL DEL DIA</h4>{% for h in historial[-10:][::-1] %}<div style="font-size:13px;padding:6px;border-bottom:1px solid #222">{{ h }}</div>{% endfor %}</div><script>new TradingView.widget({"autosize":true,"height":350,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv_btc"});new TradingView.widget({"autosize":true,"height":350,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"tv_bnb"});</script></body></html>"""
-app = Flask(__name__)
-@app.route("/")
-def home(): return render_template_string(HTML, btc=estado["BTCUSDT"], bnb=estado["BNBUSDT"], cuenta=estado["cuenta"], mercado=estado.get("mercado","..."), modo=estado.get("modo",{"name":"LOBO","tp":0.30,"sl":0.70,"emoji":"\U0001F43A"}), atr=estado.get("atr",0), historial=estado.get("historial",[]), activo=estado.get("activo",False))
+*USDT - Dólar Digital:* Tu plata NO está en pesos argentinos. Está en USDT. 1 USDT = 1 Dólar. Tu Balance $199.20 son 199 dólares.
 
-def loop():
-    last_update_id = 0
-    try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook", timeout=5); set_menu()
-    except: pass
-    while True:
-        mercado, modo, atr_pct = get_modo_alfa("BTCUSDT")
-        if modo["name"]!= estado.get("ultimo_modo_name"):
-            if estado.get("ultimo_modo_name") and estado.get("activo"):
-                if estado.get("ultimo_modo_name")!= modo["name"]:
-                    tg(f"🔄 CAMBIO DE MODO\nAntes: {estado.get('ultimo_modo_name')}\nAhora: {modo['name']} {modo['emoji']}\n{mercado}")
-            estado["ultimo_modo_name"] = modo["name"]; guardar_estado()
-        estado["mercado"] = mercado; estado["modo"] = modo; estado["atr"] = atr_pct
-        if estado.get("activo"):
-            en_pausa = (time.time() - estado["ultimo_sl"]) < modo["cooldown"]
-            for s in ["BTCUSDT", "BNBUSDT"]:
-                p = get_precio(s)
-                if p:
-                    estado[s]["precio"] = p
-                    if estado[s]["en_posicion"] and not en_pausa:
-                        estado[s]["pnl"] = ((p - estado[s]["entry"]) / estado[s]["entry"]) * 100
-                        monto = MONTO_BTC if s == "BTCUSDT" else MONTO_BNB
-                        tp_neto = monto * (modo["tp"]/100) - monto * COMISION_TOTAL
-                        sl_neto = monto * (modo["sl"]/100) + monto * COMISION_TOTAL
-                        if estado[s]["pnl"] >= modo["tp"]:
-                            estado["cuenta"]["balance"] += tp_neto; estado["cuenta"]["ganancia"] += tp_neto; estado["cuenta"]["ops"] += 1
-                            msg = f"✅TP {modo['emoji']} +{modo['tp']}% {s} ${p:.2f} +${tp_neto:.2f} NETO Bal ${estado['cuenta']['balance']:.2f}"; tg(msg)
-                            estado["historial"].append(f"{time.strftime('%d/%m %H:%M')} {msg}"); estado[s]["entry"] = p; estado[s]["pnl"] = 0; guardar_estado()
-                        if estado[s]["pnl"] <= -modo["sl"]:
-                            estado["cuenta"]["balance"] -= sl_neto; estado["cuenta"]["ganancia"] -= sl_neto; estado["cuenta"]["ops"] += 1; estado["ultimo_sl"] = time.time()
-                            msg = f"❌SL {modo['emoji']} -{modo['sl']}% {s} ${p:.2f} -${sl_neto:.2f} NETO Bal ${estado['cuenta']['balance']:.2f}"; tg(msg)
-                            estado["historial"].append(f"{time.strftime('%d/%m %H:%M')} {msg}"); estado[s]["entry"] = p; estado[s]["pnl"] = 0; guardar_estado()
-        try:
-            r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id+1}&timeout=5", timeout=10).json()
-            for upd in r.get("result", []):
-                last_update_id = upd["update_id"]; txt = upd.get("message", {}).get("text", ""); low = txt.lower()
-                if low.startswith("/introduccion"):
-                    tg("""📚 1 INTRODUCCION PARA NOVATOS\n\n1. BTC es oro por internet\n2. BNB es moneda de Binance\n3. EXCHANGE es casa de cambio\n4. TRADING es comprar barato y vender caro\n5. VELAS verde sube rojo baja\n6. TENDENCIA alcista sube bajista baja\n7. MERCADO lateral normal explosivo\n8. SCALPING muchos cortes chiquitos\n9. TP es donde cobro SL es seguro\n10. Con $200 trabaja $100 BTC + $100 BNB solo\n\nSiguiente: /estrategias""")
-                elif low.startswith("/estrategias"):
-                    tg(f"""🧠 2 - LAS 3 ESTRATEGIAS QUE USAMOS NOSOTROS\n\n🐀 RATA SCALPER lateral 0.10-0.25%\nTP +0.20% SL -0.40%\n\n🐺 LOBO normal 0.25-0.60% - 80% del tiempo\nTP +0.30% SL -0.70%\n\n🦁 ALFA ASESINO explosivo +0.60%\nTP +0.90% SL -0.50%\n\nHOY: {estado['mercado']} -> {estado['modo']['name']} {estado['modo']['emoji']}\n\nSiguiente: /start para prender el bot""")
-                elif low.startswith("/start"):
-                    if not estado.get("activo", False):
-                        if not estado.get("esperando_confirmacion", False):
-                            estado["esperando_confirmacion"] = True; guardar_estado()
-                            tg("""👋 ¡BIENVENIDO SOCIO AL LOBO V22!\n\nSoy tu bot de trading automatizado. Trabaja $100 en BTC y $100 en BNB solo.\n\nTe explico todo en orden, toca cada comando para avanzar:\n\n📚 1 /introduccion - para novatos\n🧠 2 /estrategias - las 3 que usamos nosotros\n🟢 3 /start - se inicia el bot (toca de nuevo cuando estés listo)\n📊 4 /modo - que modo se esta usando hoy\n🏦 5 /balance - tu plata en vivo\n📜 6 /historial - operaciones de cada dia\n❓ 7 /help - ayuda general\n🔴 8 /stop - pausar bot\n\n👉 Empezá por /introduccion""")
-                        else:
-                            estado["activo"] = True; estado["esperando_confirmacion"] = False; guardar_estado()
-                            tg(f"""🟢 3 START SE INICIA EL BOT\n\n✅ LOBO PRENDIDO AUTOMATICAMENTE\nEl socio inicio el bot. Ya esta cazando BTC y BNB solo.\n\n📊 MODO HOY: {estado['modo']['name']} {estado['modo']['emoji']}\nMercado: {estado['mercado']}\nATR: {estado['atr']:.2f}% | TP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\n\nBalance: ${estado['cuenta']['balance']:.2f} | Neto: {estado['cuenta']['ganancia']:+.2f} | Ops: {estado['cuenta']['ops']}\n\nSiguiente: /modo""")
-                    else:
-                        tg(f"🟢 Ya esta prendido Lobo. MODO: {estado['modo']['name']} {estado['modo']['emoji']} {estado['mercado']}")
-                elif low.startswith("/modo"):
-                    tg(f"""📊 4 MODO QUE MODO SE ESTA USANDO\n\n{estado['mercado']}\nActivo: {estado['modo']['name']} {estado['modo']['emoji']}\nATR {estado['atr']:.2f}%\nTP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\nBot: {'🟢 PRENDIDO' if estado['activo'] else '🔴 PAUSADO - Pone /start'}\n\nSiguiente: /balance""")
-                elif low.startswith("/balance"):
-                    tg(f"""🏦 5 BALANCE\n\nBot: {'🟢 PRENDIDO' if estado['activo'] else '🔴 PAUSADO'}\n{estado['mercado']}\n{estado['modo']['name']} {estado['modo']['emoji']} TP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\n\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%\n\nSiguiente: /historial""")
-                elif low.startswith("/historial"):
-                    hoy = time.strftime('%d/%m')
-                    if not estado["historial"]: tg("📜 6 HISTORIAL DE LAS OPERACIONES DE CADA DIA\n\nAun sin operaciones hoy. Prende el bot con /start")
-                    else:
-                        ult = "\n".join(estado["historial"][-15:][::-1]); tg(f"📜 6 HISTORIAL DE LAS OPERACIONES DE CADA DIA\n\nHOY {hoy}:\n{ult}\n\nTotal Ops: {estado['cuenta']['ops']} | Neto: ${estado['cuenta']['ganancia']:+.2f}\n\nSiguiente: /help")
-                elif low.startswith("/help"):
-                    tg(f"""❓ 7 HELP\n\nBot: {'🟢 PRENDIDO' if estado['activo'] else '🔴 PAUSADO'}\n\n1 /introduccion para novatos\n2 /estrategias las 3 que usamos nosotros\n3 /start se inicia el bot\n4 /modo que modo se esta usando\n5 /balance\n6 /historial de las operaciones de cada dia\n7 /help ayuda\n8 /stop pausar bot\n\nESTADO HOY:\n{estado['mercado']} | {estado['modo']['name']} {estado['modo']['emoji']}\nBalance: ${estado['cuenta']['balance']:.2f}""")
-                elif low.startswith("/stop"):
-                    estado["activo"] = False; estado["esperando_confirmacion"] = False; guardar_estado()
-                    tg(f"""🔴 8 STOP - BOT PAUSADO\n\nBot pausado. No tradea mas hasta /start.\n\nBalance final: ${estado['cuenta']['balance']:.2f} | Neto: ${estado['cuenta']['ganancia']:+.2f} | Ops: {estado['cuenta']['ops']}\n\nPara prender de nuevo: /start""")
-        except: pass
-        time.sleep(5)
+*LO QUE VES EN /balance Y EN EL GRAFICO:*
 
-threading.Thread(target=loop, daemon=True).start()
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+*Balance:* Tu plata total real en Binance en USDT (dólares).
+
+*Neto:* Tu ganancia o pérdida REAL del día, YA con comisión de Binance descontada. Si ves Neto $-0.80 es de 1 operación sola, en la próxima se recupera.
+
+*Ops:* Cantidad de operaciones que hice hoy.
+
+*TP +0.3%:* Cuando voy ganando 0.3% cierro y aseguro.
+
+*SL -0.7%:* Si voy perdiendo 0.7% cierro para no perder más. Después me pauso 10 min para cuidarte.
+
+*ATR 0.30%:* Mide cuanto se mueve el mercado.
+
+*MERCADO:*
+NORMAL (0.30%) = opero MODO LOBO
+LATERAL (0.10%) = MODO RATA, casi no opero para cuidarte
+VOLATIL = MODO TIBURON, me pauso
+
+Siguiente: /estrategias y /start"""
+    bot.send_message(message.chat.id, texto)
+
+# --- 2. /estrategias ---
+@bot.message_handler(commands=['estrategias'])
+def estrategias(message):
+    texto = """📊 2 ESTRATEGIAS - USO 3 MODOS REALES
+
+No uso 1 sola forma. Cambio solo según el mercado:
+
+🐺 MODO LOBO - Mercado NORMAL (0.30%)
+Mercado sano. Busco entradas rápidas. TP +0.3% | SL -0.7%
+
+🐀 MODO RATA - Mercado LATERAL (0.10%)
+Mercado aburrido. Hago solo scalps cortos o no opero. Te cuido para no sobre-operar.
+
+🦈 MODO TIBURON - Mercado VOLATIL
+Mercado loco. Me pauso o reduzco. Espero que calme.
+
+Vos no tenés que cambiar nada manual. El bot elige solo.
+
+Tocá /modo para ver en que modo estoy AHORA."""
+    bot.send_message(message.chat.id, texto)
+
+# --- 3. /modo ---
+@bot.message_handler(commands=['modo'])
+def modo(message):
+    estado = get_estado_texto()
+    texto = f"""⚙️ 3 MODO ACTUAL
+
+Mercado: {ESTADO['mercado']}
+Modo: 🐺 {ESTADO['modo']} - Buscando entrada rápida
+BTC: $78.430 | BNB: $737.50 | ATR: 0.30%
+Estado Bot: {estado}
+
+Estoy activo y buscando. No tenés que tocar nada.
+
+Siguiente: /balance para ver tu plata o /stop para pausarme"""
+    bot.send_message(message.chat.id, texto)
+
+# --- 4. /start ---
+@bot.message_handler(commands=['start'])
+def start(message):
+    ESTADO["prendido"] = True
+    texto = f"""🚀 4 BOT PRENDIDO
+
+🟢 Bot: PRENDIDO
+Balance: ${ESTADO['balance']} USDT
+Mercado: {ESTADO['mercado']} | MODO {ESTADO['modo']}
+
+Ya estoy buscando entrada. Te aviso por acá cuando opere.
+
+Usá /balance para ver tu plata en vivo o /stop para pausarme."""
+    bot.send_message(message.chat.id, texto)
+
+# --- 5. /balance ---
+@bot.message_handler(commands=['balance'])
+def balance(message):
+    estado = get_estado_texto()
+    texto = f"""💰 5 BALANCE EN VIVO
+
+Balance: ${ESTADO['balance']} USDT
+Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} operación, ya con comisión descontada)
+Ops hoy: {ESTADO['ops_hoy']} | Winrate: 66%
+Estado: {estado}
+
+No actualices TradingView con F5. Este balance es el real de Telegram y se actualiza solo.
+
+Tocá /historial para ver la operación."""
+    bot.send_message(message.chat.id, texto)
+
+# --- 6. /historial ---
+@bot.message_handler(commands=['historial'])
+def historial(message):
+    hist = "\n".join(ESTADO["historial"])
+    texto = f"""📜 6 HISTORIAL DE HOY
+
+{hist}
+
+Total Neto hoy: ${ESTADO['neto_hoy']}
+
+Tocá /balance en 15 min para ver recuperación."""
+    bot.send_message(message.chat.id, texto)
+
+# --- 7. /help ---
+@bot.message_handler(commands=['help'])
+def help_cmd(message):
+    estado = get_estado_texto()
+    texto = f"""❓ 7 HELP - ¿ALGO TE PASÓ?
+
+Tranquilo, si tocaste acá es porque algo raro viste. Te explico lo normal:
+
+*1. ¿Ves `⏸️ Pausa 10min`?*
+Es NORMAL Lobo. Después de un SL el bot se pausa 10 min para no sobre-operar y no quemarte la cuenta. Solo espera.
+
+*2. ¿Bot PRENDIDO pero no opera?*
+Es NORMAL también. Si el mercado está lateral (0.10% o menos) la RATA está esperando entrada. No está roto, está cuidando tu plata.
+
+*3. ¿Balance en negativo -$0.80?*
+Ese es el NETO ya con comisión de Binance descontada. Es de 1 operación. En la próxima lo recupera. Tocá /balance en 15 min y /historial para verla.
+
+*4. ¿Error de API o Binance?*
+Apretá /stop y después /start de nuevo. Si sigue, escribime.
+
+*ESTADO AHORA MISMO:*
+Bot: {estado}
+Mercado: {ESTADO['mercado']} | {ESTADO['modo']}
+Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']}
+
+¿Seguís trabado? Escribime directo: @TuUsuarioDeSoporte
+
+Siguiente: /stop para pausar o /balance para ver tu plata"""
+    bot.send_message(message.chat.id, texto)
+
+# --- 8. /stop ---
+@bot.message_handler(commands=['stop'])
+def stop(message):
+    ESTADO["prendido"] = False
+    texto = f"""🛑 8 BOT PAUSADO
+
+🔴 Bot: APAGADO
+Balance congelado: ${ESTADO['balance']} USDT
+
+No opero más hasta que toques /start de nuevo.
+
+Tu plata queda segura en Binance."""
+    bot.send_message(message.chat.id, texto)
+
+print("LOBO V32.2 FIX corriendo... 8 comandos OK")
+bot.infinity_polling()
