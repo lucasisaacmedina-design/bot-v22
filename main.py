@@ -49,15 +49,10 @@ estado = cargar_estado()
 
 def get_precio(s):
     try:
-        if s == "BTCUSDT":
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=5).json()
-            return float(r["bitcoin"]["usd"])
-        else:
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd", timeout=5).json()
-            return float(r["binancecoin"]["usd"])
+        r = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={s}", timeout=5).json()
+        return float(r["price"])
     except:
         return None
-
 def tg(m):
     try:
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHAT_ID, "text": m}, timeout=10)
