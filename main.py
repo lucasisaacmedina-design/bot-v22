@@ -7,7 +7,8 @@ CHAT_ID = os.environ.get("CHAT_ID", "")
 estado = {
   "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
   "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
-  "cuenta": {"balance": 1000.0, "ganancia": 0.0, "ops": 0}
+  "cuenta": {"balance": 100.0, "ganancia": 0.0, "ops": 0}, # <-- ACA YA TE LO PUSE EN 100.00
+  "historial": []
 }
 
 def get_precio(s):
@@ -30,7 +31,7 @@ def tg(m):
 HTML = """<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
-<h3>🐺 LOBO V28.4 SL -0.8% / TP +0.25% AUTO</h3>
+<h3>🐺 LOBO V28.5 SL -0.8% / TP +0.25% AUTO + HISTORIAL</h3>
 <div>Bal ${{ "%.2f"|format(cuenta.balance) }} | Neta ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div>
 <div>BTC ${{ "%.2f"|format(btc.precio) }} {{ "%+.2f"|format(btc.pnl) }}% {{ "🟢 EN POS" if btc.en_posicion else "🔴 ESPERANDO" }} | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
 </div>
@@ -60,7 +61,9 @@ def loop():
                         estado["cuenta"]["balance"] += 0.18
                         estado["cuenta"]["ganancia"] += 0.18
                         estado["cuenta"]["ops"] += 1
-                        tg(f"✅ TP +0.25% {s} ${p:.2f} +$0.18 Bal ${estado['cuenta']['balance']:.2f}")
+                        msg = f"✅ TP +0.25% {s} ${p:.2f} +$0.18 Bal ${estado['cuenta']['balance']:.2f}"
+                        tg(msg)
+                        estado["historial"].append(msg) # <-- GUARDA HISTORIAL
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
                         tg(f"🔄 RECOMPRA TP {s} ${p:.2f}")
@@ -68,7 +71,9 @@ def loop():
                         estado["cuenta"]["balance"] -= 0.18
                         estado["cuenta"]["ganancia"] -= 0.18
                         estado["cuenta"]["ops"] += 1
-                        tg(f"❌ SL -0.8% {s} ${p:.2f} -$0.18 Bal ${estado['cuenta']['balance']:.2f}")
+                        msg = f"❌ SL -0.8% {s} ${p:.2f} -$0.18 Bal ${estado['cuenta']['balance']:.2f}"
+                        tg(msg)
+                        estado["historial"].append(msg) # <-- GUARDA HISTORIAL
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
                         tg(f"🔄 RECOMPRA SL {s} ${p:.2f}")
@@ -89,7 +94,14 @@ def loop():
                             estado[s]["pnl"] = 0
                         tg(f"🟢 COMPRA SL/TP\nBTC ${estado['BTCUSDT']['precio']:.2f}\nBNB ${estado['BNBUSDT']['precio']:.2f}\nTP +0.25% SL -0.8% AUTO ON")
                     if "/balance" in txt:
-                        tg(f"🏦 V28.4 SL/TP\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
+                        tg(f"🏦 V28.5 SL/TP\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
+                    if "/historial" in txt: # <-- NUEVO COMANDO
+                        if not estado["historial"]:
+                            tg("📜 Todavía no hay ops Lobo 🐺")
+                        else:
+                            ultimos = estado["historial"][-10:]
+                            texto = "📜 ÚLTIMOS 10 OPS V28.5:\n\n" + "\n".join(ultimos)
+                            tg(texto)
         except Exception as e:
             print(e)
         time.sleep(5)
