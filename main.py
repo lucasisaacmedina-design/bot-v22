@@ -14,30 +14,28 @@ PAUSA_SL_SEG = 600
 ARCHIVO_ESTADO = "/data/estado.json"
 
 def cargar_estado():
-    if os.path.exists(ARCHIVO_ESTADO):
-        try:
-            with open(ARCHIVO_ESTADO, "r") as f:
-                data = json.load(f)
-                # BLINDAJE LOBO: si viene $195.95 lo resetea a $200
-                if data.get("cuenta", {}).get("balance", 200) < 199:
-                    print("Reseteando balance viejo a $200")
-                    return {
-                        "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
-                        "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
-                        "cuenta": {"balance": 200.0, "ganancia": 0.0, "ops": 0},
-                        "historial": [],
-                        "ultimo_sl": 0
-                    }
-                return data
-        except:
-            pass
-    return {
+    default = {
         "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
         "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
         "cuenta": {"balance": 200.0, "ganancia": 0.0, "ops": 0},
         "historial": [],
         "ultimo_sl": 0
     }
+    if os.path.exists(ARCHIVO_ESTADO):
+        try:
+            with open(ARCHIVO_ESTADO, "r") as f:
+                data = json.load(f)
+                if "cuenta" not in data and "balance" in data:
+                    default["cuenta"]["balance"] = float(data.get("balance",200))
+                    default["cuenta"]["ganancia"] = float(data.get("ganancia",0))
+                    default["cuenta"]["ops"] = int(data.get("ops",0))
+                    return default
+                if data.get("cuenta",{}).get("balance",200) < 199:
+                    return default
+                return data
+        except:
+            pass
+    return default
 
 def guardar_estado():
     try:
