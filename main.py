@@ -83,7 +83,7 @@ def set_menu():
     try:
         cmds = [
             {"command":"introduccion","description":"1 introduccion para novatos"},
-            {"command":"estrategias","description":"2 estrategias las que usamos nosotros"},
+            {"command":"estrategias","description":"2 las 3 estrategias que usamos"},
             {"command":"start","description":"3 start se inicia el bot"},
             {"command":"modo","description":"4 modo que modo se esta usando"},
             {"command":"balance","description":"5 balance"},
@@ -104,7 +104,7 @@ HTML = """
 </head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
-<h3>LOBO V31 EMBUDO 235 LINEAS</h3>
+<h3>LOBO V32 BIENVENIDA + INDICE</h3>
 <div>Estado: {{ "🟢 CAZANDO" if activo else "🔴 PAUSADO - Pone /start" }}</div>
 <div>Bal ${{ "%.2f"|format(cuenta.balance) }} | Neta ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div>
 <div style="margin-top:6px;background:#222;padding:8px;border-radius:8px;border-left:4px solid {{ "#00ff00" if activo else "#ff0000" }}">
@@ -212,34 +212,29 @@ def loop():
                     tg("""📚 1 INTRODUCCION PARA NOVATOS\n\n1. BTC es oro por internet\n2. BNB es moneda de Binance\n3. EXCHANGE es casa de cambio\n4. TRADING es comprar barato y vender caro\n5. VELAS verde sube rojo baja\n6. TENDENCIA alcista sube bajista baja\n7. MERCADO lateral normal explosivo\n8. SCALPING muchos cortes chiquitos\n9. TP es donde cobro SL es seguro\n10. Con $200 trabaja $100 BTC + $100 BNB solo\n\nSiguiente: /estrategias""")
 
                 elif low.startswith("/estrategias"):
-                    tg(f"""🧠 2 ESTRATEGIAS LAS QUE USAMOS NOSOTROS\n\n🐀 RATA SCALPER lateral 0.10-0.25%\nTP +0.20% SL -0.40%\n\n🐺 LOBO normal 0.25-0.60% - 80% del tiempo\nTP +0.30% SL -0.70%\n\n🦁 ALFA ASESINO explosivo +0.60%\nTP +0.90% SL -0.50%\n\nHOY: {estado['mercado']} -> {estado['modo']['name']} {estado['modo']['emoji']}\n\nSiguiente: /start para prender el bot""")
+                    tg(f"""🧠 2 - LAS 3 ESTRATEGIAS QUE USAMOS NOSOTROS\n\n🐀 RATA SCALPER lateral 0.10-0.25%\nTP +0.20% SL -0.40%\n\n🐺 LOBO normal 0.25-0.60% - 80% del tiempo\nTP +0.30% SL -0.70%\n\n🦁 ALFA ASESINO explosivo +0.60%\nTP +0.90% SL -0.50%\n\nHOY: {estado['mercado']} -> {estado['modo']['name']} {estado['modo']['emoji']}\n\nSiguiente: /start para prender el bot""")
 
                 elif low.startswith("/start"):
                     if estado.get("primera_vez", True):
                         estado["primera_vez"] = False
                         guardar_estado()
-                        tg(f"""👋 ¡BIENVENIDO SOCIO AL LOBO V22!
+                        # ESTO ES LO QUE PEDISTE: SOLO BIENVENIDA + INDICE ORDENADO
+                        tg("""👋 ¡BIENVENIDO SOCIO AL LOBO V22!
 
-Veo que tocaste Iniciar bot por primera vez, te explico en 1 minuto antes de prender:
+Soy tu bot de trading automatizado. Trabaja $100 en BTC y $100 en BNB solo.
 
-📚 1 INTRODUCCION PARA NOVATOS
-BTC es oro por internet, BNB es moneda de Binance
-Trading es comprar barato y vender caro
-Con $200 trabajamos $100 BTC + $100 BNB solo
+Te explico todo en orden, toca cada comando para avanzar:
 
-🧠 2 ESTRATEGIAS QUE USAMOS
-🐀 RATA: mercado lateral TP +0.20%
-🐺 LOBO: mercado normal TP +0.30% (80% del tiempo)
-🦁 ALFA: mercado explosivo TP +0.90%
+📚 1 /introduccion - para novatos
+🧠 2 /estrategias - las 3 que usamos nosotros
+🟢 3 /start - se inicia el bot (toca de nuevo cuando estés listo)
+📊 4 /modo - que modo se esta usando hoy
+🏦 5 /balance - tu plata en vivo
+📜 6 /historial - operaciones de cada dia
+❓ 7 /help - ayuda general
+🔴 8 /stop - pausar bot
 
-HOY ESTAMOS EN: {estado['mercado']}
-MODO: {estado['modo']['name']} {estado['modo']['emoji']}
-
-Detalle:
-👉 /introduccion
-👉 /estrategias
-
-¿Entendiste? Ahora toca de nuevo /start para PRENDER EL BOT 🟢""")
+👉 Empezá por /introduccion""")
                     else:
                         estado["activo"] = True
                         guardar_estado()
@@ -260,7 +255,7 @@ Detalle:
                         tg(f"📜 6 HISTORIAL DE LAS OPERACIONES DE CADA DIA\n\nHOY {hoy}:\n{ult}\n\nTotal Ops: {estado['cuenta']['ops']} | Neto: ${estado['cuenta']['ganancia']:+.2f}\n\nSiguiente: /help")
 
                 elif low.startswith("/help"):
-                    tg(f"""❓ 7 HELP\n\nBot: {'🟢 PRENDIDO' if estado['activo'] else '🔴 PAUSADO'}\n\n1 /introduccion para novatos\n2 /estrategias las que usamos nosotros\n3 /start se inicia el bot\n4 /modo que modo se esta usando\n5 /balance\n6 /historial de las operaciones de cada dia\n7 /help ayuda\n8 /stop pausar bot\n\nESTADO HOY:\n{estado['mercado']} | {estado['modo']['name']} {estado['modo']['emoji']}\nBalance: ${estado['cuenta']['balance']:.2f}""")
+                    tg(f"""❓ 7 HELP\n\nBot: {'🟢 PRENDIDO' if estado['activo'] else '🔴 PAUSADO'}\n\n1 /introduccion para novatos\n2 /estrategias las 3 que usamos nosotros\n3 /start se inicia el bot\n4 /modo que modo se esta usando\n5 /balance\n6 /historial de las operaciones de cada dia\n7 /help ayuda\n8 /stop pausar bot\n\nESTADO HOY:\n{estado['mercado']} | {estado['modo']['name']} {estado['modo']['emoji']}\nBalance: ${estado['cuenta']['balance']:.2f}""")
 
                 elif low.startswith("/stop"):
                     estado["activo"] = False
