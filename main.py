@@ -4,7 +4,6 @@ from flask import Flask, render_template_string
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 CHAT_ID = os.environ.get("CHAT_ID", "")
 
-# --- CONFIG V29 ALFA ASESINO ---
 MONTO_BTC = 100.0
 MONTO_BNB = 100.0
 COMISION_TOTAL = 0.001
@@ -18,23 +17,15 @@ def cargar_estado():
         "historial": [],
         "ultimo_sl": 0,
         "mercado": "ANALIZANDO...",
-        "modo": {"name":"LOBO 🐺", "tp":0.30, "sl":0.70, "emoji":"🐺"}
+        "modo": {"name":"LOBO 🐺", "tp":0.30, "sl":0.70, "cooldown":600,"emoji":"🐺"},
+        "atr": 0.30
     }
     if os.path.exists(ARCHIVO_ESTADO):
         try:
             with open(ARCHIVO_ESTADO, "r") as f:
                 data = json.load(f)
-                if "cuenta" not in data and "balance" in data:
-                    default["cuenta"]["balance"] = float(data.get("balance",200))
-                    default["cuenta"]["ganancia"] = float(data.get("ganancia",0))
-                    default["cuenta"]["ops"] = int(data.get("ops",0))
-                    return default
-                if data.get("cuenta",{}).get("balance",200) < 199:
-                    default["cuenta"] = data.get("cuenta", default["cuenta"])
-                    return default
                 return data
-        except:
-            pass
+        except: pass
     return default
 
 def guardar_estado():
@@ -42,8 +33,7 @@ def guardar_estado():
         os.makedirs("/data", exist_ok=True)
         with open(ARCHIVO_ESTADO, "w") as f:
             json.dump(estado, f)
-    except Exception as e:
-        print(f"Error guardando: {e}")
+    except: pass
 
 estado = cargar_estado()
 
@@ -51,16 +41,12 @@ def get_precio(s):
     try:
         r = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={s}", timeout=5).json()
         return float(r["price"])
-    except:
-        return None
+    except: return None
 
 def tg(m):
-    try:
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHAT_ID, "text": m}, timeout=10)
-    except:
-        pass
+    try: requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHAT_ID, "text": m}, timeout=10)
+    except: pass
 
-# === CEREBRO 1: INTERPRETE ===
 def get_modo_alfa(symbol="BTCUSDT"):
     try:
         klines = requests.get(f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1m&limit=30", timeout=5).json()
@@ -72,46 +58,56 @@ def get_modo_alfa(symbol="BTCUSDT"):
         tr = [highs[i]-lows[i] for i in range(1,len(cierres))]
         atr = sum(tr[-14:])/14
         atr_pct = (atr / cierres[-1]) * 100
-
         if atr_pct < 0.25:
             return f"LATERAL LINEAL ({atr_pct:.2f}%)", {"name":"RATA SCALPER 🐀","tp":0.20,"sl":0.40,"cooldown":300,"emoji":"🐀"}, atr_pct
         elif atr_pct < 0.60:
-            return f"TENDENCIA SUAVE ({atr_pct:.2f}%)", {"name":"LOBO 🐺","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"🐺"}, atr_pct
+            return f"NORMAL ({atr_pct:.2f}%)", {"name":"LOBO 🐺","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"🐺"}, atr_pct
         else:
             return f"EXPLOSIVO 🔥 ({atr_pct:.2f}%)", {"name":"ALFA ASESINO 🦁💀","tp":0.90,"sl":0.50,"cooldown":0,"emoji":"🦁"}, atr_pct
     except:
         return "NORMAL", {"name":"LOBO 🐺","tp":0.30,"sl":0.70,"cooldown":600,"emoji":"🐺"}, 0.3
 
-HTML = """<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
+HTML = """
+<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
-<h3>🐺LOBO V29 ALFA ASESINO $100+$100</h3>
+<h3>🐺 LOBO V29.2 ALFA SOCIOS $100+$100</h3>
 <div>Bal ${{ "%.2f"|format(cuenta.balance) }} | Neta ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div>
 <div style="margin-top:6px;background:#222;padding:8px;border-radius:8px;border-left:4px solid #f5a623">
 <div>MERCADO: {{ mercado }} | MODO: {{ modo.name }} {{ modo.emoji }}</div>
 <div style="font-size:12px">TP +{{ modo.tp }}% | SL -{{ modo.sl }}% | ATR {{ "%.2f"|format(atr) }}%</div>
 </div>
-<div style="margin-top:8px">BTC ${{ "%.2f"|format(btc.precio) }} {{ "%+.2f"|format(btc.pnl) }}% {{ '🟢EN POS' if btc.en_posicion else '🔴ESPERA' }} | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
+<div style="margin-top:8px">BTC ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(btc.pnl) }}% | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
 </div>
-<div style="max-width:900px;margin:10px auto"><div id="tv_btc" style="height:400px"></div></div>
-<div style="max-width:900px;margin:10px auto"><div id="tv_bnb" style="height:400px"></div></div>
+<div style="max-width:900px;margin:10px auto"><div id="tv_btc" style="height:350px"></div></div>
+<div style="max-width:900px;margin:10px auto"><div id="tv_bnb" style="height:350px"></div></div>
+<div style="max-width:900px;margin:15px auto;background:#151515;padding:12px;border-radius:12px;border:1px solid #333">
+<h4 style="margin:0 0 8px 0">📜 HISTORIAL SOCIOS (Automático)</h4>
+{% if historial %}
+{% for h in historial[-5:][::-1] %}
+<div style="font-size:13px;padding:6px;border-bottom:1px solid #222">{{ h }}</div>
+{% endfor %}
+{% else %}
+<div style="font-size:13px;color:#888">Aún sin cierres en esta versión. Cuando cierre un TP/SL aparece acá solo.</div>
+{% endif %}
+<div style="font-size:11px;color:#666;margin-top:8px">🔒 Vista solo lectura - Plan Socio $20/mes (Próximamente)</div>
+</div>
 <script>
-new TradingView.widget({"autosize":true,"height":400,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv_btc"});
-new TradingView.widget({"autosize":true,"height":400,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"tv_bnb"});
-</script></body></html>"""
+new TradingView.widget({"autosize":true,"height":350,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"tv_btc"});
+new TradingView.widget({"autosize":true,"height":350,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"tv_bnb"});
+</script></body></html>
+"""
 
 app = Flask(__name__)
-
 @app.route("/")
 def home():
-    return render_template_string(HTML, btc=estado["BTCUSDT"], bnb=estado["BNBUSDT"], cuenta=estado["cuenta"], mercado=estado.get("mercado","..."), modo=estado.get("modo",{"name":"LOBO","tp":0.30,"sl":0.70,"emoji":"🐺"}), atr=estado.get("atr",0))
+    return render_template_string(HTML, btc=estado["BTCUSDT"], bnb=estado["BNBUSDT"], cuenta=estado["cuenta"], mercado=estado.get("mercado","..."), modo=estado.get("modo",{"name":"LOBO","tp":0.30,"sl":0.70,"emoji":"🐺"}), atr=estado.get("atr",0), historial=estado.get("historial",[]))
 
 def loop():
     last_update_id = 0
     try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook", timeout=5)
     except: pass
     while True:
-        # INTERPRETA MERCADO CADA CICLO
         mercado, modo, atr_pct = get_modo_alfa("BTCUSDT")
         estado["mercado"] = mercado
         estado["modo"] = modo
@@ -119,7 +115,6 @@ def loop():
         PAUSA_SL_SEG = modo["cooldown"]
         TP_PORC = modo["tp"]
         SL_PORC = modo["sl"]
-
         en_pausa = (time.time() - estado["ultimo_sl"]) < PAUSA_SL_SEG
         for s in ["BTCUSDT", "BNBUSDT"]:
             p = get_precio(s)
@@ -136,7 +131,7 @@ def loop():
                         estado["cuenta"]["ops"] += 1
                         msg = f"✅TP {modo['emoji']} +{TP_PORC}% {s} ${p:.2f} +${tp_neto:.2f} NETO | {mercado} Bal ${estado['cuenta']['balance']:.2f}"
                         tg(msg)
-                        estado["historial"].append(msg)
+                        estado["historial"].append(f"{time.strftime('%d/%m %H:%M')} {msg}")
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
                         guardar_estado()
@@ -147,7 +142,7 @@ def loop():
                         estado["ultimo_sl"] = time.time()
                         msg = f"❌SL {modo['emoji']} -{SL_PORC}% {s} ${p:.2f} -${sl_neto:.2f} NETO | {mercado} Bal ${estado['cuenta']['balance']:.2f}"
                         tg(msg)
-                        estado["historial"].append(msg)
+                        estado["historial"].append(f"{time.strftime('%d/%m %H:%M')} {msg}")
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
                         guardar_estado()
@@ -157,15 +152,47 @@ def loop():
                 last_update_id = upd["update_id"]
                 txt = upd.get("message", {}).get("text", "")
                 if txt.startswith("/start"):
-                    tg(f"🐺 LOBO V29 ALFA ACTIVO\n{estado['mercado']} | {estado['modo']['name']}\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\n/balance")
+                    modo_actual = estado.get("modo", {}).get("name","LOBO 🐺")
+                    mercado_actual = estado.get("mercado","ANALIZANDO...")
+                    texto_start = f"""🐺 LOBO V29.2 ALFA ASESINO - BOT AUTOMATICO 24HS
+
+Que hace este bot?
+Caza BTC y BNB con $100 en cada moneda, con TP/SL neto automático. Vos solo mirás.
+
+🧠 TIENE 3 ESTRATEGIAS Y ELIGE SOLA:
+
+🐀 1. RATA SCALPER (Mercado Lateral Lineal 0.10% - 0.25%)
+Cuando el mercado está aburrido y lateral. No arriesga.
+TP +0.20% ( +$0.10 neto ) | SL -0.40% | Pausa 5 min
+Ideal para no perder en días muertos.
+
+🐺 2. LOBO (Mercado Normal 0.25% - 0.60%)
+Nuestra base segura, la que usamos siempre.
+TP +0.30% ( +$0.20 neto ) | SL -0.70% | Pausa 10 min
+Equilibrio perfecto para socios.
+
+🦁 3. ALFA ASESINO (Mercado Explosivo +0.60%)
+Cuando detecta velas grandes y volatilidad, se transforma y va por todo.
+TP +0.90% ( +$0.80 neto ) | SL -0.50% | Sin pausa
+Acá es donde hace la diferencia y caza fuerte.
+
+📊 ESTADO DE HOY:
+{mercado_actual}
+MODO ACTIVO: {modo_actual}
+Se está aplicando la estrategia {modo_actual} en este momento.
+
+Tu balance: ${estado['cuenta']['balance']:.2f} | Neto: {estado['cuenta']['ganancia']:+.2f} | Ops: {estado['cuenta']['ops']}
+
+Comandos:
+/balance - ver ganancia y PnL en vivo
+"""
+                    tg(texto_start)
                 elif txt.startswith("/balance"):
-                    tg(f"🏦 V29 ALFA\n{estado['mercado']}\nMODO {estado['modo']['name']} TP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
-        except:
-            pass
+                    tg(f"🏦 V29.2\n{estado['mercado']}\nMODO {estado['modo']['name']} TP +{estado['modo']['tp']}% SL -{estado['modo']['sl']}%\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
+        except: pass
         time.sleep(5)
 
 threading.Thread(target=loop, daemon=True).start()
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
