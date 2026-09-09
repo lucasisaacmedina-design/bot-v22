@@ -88,12 +88,10 @@ def home():
 
 def loop():
     last_update_id = 0
-    # Borra webhook viejo para que funcione /start
     try:
         requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook", timeout=5)
     except:
         pass
-
     while True:
         en_pausa = (time.time() - estado["ultimo_sl"]) < PAUSA_SL_SEG
         for s in ["BTCUSDT", "BNBUSDT"]:
@@ -105,7 +103,6 @@ def loop():
                     monto = MONTO_BTC if s == "BTCUSDT" else MONTO_BNB
                     tp_neto = monto * (TP_PORC/100) - monto * COMISION_TOTAL
                     sl_neto = monto * (SL_PORC/100) + monto * COMISION_TOTAL
-
                     if estado[s]["pnl"] >= TP_PORC:
                         estado["cuenta"]["balance"] += tp_neto
                         estado["cuenta"]["ganancia"] += tp_neto
@@ -117,7 +114,6 @@ def loop():
                         estado[s]["pnl"] = 0
                         tg(f"🔄RECOMPRA TP {s} ${p:.2f}")
                         guardar_estado()
-
                     if estado[s]["pnl"] <= -SL_PORC:
                         estado["cuenta"]["balance"] -= sl_neto
                         estado["cuenta"]["ganancia"] -= sl_neto
@@ -130,8 +126,6 @@ def loop():
                         estado[s]["pnl"] = 0
                         tg(f"🔄RECOMPRA SL {s} ${p:.2f} - Esperando 10min")
                         guardar_estado()
-
-        # --- TELEGRAM ARREGLADO ---
         try:
             r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id+1}&timeout=5", timeout=10).json()
             for upd in r.get("result", []):
@@ -145,7 +139,11 @@ def loop():
                     tg(f"🏦 V28.7 $100+$100\nBal ${estado['cuenta']['balance']:.2f} Neto ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {btc_var:+.2f}% BNB {bnb_var:+.2f}%\nTP +$0.20 neto SL -$0.80 neto")
         except:
             pass
-
         time.sleep(5)
 
 threading.Thread(target=loop, daemon=True).start()
+
+# --- ESTO ERA LO QUE FALTABA Y HACIA QUE SE CAYERA ---
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
