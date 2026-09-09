@@ -15,8 +15,8 @@ ARCHIVO_ESTADO = "/data/estado.json"
 
 def cargar_estado():
     default = {
-        "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
-        "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
+        "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": True},
+        "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": True},
         "cuenta": {"balance": 200.0, "ganancia": 0.0, "ops": 0},
         "historial": [],
         "ultimo_sl": 0
