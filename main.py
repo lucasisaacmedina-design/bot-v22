@@ -4,10 +4,17 @@ from flask import Flask, render_template_string
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 CHAT_ID = os.environ.get("CHAT_ID", "")
 
+# --- CONFIG V28.6 PRUEBA ---
+MONTO_BTC = 100.0
+MONTO_BNB = 100.0
+COMISION_TOTAL = 0.001 # 0.1% Binance con BNB aprox entrada+salida ya
+TP_PORC = 0.25
+SL_PORC = 0.8
+
 estado = {
   "BTCUSDT": {"precio": 78368, "entry": 78368, "pnl": 0.0, "en_posicion": False},
   "BNBUSDT": {"precio": 749.06, "entry": 749.06, "pnl": 0.0, "en_posicion": False},
-  "cuenta": {"balance": 100.0, "ganancia": 0.0, "ops": 0}, # <-- ACA YA TE LO PUSE EN 100.00
+  "cuenta": {"balance": 200.0, "ganancia": 0.0, "ops": 0}, # $100 + $100 = $200
   "historial": []
 }
 
@@ -31,7 +38,7 @@ def tg(m):
 HTML = """<html><head><meta name="viewport" content="width=device-width"><script src="https://s3.tradingview.com/tv.js"></script></head>
 <body style="background:#0a0a0a;color:#fff;font-family:Arial;padding:10px">
 <div style="background:#1a1a1a;padding:12px;border-radius:12px;max-width:900px;margin:auto">
-<h3>🐺 LOBO V28.5 SL -0.8% / TP +0.25% AUTO + HISTORIAL</h3>
+<h3>🐺 LOBO V28.6 $100 BTC + $100 BNB NETO</h3>
 <div>Bal ${{ "%.2f"|format(cuenta.balance) }} | Neta ${{ "%+.2f"|format(cuenta.ganancia) }} | Ops {{ cuenta.ops }}</div>
 <div>BTC ${{ "%.2f"|format(btc.precio) }} {{ "%+.2f"|format(btc.pnl) }}% {{ "🟢 EN POS" if btc.en_posicion else "🔴 ESPERANDO" }} | BNB ${{ "%.2f"|format(bnb.precio) }} {{ "%+.2f"|format(bnb.pnl) }}%</div>
 </div>
@@ -57,23 +64,29 @@ def loop():
                 estado[s]["precio"] = p
                 if estado[s]["en_posicion"]:
                     estado[s]["pnl"] = ((p - estado[s]["entry"]) / estado[s]["entry"]) * 100
-                    if estado[s]["pnl"] >= 0.25:
-                        estado["cuenta"]["balance"] += 0.18
-                        estado["cuenta"]["ganancia"] += 0.18
+
+                    monto = MONTO_BTC if s == "BTCUSDT" else MONTO_BNB
+                    tp_neto = monto * (TP_PORC/100) - monto * COMISION_TOTAL # $0.15
+                    sl_neto = monto * (SL_PORC/100) + monto * COMISION_TOTAL # $0.90
+
+                    if estado[s]["pnl"] >= TP_PORC:
+                        estado["cuenta"]["balance"] += tp_neto
+                        estado["cuenta"]["ganancia"] += tp_neto
                         estado["cuenta"]["ops"] += 1
-                        msg = f"✅ TP +0.25% {s} ${p:.2f} +$0.18 Bal ${estado['cuenta']['balance']:.2f}"
+                        msg = f"✅ TP +{TP_PORC}% {s} ${p:.2f} +${tp_neto:.2f} NETO Bal ${estado['cuenta']['balance']:.2f}"
                         tg(msg)
-                        estado["historial"].append(msg) # <-- GUARDA HISTORIAL
+                        estado["historial"].append(msg)
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
                         tg(f"🔄 RECOMPRA TP {s} ${p:.2f}")
-                    if estado[s]["pnl"] <= -0.8:
-                        estado["cuenta"]["balance"] -= 0.18
-                        estado["cuenta"]["ganancia"] -= 0.18
+
+                    if estado[s]["pnl"] <= -SL_PORC:
+                        estado["cuenta"]["balance"] -= sl_neto
+                        estado["cuenta"]["ganancia"] -= sl_neto
                         estado["cuenta"]["ops"] += 1
-                        msg = f"❌ SL -0.8% {s} ${p:.2f} -$0.18 Bal ${estado['cuenta']['balance']:.2f}"
+                        msg = f"❌ SL -{SL_PORC}% {s} ${p:.2f} -${sl_neto:.2f} NETO Bal ${estado['cuenta']['balance']:.2f}"
                         tg(msg)
-                        estado["historial"].append(msg) # <-- GUARDA HISTORIAL
+                        estado["historial"].append(msg)
                         estado[s]["entry"] = p
                         estado[s]["pnl"] = 0
                         tg(f"🔄 RECOMPRA SL {s} ${p:.2f}")
@@ -92,15 +105,15 @@ def loop():
                             estado[s]["entry"] = p
                             estado[s]["en_posicion"] = True
                             estado[s]["pnl"] = 0
-                        tg(f"🟢 COMPRA SL/TP\nBTC ${estado['BTCUSDT']['precio']:.2f}\nBNB ${estado['BNBUSDT']['precio']:.2f}\nTP +0.25% SL -0.8% AUTO ON")
+                        tg(f"🟢 COMPRA V28.6\nBTC ${estado['BTCUSDT']['precio']:.2f} ($100)\nBNB ${estado['BNBUSDT']['precio']:.2f} ($100)\nTP +0.25% SL -0.8% NETO")
                     if "/balance" in txt:
-                        tg(f"🏦 V28.5 SL/TP\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%")
-                    if "/historial" in txt: # <-- NUEVO COMANDO
+                        tg(f"🏦 V28.6 $100+$100\nBal ${estado['cuenta']['balance']:.2f} Neta ${estado['cuenta']['ganancia']:+.2f} Ops {estado['cuenta']['ops']}\nBTC {estado['BTCUSDT']['pnl']:+.2f}% BNB {estado['BNBUSDT']['pnl']:+.2f}%\nTP neto +$0.15 SL neto -$0.90")
+                    if "/historial" in txt:
                         if not estado["historial"]:
                             tg("📜 Todavía no hay ops Lobo 🐺")
                         else:
                             ultimos = estado["historial"][-10:]
-                            texto = "📜 ÚLTIMOS 10 OPS V28.5:\n\n" + "\n".join(ultimos)
+                            texto = "📜 ÚLTIMOS 10 OPS V28.6 NETO:\n\n" + "\n".join(ultimos)
                             tg(texto)
         except Exception as e:
             print(e)
