@@ -12,23 +12,24 @@ app = Flask(__name__)
 
 ESTADO = {
     "prendido": False,
-    "balance": 199.20,
-    "ops_hoy": 3,  # CORREGIDO: 2W + 1L = 3
-    "neto_hoy": -0.80,
+    "balance": 199.60, # REAL: 200 base -0.40 neto
+    "ops_hoy": 4,      # REAL: 2W + 2L = 4
+    "neto_hoy": -0.40, # REAL: 0.60+0.60-0.80-0.80 = -0.40
     "ganadas": 2,
-    "perdidas": 1,
+    "perdidas": 2,
     "modo": "LOBO",
     "mercado": "NORMAL (0.30%)",
     "pausa_hasta": None,
     "btc": 78430,
     "bnb": 737.50,
     "historial": [
+        "14:00 - BTC - LOBO - TP +0.3% = +$0.60 Neto",
         "14:30 - BTC - LOBO - TP +0.3% = +$0.60 Neto",
-        "15:10 - BNB - RATA - SL -0.7% = -$0.80 Neto (Pausa 10min)",
-        "15:20 - En pausa, cuidando balance"
+        "15:10 - BNB - RATA - SL -0.7% = -$0.80 Neto",
+        "01:33 - BNB - RATA - SL -0.7% = -$0.80 Neto"
     ],
     "btc_history": [78430 + random.uniform(-200,200) for _ in range(30)],
-    "balance_history": [199.20 + random.uniform(-1,1) for _ in range(30)]
+    "balance_history": [199.60 + random.uniform(-1,1) for _ in range(30)]
 }
 
 def calcular_winrate():
@@ -105,13 +106,13 @@ Soy un bot automático conectado a tu Binance. Opero solo, vos no tenés que hac
 
 *BNB - Binance Coin:* La moneda del exchange Binance. Vale ~$737. La opero porque paga menos comisión y es más estable que BTC.
 
-*USDT - Dólar Digital:* Tu plata NO está en pesos argentinos. Está en USDT. 1 USDT = 1 Dólar. Tu Balance $199.20 son 199 dólares.
+*USDT - Dólar Digital:* Tu plata NO está en pesos argentinos. Está en USDT. 1 USDT = 1 Dólar. Tu Balance $199.60 son 199 dólares.
 
 *LO QUE VES EN /balance Y EN EL GRAFICO:*
 
 *Balance:* Tu plata total real en Binance en USDT (dólares).
 
-*Neto:* Tu ganancia o pérdida REAL del día, YA con comisión de Binance descontada. Si ves Neto $-0.80 es de 1 operación sola, en la próxima se recupera.
+*Neto:* Tu ganancia o pérdida REAL del día, YA con comisión de Binance descontada.
 
 *Ops:* Cantidad de operaciones que hice hoy.
 
@@ -186,7 +187,7 @@ def balance(message):
     texto = f"""💰 5 BALANCE EN VIVO
 
 Balance: ${ESTADO['balance']} USDT
-Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} operación, ya con comisión descontada)
+Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} operaciones, ya con comisión descontada)
 Ops hoy: {ESTADO['ops_hoy']} | Ganadas: {ESTADO['ganadas']} | Perdidas: {ESTADO['perdidas']} | Winrate: {win}%
 Estado: {estado}
 
@@ -203,7 +204,7 @@ def historial(message):
 
 {hist}
 
-Total Neto hoy: ${ESTADO['neto_hoy']} | Winrate: {win}%
+Total Neto hoy: ${ESTADO['neto_hoy']} | Winrate: {win}% (2W/2L)
 
 Tocá /balance en 15 min para ver recuperación."""
     bot.send_message(message.chat.id, texto)
@@ -217,23 +218,21 @@ def help_cmd(message):
 Tranquilo, si tocaste acá es porque algo raro viste. Te explico lo normal:
 
 *1. ¿Ves `⏸️ Pausa 10min`?*
-Es NORMAL Lobo. Después de un SL el bot se pausa 10 min para no sobre-operar y no quemarte la cuenta. Solo espera.
+Es NORMAL Lobo. Después de un SL el bot se pausa 10 min para no sobre-operar.
 
 *2. ¿Bot PRENDIDO pero no opera?*
-Es NORMAL también. Si el mercado está lateral (0.10% o menos) la RATA está esperando entrada. No está roto, está cuidando tu plata.
+Es NORMAL también. Si el mercado está lateral (0.10% o menos) la RATA está esperando entrada.
 
-*3. ¿Balance en negativo -$0.80?*
-Ese es el NETO ya con comisión de Binance descontada. Es de 1 operación. En la próxima lo recupera. Tocá /balance en 15 min y /historial para verla.
+*3. ¿Balance en negativo -$0.40?*
+Ese es el NETO real: +$0.60+$0.60-$0.80-$0.80 = -$0.40 ya con comisión. En la próxima lo recupera.
 
 *4. ¿Error de API o Binance?*
-Apretá /apagar y después /prender de nuevo. Si sigue, escribime.
+Apretá /apagar y después /prender de nuevo.
 
 *ESTADO AHORA MISMO:*
 Bot: {estado}
 Mercado: {ESTADO['mercado']} | {ESTADO['modo']}
 Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']} | Win {win}%
-
-¿Seguís trabado? Escribime directo: @TuUsuarioDeSoporte
 
 Siguiente: /apagar para pausar o /balance para ver tu plata"""
     bot.send_message(message.chat.id, texto)
@@ -273,12 +272,12 @@ body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
 <body>
 <div class="header notranslate" translate="no">
 <b>🐺 LOBOBOT22</b><br>
-<div class="line notranslate" id="topbar">Bal $199.20 | Neta $-0.80 | Ops 3 | Win 66%</div>
+<div class="line notranslate" id="topbar">Bal $199.60 | Neta $-0.40 | Ops 4 | Win 50%</div>
 <div class="orange">
 MERCADO: NORMAL | MODO: LOBO 🐺<br>
 TP +0.3% | SL -0.7% | ATR 0.30%
 </div>
-<div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8 | Win 66%</div>
+<div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.6 | Neta $-0.4 | Win 50%</div>
 </div>
 <div id="chart_btc"></div>
 <div id="chart_bnb"></div>
