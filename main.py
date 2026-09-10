@@ -4,19 +4,31 @@ import time
 import threading
 import random
 from datetime import datetime, timedelta
+from flask import Flask
 
-# --- TOKEN DESDE ENVIRONMENT - FIX 404 ---
+# --- 1. FIX PARA RENDER WEB SERVICE - NO BORRES ESTO ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "LOBO V32.2 FIX RUNNING - BOT ACTIVO"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+# --- 2. TOKEN DESDE ENVIRONMENT - FIX 404 ---
 TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 if not TOKEN:
-    print("❌ Falta BOT_TOKEN en Render -> Environment")
-    time.sleep(5)
+    print("❌ ERROR: Falta BOT_TOKEN en Render -> Environment")
+    time.sleep(10)
     raise SystemExit("Falta BOT_TOKEN")
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-# --- ESTADO GLOBAL ---
+# --- 3. ESTADO GLOBAL 250 LINEAS ---
 ESTADO = {
     "prendido": False,
     "balance": 199.20,
@@ -91,7 +103,7 @@ def loop_trading():
         if ESTADO["prendido"]:
             simular_operacion()
 
-# --- 1. /introduccion - TEXTO LARGO CORREGIDO ---
+# --- 4. COMANDO /introduccion TEXTO LARGO ---
 @bot.message_handler(commands=['introduccion'])
 def introduccion(message):
     texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
@@ -128,7 +140,7 @@ VOLATIL = MODO TIBURON, me pauso
 Siguiente: /estrategias y /start"""
     bot.send_message(message.chat.id, texto)
 
-# --- 2. /estrategias - 3 MODOS ---
+# --- 5. /estrategias ---
 @bot.message_handler(commands=['estrategias'])
 def estrategias(message):
     texto = """📊 2 ESTRATEGIAS - USO 3 MODOS REALES
@@ -149,7 +161,7 @@ Vos no tenés que cambiar nada manual. El bot elige solo.
 Tocá /modo para ver en que modo estoy AHORA."""
     bot.send_message(message.chat.id, texto)
 
-# --- 3. /modo ---
+# --- 6. /modo ---
 @bot.message_handler(commands=['modo'])
 def modo(message):
     estado = get_estado_texto()
@@ -166,7 +178,7 @@ Estoy activo y buscando. No tenés que tocar nada.
 Siguiente: /balance para ver tu plata o /stop para pausarme"""
     bot.send_message(message.chat.id, texto)
 
-# --- 4. /start ---
+# --- 7. /start ---
 @bot.message_handler(commands=['start'])
 def start(message):
     ESTADO["prendido"] = True
@@ -182,16 +194,15 @@ Ya estoy buscando entrada. Te aviso por acá cuando opere.
 Usá /balance para ver tu plata en vivo o /stop para pausarme."""
     bot.send_message(message.chat.id, texto)
 
-# --- 5. /balance - SIN F5, SIN PESOS ---
+# --- 8. /balance ---
 @bot.message_handler(commands=['balance'])
 def balance(message):
     estado = get_estado_texto()
-    winrate = 66 if ESTADO["ops_hoy"] > 0 else 0
     texto = f"""💰 5 BALANCE EN VIVO
 
 Balance: ${round(ESTADO['balance'],2)} USDT
 Neto hoy: ${round(ESTADO['neto_hoy'],2)} ({ESTADO['ops_hoy']} operación, ya con comisión descontada)
-Ops hoy: {ESTADO['ops_hoy']} | Winrate: {winrate}%
+Ops hoy: {ESTADO['ops_hoy']}
 Estado: {estado}
 Mercado: {ESTADO['mercado_texto']} | Modo: {ESTADO['modo_actual']}
 
@@ -200,7 +211,7 @@ No actualices TradingView con F5. Este balance es el real de Telegram y se actua
 Tocá /historial para ver la operación."""
     bot.send_message(message.chat.id, texto)
 
-# --- 6. /historial ---
+# --- 9. /historial ---
 @bot.message_handler(commands=['historial'])
 def historial(message):
     hist = "\n".join(ESTADO["historial"][-10:])
@@ -214,7 +225,7 @@ Balance actual: ${round(ESTADO['balance'],2)} USDT
 Tocá /balance en 15 min para ver recuperación."""
     bot.send_message(message.chat.id, texto)
 
-# --- 7. /help - SOS ---
+# --- 10. /help ---
 @bot.message_handler(commands=['help'])
 def help_cmd(message):
     estado = get_estado_texto()
@@ -244,7 +255,7 @@ Balance: ${round(ESTADO['balance'],2)} | Ops hoy: {ESTADO['ops_hoy']}
 Siguiente: /stop para pausar o /balance para ver tu plata"""
     bot.send_message(message.chat.id, texto)
 
-# --- 8. /stop ---
+# --- 11. /stop ---
 @bot.message_handler(commands=['stop'])
 def stop(message):
     ESTADO["prendido"] = False
@@ -258,12 +269,13 @@ No opero más hasta que toques /start de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# --- INICIO ---
+# --- 12. INICIO CON FLASK + TELEBOT ---
 if __name__ == "__main__":
-    t = threading.Thread(target=loop_trading, daemon=True)
-    t.start()
-    print("LOBO V32.2 FIX COMPLETO 250 LINEAS corriendo...")
+    threading.Thread(target=loop_trading, daemon=True).start()
+    threading.Thread(target=run_flask, daemon=True).start()
+    print("LOBO V32.2 FIX 259 LINEAS corriendo con Flask...")
     print(f"BOT_TOKEN: {TOKEN[:15]}... CHAT_ID: {CHAT_ID}")
     me = bot.get_me()
-    print(f"✅ Conectado: @{me.username}")
+    print(f"✅ Conectado: @{me.username} - LISTO")
+    print("Flask en puerto para Render Web Service OK")
     bot.infinity_polling()
