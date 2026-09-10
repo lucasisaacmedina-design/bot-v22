@@ -37,7 +37,6 @@ def calcular_winrate():
     return 0 if total == 0 else round((ESTADO["ganadas"] / total) * 100)
 
 def get_estado_texto():
-    # Solo para Telegram, en la web no se muestra
     return "🟢 PRENDIDO" if ESTADO["prendido"] else "🔴 APAGADO"
 
 def motor_demo():
@@ -45,7 +44,6 @@ def motor_demo():
         time.sleep(random.randint(45, 90))
         if not ESTADO["prendido"]: continue
         if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]: continue
-        
         es_ganada = random.random() < 0.66
         hora = datetime.now().strftime('%H:%M')
         if es_ganada:
@@ -59,13 +57,31 @@ def motor_demo():
             ESTADO["balance"] = round(ESTADO["balance"] - 0.80, 2)
             ESTADO["historial"].append(f"{hora} - BNB - RATA - SL -0.7% = -$0.80 Neto")
             ESTADO["pausa_hasta"] = datetime.now() + timedelta(minutes=10)
-        
         if len(ESTADO["historial"]) > 20:
             ESTADO["historial"] = ESTADO["historial"][-20:]
 
+# === TELEGRAM CORREGIDO - CON /apagar ===
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.chat.id, "👋 ¡Bienvenido a LOBOBOT22 🐺!\n1️⃣ /introduccion 2️⃣ /estrategias 3️⃣ /modo 4️⃣ /prender 5️⃣ /balance 6️⃣ /historial 7️⃣ /help 8️⃣ /apagar")
+    bot.send_message(message.chat.id, """👋 ¡Bienvenido a LOBOBOT22 🐺!
+
+Soy tu bot automático de trading.
+Opero solo en BTC y BNB, busco TP +0.3% y te cuido con SL -0.7%.
+
+Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comisión descontada.
+
+👇 COMO EMPEZAR - TOCÁ EN ORDEN:
+
+1️⃣ /introduccion - Qué monedas uso y qué ves en pantalla
+2️⃣ /estrategias - Mis 3 modos reales
+3️⃣ /modo - En qué modo estoy ahora mismo
+4️⃣ /prender - Para prenderme y que empiece a operar
+5️⃣ /balance - Tu plata en vivo
+6️⃣ /historial - Lo que hice hoy
+7️⃣ /help - Si ves algo raro
+8️⃣ /apagar - Para pausarme
+
+Empezá por /introduccion""")
 
 @bot.message_handler(commands=['introduccion', 'start_intro'])
 def introduccion(message):
@@ -83,7 +99,7 @@ def modo(message):
 @bot.message_handler(commands=['prender', 'iniciar'])
 def prender(message):
     ESTADO["prendido"] = True
-    bot.send_message(message.chat.id, f"🚀 BOT PRENDIDO\n{get_estado_texto()} | Bal ${ESTADO['balance']} | {ESTADO['mercado']} MODO {ESTADO['modo']}")
+    bot.send_message(message.chat.id, f"🚀 BOT PRENDIDO\n{get_estado_texto()} | Bal ${ESTADO['balance']} | {ESTADO['mercado']} MODO {ESTADO['modo']}\n\nEstoy activo y buscando. No tenes que tocar nada.\nSiguiente: /balance para ver tu plata o /apagar para pausarme")
 
 @bot.message_handler(commands=['balance'])
 def balance(message):
