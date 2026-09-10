@@ -72,6 +72,30 @@ def motor_demo():
         if len(ESTADO["historial"]) > 20:
             ESTADO["historial"] = ESTADO["historial"][-20:]
 
+# --- COMANDOS CORREGIDOS ---
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    texto = f"""👋 ¡Bienvenido a LOBOBOT22 🐺!
+
+Soy tu bot automático de trading. Opero solo en BTC y BNB, busco TP +0.3% y te cuido con SL -0.7%.
+
+Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comisión descontada.
+
+👇 COMO EMPEZAR - TOCÁ EN ORDEN:
+
+1️⃣ /introduccion - Qué monedas uso y qué ves en pantalla
+2️⃣ /estrategias - Mis 3 modos reales
+3️⃣ /modo - En qué modo estoy ahora mismo
+4️⃣ /prender - Para prenderme y que empiece a operar
+5️⃣ /balance - Tu plata en vivo
+6️⃣ /historial - Lo que hice hoy
+7️⃣ /help - Si ves algo raro
+8️⃣ /stop - Para pausarme
+
+Empezá por /introduccion"""
+    bot.send_message(message.chat.id, texto)
+
 @bot.message_handler(commands=['introduccion', 'start_intro'])
 def introduccion(message):
     texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
@@ -105,7 +129,7 @@ NORMAL (0.30%) = opero MODO LOBO
 LATERAL (0.10%) = MODO RATA, casi no opero para cuidarte
 VOLATIL = MODO TIBURON, me pauso
 
-Siguiente: /estrategias y /start"""
+Siguiente: /estrategias y /prender"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['estrategias'])
@@ -144,8 +168,8 @@ Estoy activo y buscando. No tenés que tocar nada.
 Siguiente: /balance para ver tu plata o /stop para pausarme"""
     bot.send_message(message.chat.id, texto)
 
-@bot.message_handler(commands=['start'])
-def start(message):
+@bot.message_handler(commands=['prender', 'iniciar'])
+def prender(message):
     ESTADO["prendido"] = True
     texto = f"""🚀 4 BOT PRENDIDO
 
@@ -205,7 +229,7 @@ Es NORMAL también. Si el mercado está lateral (0.10% o menos) la RATA está es
 Ese es el NETO ya con comisión de Binance descontada. Es de 1 operación. En la próxima lo recupera. Tocá /balance en 15 min y /historial para verla.
 
 *4. ¿Error de API o Binance?*
-Apretá /stop y después /start de nuevo. Si sigue, escribime.
+Apretá /stop y después /prender de nuevo. Si sigue, escribime.
 
 *ESTADO AHORA MISMO:*
 Bot: {estado}
@@ -225,7 +249,7 @@ def stop(message):
 🔴 Bot: APAGADO
 Balance congelado: ${ESTADO['balance']} USDT
 
-No opero más hasta que toques /start de nuevo.
+No opero más hasta que toques /prender de nuevo.
 
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
