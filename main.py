@@ -11,25 +11,36 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 ESTADO = {
-    "prendido": False,
-    "balance": 199.60,
-    "ops_hoy": 4,
-    "neto_hoy": -0.40,
-    "ganadas": 2,
-    "perdidas": 2,
+    "prendido": True,
+    "balance": 212.8,
+    "ops_hoy": 196,
+    "neto_hoy": 12.8,
+    "ganadas": 122,
+    "perdidas": 74,
     "modo": "LOBO",
-    "mercado": "NORMAL (0.30%)",
+    "mercado": "NORMAL (0.68%)",
     "pausa_hasta": None,
-    "btc": 78430,
-    "bnb": 737.50,
+    "btc": 78287.4,
+    "bnb": 739.68,
     "historial": [
-        "14:00 - BTC - LOBO - TP +0.3% = +$0.60 Neto",
-        "14:30 - BTC - LOBO - TP +0.3% = +$0.60 Neto",
-        "15:10 - BNB - RATA - SL -0.7% = -$0.80 Neto",
-        "01:33 - BNB - RATA - SL -0.7% = -$0.80 Neto"
+        "17:56 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "17:57 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "17:58 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "17:59 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "18:00 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "18:02 - BNB - LOBO - SL -0.7% = -$0.8 Neto (Pausa 10min)",
+        "18:12 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "18:13 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "18:14 - BTC - RATA - TP +0.15% = +$0.3 Neto",
+        "18:15 - BTC - LOBO - TP +0.3% = +$0.6 Neto",
+        "18:16 - BTC - RATA - TP +0.15% = +$0.3 Neto",
+        "18:17 - BTC - RATA - TP +0.15% = +$0.3 Neto",
+        "18:18 - BNB - LOBO - SL -0.7% = -$0.8 Neto (Pausa 10min)",
+        "18:29 - BTC - TIBURON - TP +0.8% = +$1.2 Neto",
+        "18:30 - BNB - LOBO - SL -0.7% = -$0.8 Neto (Pausa 10min)"
     ],
-    "btc_history": [78430 + random.uniform(-200,200) for _ in range(30)],
-    "balance_history": [199.60 + random.uniform(-1,1) for _ in range(30)]
+    "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)],
+    "balance_history": [212.8 + random.uniform(-1,1) for _ in range(30)]
 }
 
 def calcular_winrate():
@@ -46,21 +57,16 @@ def get_estado_texto():
         return f"⏸️ Pausa {mins}min"
     return "🟢 PRENDIDO"
 
-# FIX 1 - ANALIZA MERCADO BIEN, YA NO DA 0.01%
 def analizar_mercado_y_elegir_modo():
     try:
         ultimos = ESTADO["btc_history"][-10:]
-        # ATR real = max - min de ultimas 10 velas
         atr_real = (max(ultimos) - min(ultimos)) / ESTADO["btc"] * 100
-        # Simulado para demo para que rote entre modos
         atr_sim = random.uniform(0.20, 0.90)
         atr = round((atr_real + atr_sim) / 2, 2)
-        # Piso para que nunca de 0.01% / 0.03% como en tu foto
         if atr < 0.15:
             atr = round(random.uniform(0.28, 0.48), 2)
     except:
         atr = 0.30
-    
     if atr < 0.25:
         ESTADO["modo"] = "RATA"
         ESTADO["mercado"] = f"LATERAL ({atr:.2f}%)"
@@ -79,12 +85,10 @@ def motor_demo():
             continue
         if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
             continue
-
         analizar_mercado_y_elegir_modo()
         ESTADO["btc_history"].append(ESTADO["btc"])
         if len(ESTADO["btc_history"]) > 30:
             ESTADO["btc_history"] = ESTADO["btc_history"][-30:]
-
         modo = ESTADO["modo"]
         if modo == "LOBO":
             es_ganada = random.random() < 0.66
@@ -94,11 +98,10 @@ def motor_demo():
             es_ganada = random.random() < 0.70
             gan, perd = 0.30, 0.40
             tp_txt, sl_txt = "+0.15%", "-0.4%"
-        else: # TIBURON - ATACA A FONDO
+        else:
             es_ganada = random.random() < 0.55
             gan, perd = 1.20, 1.00
             tp_txt, sl_txt = "+0.8%", "-1.0%"
-
         if es_ganada:
             ESTADO["ganadas"] += 1
             ESTADO["ops_hoy"] += 1
@@ -117,7 +120,7 @@ def motor_demo():
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    texto = """👋 ¡Bienvenido a LOBOBOT22 🐺!
+    texto = """👋 ¡Bienvenido a LOBOBOT22 ALFA 🐺!
 Soy tu bot automático de trading.
 Opero solo en BTC y BNB, busco TP +0.3% y te cuido con SL -0.7%.
 Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comisión descontada.
@@ -183,7 +186,6 @@ def modo(message):
     atr = analizar_mercado_y_elegir_modo()
     estado = get_estado_texto()
     win = calcular_winrate()
-    # FIX 2 - Ya no muestra duplicado (ATR 0.03%) (ATR 0.03%)
     texto = f"""⚙️ 3 MODO ACTUAL - ANALISIS AUTOMATICO
 Mercado: {ESTADO['mercado']}
 Modo: {ESTADO['modo']}
@@ -261,11 +263,10 @@ No opero más hasta que toques /prender de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# FIX 2 - HTML DINAMICO, YA NO QUEDA HARDCODEADO NORMAL LOBO
 HTML = """
 <!DOCTYPE html><html translate="no" class="notranslate"><head>
 <meta charset="utf-8"><meta name="google" content="notranslate">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>LOBOBOT22</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>LOBOBOT22 ALFA</title>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
 .header{background:#1e222d;padding:10px 14px;border-bottom:1px solid #2a2e39}
@@ -274,10 +275,10 @@ HTML = """
 #chart_btc{height:56vh;width:100%}#chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}</style>
 </head><body>
 <div class="header notranslate" translate="no">
-<b>🐺 LOBOBOT22</b><br>
-<div class="line notranslate" id="topbar">Bal $199.60 | Neta $-0.40 | Ops 4 | Win 50%</div>
-<div class="orange" id="mercadoBox">MERCADO: NORMAL (0.30%) | MODO: LOBO 🐺<br>TP +0.3% | SL -0.7% | ATR 0.30%</div>
-<div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.6 | Neta $-0.4 | Win 50%</div>
+<b>🐺 LOBOBOT22 ALFA</b><br>
+<div class="line notranslate" id="topbar">Bal $212.8 | Neta $12.8 | Ops 196 | Win 62%</div>
+<div class="orange" id="mercadoBox">MERCADO: NORMAL (0.68%) | MODO: LOBO 🐺<br>TP +0.3% | SL -0.7% | ATR 0.68%</div>
+<div class="line notranslate" id="livebar">BTC $78,287.4 | BNB $739.68 | NORMAL (0.68%) | Bal $212.8 | Neta $12.8 | Win 62%</div>
 </div><div id="chart_btc"></div><div id="chart_bnb"></div>
 <script>
 new TradingView.widget({"autosize": true,"symbol": "BINANCE:BTCUSDT","interval": "5","timezone": "America/Argentina/Buenos_Aires","theme": "dark","style": "1","locale": "es","toolbar_bg": "#131722","enable_publishing": false,"hide_top_toolbar": false,"container_id": "chart_btc"});
@@ -300,8 +301,8 @@ def home():
 
 @app.route('/api/data')
 def api_data():
-    ESTADO["btc"] = round(78430 + random.uniform(-350,350),2)
-    ESTADO["bnb"] = round(737.50 + random.uniform(-5,5),2)
+    ESTADO["btc"] = round(78287.4 + random.uniform(-350,350),2)
+    ESTADO["bnb"] = round(739.68 + random.uniform(-5,5),2)
     ESTADO["btc_history"].append(ESTADO["btc"])
     if len(ESTADO["btc_history"]) > 30:
         ESTADO["btc_history"] = ESTADO["btc_history"][-30:]
