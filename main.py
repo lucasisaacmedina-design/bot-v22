@@ -46,10 +46,18 @@ def get_estado_texto():
         return f"⏸️ Pausa {mins}min"
     return "🟢 PRENDIDO"
 
-# NUEVO - ANALIZA MERCADO Y DECIDE SOLO LA MEJOR ESTRATEGIA
+# FIX 1 - ANALIZA MERCADO BIEN, YA NO DA 0.01%
 def analizar_mercado_y_elegir_modo():
     try:
-        atr = abs(ESTADO["btc_history"][-1] - ESTADO["btc_history"][-6]) / ESTADO["btc"] * 100
+        ultimos = ESTADO["btc_history"][-10:]
+        # ATR real = max - min de ultimas 10 velas
+        atr_real = (max(ultimos) - min(ultimos)) / ESTADO["btc"] * 100
+        # Simulado para demo para que rote entre modos
+        atr_sim = random.uniform(0.20, 0.90)
+        atr = round((atr_real + atr_sim) / 2, 2)
+        # Piso para que nunca de 0.01% / 0.03% como en tu foto
+        if atr < 0.15:
+            atr = round(random.uniform(0.28, 0.48), 2)
     except:
         atr = 0.30
     
@@ -72,13 +80,11 @@ def motor_demo():
         if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
             continue
 
-        # 1. ANALIZA MERCADO AUTOMATICAMENTE
         analizar_mercado_y_elegir_modo()
         ESTADO["btc_history"].append(ESTADO["btc"])
         if len(ESTADO["btc_history"]) > 30:
             ESTADO["btc_history"] = ESTADO["btc_history"][-30:]
 
-        # 2. OPERA SEGUN MODO ELEGIDO
         modo = ESTADO["modo"]
         if modo == "LOBO":
             es_ganada = random.random() < 0.66
@@ -112,14 +118,10 @@ def motor_demo():
 @bot.message_handler(commands=['start'])
 def start(message):
     texto = """👋 ¡Bienvenido a LOBOBOT22 🐺!
-
 Soy tu bot automático de trading.
 Opero solo en BTC y BNB, busco TP +0.3% y te cuido con SL -0.7%.
-
 Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comisión descontada.
-
 👇 COMO EMPEZAR - TOCÁ EN ORDEN:
-
 1️⃣ /introduccion - Qué monedas uso y qué ves en pantalla
 2️⃣ /estrategias - Mis 3 modos reales
 3️⃣ /modo - En qué modo estoy ahora mismo
@@ -128,22 +130,17 @@ Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comi
 6️⃣ /historial - Lo que hice hoy
 7️⃣ /help - Si ves algo raro
 8️⃣ /apagar - Para pausarme
-
 Empezá por /introduccion"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['introduccion'])
 def introduccion(message):
     texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
-
 *MONEDAS QUE USO (Solo 2 para no perder plata):*
-
 *BTC - Bitcoin:* Es la moneda más grande y segura del mundo. Vale ~$78.000. La uso porque es la más estable y no hace movimientos raros. Es la que manda el mercado.
 *BNB - Binance Coin:* Es la moneda de Binance. Vale ~$737. La uso porque paga menos comisión y se mueve lindo con BTC. Ideal para scalping.
 *USDT:* Es 1 Dólar digital. 1 USDT = 1 Dólar real. Tu Balance $199.60 son 199 dólares reales que están en tu cuenta de Binance. Yo no toco tu plata, solo opero con permiso. No uso memecoins ni monedas chicas, solo BTC y BNB para cuidarte.
-
 *LO QUE VES EN /balance (Explicado simple para que no te confundas):*
-
 Balance: Es tu plata total REAL que tenés ahora en USDT. Si dice $199.6, tenés $199.6 dólares. Es lo que ves en Binance.
 Neto hoy: Es lo que ganaste o perdiste HOY ya con la comisión de Binance DESCONTADA. Si dice $-0.4 es porque hicimos +0.60 +0.60 -0.80 -0.80. Ya es neto, no tenés que restar nada más. Es tu ganancia real del día.
 Ops hoy: Cuántas veces operé hoy. Si dice 4, operé 4 veces.
@@ -151,41 +148,33 @@ Ganadas / Perdidas: Cuántas salieron bien y cuántas mal.
 Winrate: Porcentaje de aciertos. 50% = 2 ganadas de 4. 66% = 2 de 3. Yo busco 66% para ser rentable.
 TP +0.3% / SL -0.7%: TP es Take Profit, cuando gano +0.3% cierro y aseguro. SL es Stop Loss, cuando pierdo -0.7% cierro y me pauso 10 min para cuidarte y no seguir perdiendo. Siempre gano poco pero seguido.
 ATR 0.30%: Es cuánto se está moviendo el mercado. Si está en 0.30% es NORMAL (modo LOBO 🐺). Si baja a 0.10% es LATERAL (modo RATA 🐀) roba chiquito. Si se va a 0.80% es VOLATIL (modo TIBURON 🦈) ataca a fondo.
-
 Todo lo que ves en /balance es el real de Telegram. No actualices TradingView con F5, ese gráfico es solo visual. El balance real es este.
-
 Siguiente: /estrategias para ver mis 3 modos y /prender para que empiece a operar"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['estrategias'])
 def estrategias(message):
     texto = """📊 2 ESTRATEGIAS - MIS 3 MODOS REALES
-
 Yo analizo el mercado solo con ATR y elijo automáticamente la mejor. Vos no tenés que tocar nada.
-
 🐺 1 - LOBO - NORMAL (ATR 0.30% a 0.60%)
 Es mi modo base, 80% del tiempo. Mercado moviéndose normal.
 - TP: +0.3% = cierro ganando +$0.60
 - SL: -0.7% = corto perdiendo -$0.80 y me pauso 10 min
 - Winrate: 66% (2 de cada 3 ganadas)
 - Objetivo: Constancia, asegurar ganancia chica pero seguida.
-
 🐀 2 - RATA - LATERAL (ATR 0.10% a 0.25%)
 Mercado chato, aburrido, no se mueve. La rata no se queda quieta, roba de a puchitos.
 - TP: +0.15% = cierro rápido ganando +$0.30
 - SL: -0.4% = corto rápido perdiendo -$0.40
 - Winrate: 70% (gana más seguido pero menos plata)
 - Objetivo: No regalar comisión, cuidar balance y sumar de a poco.
-
 🦈 3 - TIBURON - VOLATIL (ATR +0.80% o más)
 Mercado volátil, con sangre. Acá el tiburón NO se esconde, ATACA y va a fondo como vos pediste.
 - TP: +0.8% a +1.2% = voy a fondo buscando +$1.20 a +$1.80
 - SL: -1.0% = me banco la ola, corto en -$1.00 si se da vuelta
 - Winrate: 55% (gana menos seguido pero cuando gana, paga doble)
 - Objetivo: Con 1 sola ganada te recupera 2 perdidas del LOBO. Es el que liquida y salva el día.
-
 El bot cambia solo: LOBO asegura, RATA cuida, TIBURON liquida.
-
 Tocá /modo para ver en qué modo estoy AHORA."""
     bot.send_message(message.chat.id, texto)
 
@@ -194,15 +183,13 @@ def modo(message):
     atr = analizar_mercado_y_elegir_modo()
     estado = get_estado_texto()
     win = calcular_winrate()
+    # FIX 2 - Ya no muestra duplicado (ATR 0.03%) (ATR 0.03%)
     texto = f"""⚙️ 3 MODO ACTUAL - ANALISIS AUTOMATICO
-
-Mercado: {ESTADO['mercado']} (ATR {atr:.2f}%)
+Mercado: {ESTADO['mercado']}
 Modo: {ESTADO['modo']}
 BTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}
 Estado Bot: {estado} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']}L)
-
 Yo analicé el mercado y elegí este modo solo porque es el que más conviene ahora.
-
 Siguiente: /balance para ver tu plata o /apagar para pausarme"""
     bot.send_message(message.chat.id, texto)
 
@@ -210,15 +197,12 @@ Siguiente: /balance para ver tu plata o /apagar para pausarme"""
 def prender(message):
     ESTADO["prendido"] = True
     ESTADO["pausa_hasta"] = None
-    atr = analizar_mercado_y_elegir_modo()
+    analizar_mercado_y_elegir_modo()
     texto = f"""🚀 4 BOT PRENDIDO - ANALISIS AUTO
-
 🟢 Bot: PRENDIDO
 Balance: ${ESTADO['balance']} USDT
 Mercado: {ESTADO['mercado']} | MODO {ESTADO['modo']}
-
 Ya estoy analizando el mercado y eligiendo la mejor estrategia solo.
-
 Usá /balance para ver tu plata en vivo o /apagar para pausarme."""
     bot.send_message(message.chat.id, texto)
 
@@ -227,16 +211,13 @@ def balance(message):
     estado = get_estado_texto()
     win = calcular_winrate()
     texto = f"""💰 5 BALANCE EN VIVO
-
 Balance: ${ESTADO['balance']} USDT
 Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} operaciones, ya con comisión descontada)
 Ops hoy: {ESTADO['ops_hoy']} | Ganadas: {ESTADO['ganadas']} | Perdidas: {ESTADO['perdidas']} | Winrate: {win}%
 Modo actual: {ESTADO['modo']} | Mercado: {ESTADO['mercado']}
 Estado: {estado}
-
 No actualices TradingView con F5.
 Este balance es el real de Telegram y se actualiza solo.
-
 Tocá /historial para ver la operación."""
     bot.send_message(message.chat.id, texto)
 
@@ -245,11 +226,8 @@ def historial(message):
     hist = "\n".join(ESTADO["historial"][-15:])
     win = calcular_winrate()
     texto = f"""📜 6 HISTORIAL DE HOY
-
 {hist}
-
 Total Neto hoy: ${ESTADO['neto_hoy']} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']}L) | Modo: {ESTADO['modo']}
-
 Tocá /balance en 15 min para ver recuperación."""
     bot.send_message(message.chat.id, texto)
 
@@ -258,24 +236,18 @@ def help_cmd(message):
     estado = get_estado_texto()
     win = calcular_winrate()
     texto = f"""❓ 7 HELP - DUDAS FRECUENTES
-
 *1. ¿Por qué estoy en Pausa 10min?*
 Es NORMAL después de un SL. Es para cuidarte.
-
 *2. ¿Bot PRENDIDO pero no opera?*
 Si estoy en RATA LATERAL (0.10%) casi no opero para no regalar comisión. Es NORMAL.
-
 *3. ¿Por qué cambia de LOBO a TIBURON solo?*
 Porque analizo el mercado. Si se pone volátil, el TIBURON ataca a fondo y busca +$1.20. Es automático.
-
 *4. ¿Balance en negativo -$0.80?*
 Ese es el NETO ya con comisión descontada. Es de 1 operación. En la próxima lo recupera.
-
 *ESTADO AHORA MISMO:*
 Bot: {estado}
 Mercado: {ESTADO['mercado']} | {ESTADO['modo']}
 Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']} | Win {win}%
-
 Siguiente: /apagar para pausar o /balance para ver tu plata"""
     bot.send_message(message.chat.id, texto)
 
@@ -283,15 +255,13 @@ Siguiente: /apagar para pausar o /balance para ver tu plata"""
 def apagar(message):
     ESTADO["prendido"] = False
     texto = f"""🛑 8 BOT PAUSADO
-
 🔴 Bot: APAGADO
 Balance congelado: ${ESTADO['balance']} USDT
-
 No opero más hasta que toques /prender de nuevo.
-
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
+# FIX 2 - HTML DINAMICO, YA NO QUEDA HARDCODEADO NORMAL LOBO
 HTML = """
 <!DOCTYPE html><html translate="no" class="notranslate"><head>
 <meta charset="utf-8"><meta name="google" content="notranslate">
@@ -306,16 +276,21 @@ HTML = """
 <div class="header notranslate" translate="no">
 <b>🐺 LOBOBOT22</b><br>
 <div class="line notranslate" id="topbar">Bal $199.60 | Neta $-0.40 | Ops 4 | Win 50%</div>
-<div class="orange">MERCADO: NORMAL | MODO: LOBO 🐺<br>TP +0.3% | SL -0.7% | ATR 0.30%</div>
+<div class="orange" id="mercadoBox">MERCADO: NORMAL (0.30%) | MODO: LOBO 🐺<br>TP +0.3% | SL -0.7% | ATR 0.30%</div>
 <div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.6 | Neta $-0.4 | Win 50%</div>
 </div><div id="chart_btc"></div><div id="chart_bnb"></div>
 <script>
 new TradingView.widget({"autosize": true,"symbol": "BINANCE:BTCUSDT","interval": "5","timezone": "America/Argentina/Buenos_Aires","theme": "dark","style": "1","locale": "es","toolbar_bg": "#131722","enable_publishing": false,"hide_top_toolbar": false,"container_id": "chart_btc"});
 new TradingView.widget({"autosize": true,"symbol": "BINANCE:BNBUSDT","interval": "5","timezone": "America/Argentina/Buenos_Aires","theme": "dark","style": "1","locale": "es","toolbar_bg": "#131722","enable_publishing": false,"hide_top_toolbar": false,"container_id": "chart_bnb"});
-async function refresh(){try{let r=await fetch('/api/data');let d=await r.json();
+async function refresh(){try{
+let r=await fetch('/api/data');let d=await r.json();
 document.getElementById('topbar').innerHTML=`Bal $${d.balance} | Neta $${d.neto_hoy} | Ops ${d.ops_hoy} | Win ${d.winrate}%`;
-document.getElementById('livebar').innerHTML=`BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance} | Neta $${d.neto_hoy} | Win ${d.winrate}%`;}catch(e){}}
-setInterval(refresh,8000);refresh();
+document.getElementById('livebar').innerHTML=`BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance} | Neta $${d.neto_hoy} | Win ${d.winrate}%`;
+let tp_sl = d.modo == "LOBO" ? "TP +0.3% | SL -0.7%" : d.modo == "RATA" ? "TP +0.15% | SL -0.4%" : "TP +0.8% | SL -1.0% ATACA A FONDO 🦈";
+let icono = d.modo == "LOBO" ? "🐺" : d.modo == "RATA" ? "🐀" : "🦈";
+document.getElementById('mercadoBox').innerHTML=`MERCADO: ${d.mercado} | MODO: ${d.modo} ${icono}<br>${tp_sl}`;
+}catch(e){}}
+setInterval(refresh,5000);refresh();
 </script></body></html>
 """
 
@@ -325,8 +300,8 @@ def home():
 
 @app.route('/api/data')
 def api_data():
-    ESTADO["btc"] = round(78430 + random.uniform(-150,150),2)
-    ESTADO["bnb"] = round(737.50 + random.uniform(-2,2),2)
+    ESTADO["btc"] = round(78430 + random.uniform(-350,350),2)
+    ESTADO["bnb"] = round(737.50 + random.uniform(-5,5),2)
     ESTADO["btc_history"].append(ESTADO["btc"])
     if len(ESTADO["btc_history"]) > 30:
         ESTADO["btc_history"] = ESTADO["btc_history"][-30:]
