@@ -193,31 +193,29 @@ No opero más hasta que toques /start de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# --- WEB NUEVA: TRADINGVIEW ARRIBA BTC ABAJO BNB ---
+# --- WEB CORREGIDA: LOBOBOT22 SIN APAGADO ---
 HTML = """
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LOBO V33 - BTC + BNB</title>
+<title>LOBOBOT22</title>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <style>
 body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
 .header{background:#1e222d;padding:10px 14px;border-bottom:1px solid #2a2e39}
-.header b{color:#fff;font-size:15px}
+.header b{color:#fff;font-size:16px}
 .line{font-size:13px;margin-top:4px}
-.orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;color:#d1d4dc}
-.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold}
-.green{color:#26a69a}.red{color:#ef5350}
+.orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;color:#d1d4dc;font-size:13px;line-height:1.5}
 #chart_btc{height:56vh;width:100%}
 #chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}
 </style></head><body>
 <div class="header">
-<b>🐺 LOBO V29.2 ALFA SOCIOS $100+$100</b><br>
+<b>🐺 LOBOBOT22</b><br>
 <div class="line">Bal $199.20 | Neta $-0.80 | Ops 1</div>
 <div class="orange">
 MERCADO: NORMAL | MODO: LOBO 🐺<br>
 TP +0.3% | SL -0.7% | ATR 0.30%
 </div>
-<div class="line" id="livebar">BTC $78,308.02 | BNB $737.71 | Cargando...</div>
+<div class="line" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8</div>
 </div>
 
 <div id="chart_btc"></div>
@@ -253,7 +251,7 @@ new TradingView.widget({
 async function refresh(){
  try{
   let r=await fetch('/api/data');let d=await r.json();
-  document.getElementById('livebar').innerHTML = `BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | ${d.estado_texto} | Bal $${d.balance} | Neta $${d.neto_hoy}`;
+  document.getElementById('livebar').innerHTML = `BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance} | Neta $${d.neto_hoy}`;
  }catch(e){}
 }
 setInterval(refresh,8000);refresh();
