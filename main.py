@@ -97,18 +97,25 @@ Empezá por /introduccion"""
 def introduccion(message):
     texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
 
-*MONEDAS QUE USO:*
-*BTC - Bitcoin:* Vale ~$78.000
-*BNB - Binance Coin:* Vale ~$737
-*USDT:* 1 USDT = 1 Dólar. Tu Balance $199.60 son 199 dólares.
+*MONEDAS QUE USO (Solo 2 para no perder plata):*
 
-*LO QUE VES EN /balance:*
-Balance: tu plata total real en USDT
-Neto: ganancia/pérdida REAL ya con comisión
-Ops: cantidad de operaciones hoy
-TP +0.3% / SL -0.7% / ATR 0.30%
+*BTC - Bitcoin:* Es la moneda más grande y segura del mundo. Vale ~$78.000. La uso porque es la más estable y no hace movimientos raros. Es la que manda el mercado.
+*BNB - Binance Coin:* Es la moneda de Binance. Vale ~$737. La uso porque paga menos comisión y se mueve lindo con BTC. Ideal para scalping.
+*USDT:* Es 1 Dólar digital. 1 USDT = 1 Dólar real. Tu Balance $199.60 son 199 dólares reales que están en tu cuenta de Binance. Yo no toco tu plata, solo opero con permiso. No uso memecoins ni monedas chicas, solo BTC y BNB para cuidarte.
 
-Siguiente: /estrategias y /prender"""
+*LO QUE VES EN /balance (Explicado simple para que no te confundas):*
+
+Balance: Es tu plata total REAL que tenés ahora en USDT. Si dice $199.6, tenés $199.6 dólares. Es lo que ves en Binance.
+Neto hoy: Es lo que ganaste o perdiste HOY ya con la comisión de Binance DESCONTADA. Si dice $-0.4 es porque hicimos +0.60 +0.60 -0.80 -0.80. Ya es neto, no tenés que restar nada más. Es tu ganancia real del día.
+Ops hoy: Cuántas veces operé hoy. Si dice 4, operé 4 veces.
+Ganadas / Perdidas: Cuántas salieron bien y cuántas mal.
+Winrate: Porcentaje de aciertos. 50% = 2 ganadas de 4. 66% = 2 de 3. Yo busco 66% para ser rentable.
+TP +0.3% / SL -0.7%: TP es Take Profit, cuando gano +0.3% cierro y aseguro. SL es Stop Loss, cuando pierdo -0.7% cierro y me pauso 10 min para cuidarte y no seguir perdiendo. Siempre gano poco pero seguido.
+ATR 0.30%: Es cuánto se está moviendo el mercado. Si está en 0.30% es NORMAL (modo LOBO 🐺). Si baja a 0.10% es LATERAL (modo RATA 🐀) y casi no opero para no regalar comisión. Si se va a 0.80% es VOLATIL (modo TIBURON 🦈) y me pauso.
+
+Todo lo que ves en /balance es el real de Telegram. No actualices TradingView con F5, ese gráfico es solo visual. El balance real es este.
+
+Siguiente: /estrategias para ver mis 3 modos y /prender para que empiece a operar"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['estrategias'])
@@ -181,18 +188,13 @@ Tocá /balance en 15 min para ver recuperación."""
 def help_cmd(message):
     estado = get_estado_texto()
     win = calcular_winrate()
-    pausa_txt = "No"
-    if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
-        mins = int((ESTADO["pausa_hasta"] - datetime.now()).total_seconds()/60)+1
-        pausa_txt = f"Pausa {mins}min"
-    
     texto = f"""❓ 7 HELP - DUDAS FRECUENTES
 
 *1. ¿Por qué estoy en Pausa 10min?*
 Es NORMAL después de un SL. Es para cuidarte.
 
 *2. ¿Bot PRENDIDO pero no opera?*
-Mercado LATERAL (0.10% o menos) o VOLATIL. Es NORMAL también. Si el mercado está esperando entrada. No está roto.
+Mercado LATERAL (0.10% o menos) o VOLATIL. Es NORMAL también. Está esperando entrada. No está roto.
 
 *3. ¿Balance en negativo -$0.80?*
 Ese es el NETO ya con comisión de Binance descontada. Es de 1 operación. En la próxima lo recupera. Tocá /balance en 15 min y /historial para verla.
@@ -204,8 +206,6 @@ Apretá /apagar y después /prender de nuevo. Si sigue, escribime.
 Bot: {estado}
 Mercado: {ESTADO['mercado']} | {ESTADO['modo']}
 Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']} | Win {win}%
-
-¿Seguís trabado? Escribime directo: @TuUsuarioDeSoporte
 
 Siguiente: /apagar para pausar o /balance para ver tu plata"""
     bot.send_message(message.chat.id, texto)
