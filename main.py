@@ -10,7 +10,6 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- ESTADO GLOBAL (TUYO, NO TOCO) ---
 ESTADO = {
     "prendido": False,
     "balance": 199.20,
@@ -38,7 +37,6 @@ def get_estado_texto():
         return f"⏸️ Pausa {mins}min"
     return "🟢 PRENDIDO"
 
-# --- TUS 8 COMANDOS EXACTOS ---
 @bot.message_handler(commands=['introduccion', 'start_intro'])
 def introduccion(message):
     texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
@@ -193,10 +191,14 @@ No opero más hasta que toques /start de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# --- WEB CORREGIDA: LOBOBOT22 SIN APAGADO ---
+# --- WEB FIX DEFINITIVO: LOBOBOT22 + ANTI-TRADUCCION ---
 HTML = """
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html translate="no" class="notranslate">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LOBOBOT22</title>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <style>
@@ -207,15 +209,17 @@ body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
 .orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;color:#d1d4dc;font-size:13px;line-height:1.5}
 #chart_btc{height:56vh;width:100%}
 #chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}
-</style></head><body>
-<div class="header">
+</style>
+</head>
+<body>
+<div class="header notranslate" translate="no">
 <b>🐺 LOBOBOT22</b><br>
 <div class="line">Bal $199.20 | Neta $-0.80 | Ops 1</div>
 <div class="orange">
 MERCADO: NORMAL | MODO: LOBO 🐺<br>
 TP +0.3% | SL -0.7% | ATR 0.30%
 </div>
-<div class="line" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8</div>
+<div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8</div>
 </div>
 
 <div id="chart_btc"></div>
