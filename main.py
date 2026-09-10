@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 ESTADO = {
     "prendido": False,
-    "balance": 199.60, # REAL: 200 - 0.40
-    "ops_hoy": 4,      # REAL: 2W + 2L = 4
-    "neto_hoy": -0.40, # REAL: +0.60+0.60-0.80-0.80 = -0.40
+    "balance": 199.60,
+    "ops_hoy": 4,
+    "neto_hoy": -0.40,
     "ganadas": 2,
     "perdidas": 2,
     "modo": "LOBO",
@@ -53,7 +53,6 @@ def motor_demo():
             continue
         if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
             continue
-        
         es_ganada = random.random() < 0.66
         if es_ganada:
             ESTADO["ganadas"] += 1
@@ -68,24 +67,29 @@ def motor_demo():
             ESTADO["balance"] = round(ESTADO["balance"] - 0.80, 2)
             ESTADO["historial"].append(f"{datetime.now().strftime('%H:%M')} - BNB - RATA - SL -0.7% = -$0.80 Neto (Pausa 10min)")
             ESTADO["pausa_hasta"] = datetime.now() + timedelta(minutes=10)
-        
         if len(ESTADO["historial"]) > 20:
             ESTADO["historial"] = ESTADO["historial"][-20:]
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    texto = f"""👋 ¡Bienvenido a LOBOBOT22 🐺!
-Soy tu bot automático de trading. Opero solo en BTC y BNB, busco TP +0.3% y te cuido con SL -0.7%.
+    texto = """👋 ¡Bienvenido a LOBOBOT22 🐺!
+
+Soy tu bot automático de trading.
+Opero solo en BTC y BNB, busco TP +0.3% y te cuido con SL -0.7%.
+
 Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comisión descontada.
+
 👇 COMO EMPEZAR - TOCÁ EN ORDEN:
-1️⃣ /introduccion
-2️⃣ /estrategias
-3️⃣ /modo
-4️⃣ /prender
-5️⃣ /balance
-6️⃣ /historial
-7️⃣ /help
-8️⃣ /apagar
+
+1️⃣ /introduccion - Qué monedas uso y qué ves en pantalla
+2️⃣ /estrategias - Mis 3 modos reales
+3️⃣ /modo - En qué modo estoy ahora mismo
+4️⃣ /prender - Para prenderme y que empiece a operar
+5️⃣ /balance - Tu plata en vivo
+6️⃣ /historial - Lo que hice hoy
+7️⃣ /help - Si ves algo raro
+8️⃣ /apagar - Para pausarme
+
 Empezá por /introduccion"""
     bot.send_message(message.chat.id, texto)
 
@@ -128,11 +132,9 @@ Siguiente: /balance o /apagar"""
 @bot.message_handler(commands=['prender', 'iniciar'])
 def prender(message):
     ESTADO["prendido"] = True
-    texto = f"""🚀 4 BOT PRENDIDO
-🟢 Bot: PRENDIDO
-Balance: ${ESTADO['balance']} USDT
-Mercado: {ESTADO['mercado']} | MODO {ESTADO['modo']}
-Usá /balance o /apagar"""
+    texto = f"""Estoy activo y buscando. No tenes que tocar nada.
+
+Siguiente: /balance para ver tu plata o /apagar para pausarme"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['balance'])
