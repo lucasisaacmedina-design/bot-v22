@@ -13,7 +13,7 @@ app = Flask(__name__)
 ESTADO = {
     "prendido": False,
     "balance": 199.20,
-    "ops_hoy": 1,
+    "ops_hoy": 3,  # CORREGIDO: 2W + 1L = 3
     "neto_hoy": -0.80,
     "ganadas": 2,
     "perdidas": 1,
@@ -45,7 +45,6 @@ def get_estado_texto():
         return f"⏸️ Pausa {mins}min"
     return "🟢 PRENDIDO"
 
-# --- MOTOR AUTOMATICO DEMO ---
 def motor_demo():
     while True:
         time.sleep(random.randint(45, 90))
@@ -72,8 +71,6 @@ def motor_demo():
         if len(ESTADO["historial"]) > 20:
             ESTADO["historial"] = ESTADO["historial"][-20:]
 
-# --- COMANDOS CORREGIDOS ---
-
 @bot.message_handler(commands=['start'])
 def start(message):
     texto = f"""👋 ¡Bienvenido a LOBOBOT22 🐺!
@@ -91,7 +88,7 @@ Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comi
 5️⃣ /balance - Tu plata en vivo
 6️⃣ /historial - Lo que hice hoy
 7️⃣ /help - Si ves algo raro
-8️⃣ /stop - Para pausarme
+8️⃣ /apagar - Para pausarme
 
 Empezá por /introduccion"""
     bot.send_message(message.chat.id, texto)
@@ -165,7 +162,7 @@ Estado Bot: {estado} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']
 
 Estoy activo y buscando. No tenés que tocar nada.
 
-Siguiente: /balance para ver tu plata o /stop para pausarme"""
+Siguiente: /balance para ver tu plata o /apagar para pausarme"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['prender', 'iniciar'])
@@ -179,7 +176,7 @@ Mercado: {ESTADO['mercado']} | MODO {ESTADO['modo']}
 
 Ya estoy buscando entrada. Te aviso por acá cuando opere.
 
-Usá /balance para ver tu plata en vivo o /stop para pausarme."""
+Usá /balance para ver tu plata en vivo o /apagar para pausarme."""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['balance'])
@@ -229,7 +226,7 @@ Es NORMAL también. Si el mercado está lateral (0.10% o menos) la RATA está es
 Ese es el NETO ya con comisión de Binance descontada. Es de 1 operación. En la próxima lo recupera. Tocá /balance en 15 min y /historial para verla.
 
 *4. ¿Error de API o Binance?*
-Apretá /stop y después /prender de nuevo. Si sigue, escribime.
+Apretá /apagar y después /prender de nuevo. Si sigue, escribime.
 
 *ESTADO AHORA MISMO:*
 Bot: {estado}
@@ -238,11 +235,11 @@ Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']} | Win {win}%
 
 ¿Seguís trabado? Escribime directo: @TuUsuarioDeSoporte
 
-Siguiente: /stop para pausar o /balance para ver tu plata"""
+Siguiente: /apagar para pausar o /balance para ver tu plata"""
     bot.send_message(message.chat.id, texto)
 
-@bot.message_handler(commands=['stop'])
-def stop(message):
+@bot.message_handler(commands=['apagar', 'stop'])
+def apagar(message):
     ESTADO["prendido"] = False
     texto = f"""🛑 8 BOT PAUSADO
 
@@ -276,17 +273,15 @@ body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
 <body>
 <div class="header notranslate" translate="no">
 <b>🐺 LOBOBOT22</b><br>
-<div class="line notranslate" id="topbar">Bal $199.20 | Neta $-0.80 | Ops 1 | Win 66%</div>
+<div class="line notranslate" id="topbar">Bal $199.20 | Neta $-0.80 | Ops 3 | Win 66%</div>
 <div class="orange">
 MERCADO: NORMAL | MODO: LOBO 🐺<br>
 TP +0.3% | SL -0.7% | ATR 0.30%
 </div>
 <div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8 | Win 66%</div>
 </div>
-
 <div id="chart_btc"></div>
 <div id="chart_bnb"></div>
-
 <script>
 new TradingView.widget({
   "autosize": true,
