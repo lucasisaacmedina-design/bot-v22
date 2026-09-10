@@ -15,6 +15,8 @@ ESTADO = {
     "balance": 199.20,
     "ops_hoy": 1,
     "neto_hoy": -0.80,
+    "ganadas": 2,
+    "perdidas": 1,
     "modo": "LOBO",
     "mercado": "NORMAL (0.30%)",
     "pausa_hasta": None,
@@ -28,6 +30,12 @@ ESTADO = {
     "btc_history": [78430 + random.uniform(-200,200) for _ in range(30)],
     "balance_history": [199.20 + random.uniform(-1,1) for _ in range(30)]
 }
+
+def calcular_winrate():
+    total = ESTADO["ganadas"] + ESTADO["perdidas"]
+    if total == 0:
+        return 0
+    return round((ESTADO["ganadas"] / total) * 100)
 
 def get_estado_texto():
     if not ESTADO["prendido"]:
@@ -96,12 +104,13 @@ Tocá /modo para ver en que modo estoy AHORA."""
 @bot.message_handler(commands=['modo'])
 def modo(message):
     estado = get_estado_texto()
+    win = calcular_winrate()
     texto = f"""⚙️ 3 MODO ACTUAL
 
 Mercado: {ESTADO['mercado']}
 Modo: 🐺 {ESTADO['modo']} - Buscando entrada rápida
 BTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']} | ATR: 0.30%
-Estado Bot: {estado}
+Estado Bot: {estado} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']}L)
 
 Estoy activo y buscando. No tenés que tocar nada.
 
@@ -125,11 +134,12 @@ Usá /balance para ver tu plata en vivo o /stop para pausarme."""
 @bot.message_handler(commands=['balance'])
 def balance(message):
     estado = get_estado_texto()
+    win = calcular_winrate()
     texto = f"""💰 5 BALANCE EN VIVO
 
 Balance: ${ESTADO['balance']} USDT
 Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} operación, ya con comisión descontada)
-Ops hoy: {ESTADO['ops_hoy']} | Winrate: 66%
+Ops hoy: {ESTADO['ops_hoy']} | Ganadas: {ESTADO['ganadas']} | Perdidas: {ESTADO['perdidas']} | Winrate: {win}%
 Estado: {estado}
 
 No actualices TradingView con F5. Este balance es el real de Telegram y se actualiza solo.
@@ -140,11 +150,12 @@ Tocá /historial para ver la operación."""
 @bot.message_handler(commands=['historial'])
 def historial(message):
     hist = "\n".join(ESTADO["historial"])
+    win = calcular_winrate()
     texto = f"""📜 6 HISTORIAL DE HOY
 
 {hist}
 
-Total Neto hoy: ${ESTADO['neto_hoy']}
+Total Neto hoy: ${ESTADO['neto_hoy']} | Winrate: {win}%
 
 Tocá /balance en 15 min para ver recuperación."""
     bot.send_message(message.chat.id, texto)
@@ -152,6 +163,7 @@ Tocá /balance en 15 min para ver recuperación."""
 @bot.message_handler(commands=['help'])
 def help_cmd(message):
     estado = get_estado_texto()
+    win = calcular_winrate()
     texto = f"""❓ 7 HELP - ¿ALGO TE PASÓ?
 
 Tranquilo, si tocaste acá es porque algo raro viste. Te explico lo normal:
@@ -171,7 +183,7 @@ Apretá /stop y después /start de nuevo. Si sigue, escribime.
 *ESTADO AHORA MISMO:*
 Bot: {estado}
 Mercado: {ESTADO['mercado']} | {ESTADO['modo']}
-Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']}
+Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']} | Win {win}%
 
 ¿Seguís trabado? Escribime directo: @TuUsuarioDeSoporte
 
@@ -191,7 +203,7 @@ No opero más hasta que toques /start de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# --- WEB FIX DEFINITIVO: LOBOBOT22 + ANTI-TRADUCCION ---
+# --- WEB FIX DEFINITIVO: LOBOBOT22 + WINRATE + ANTI-TRADUCCION ---
 HTML = """
 <!DOCTYPE html>
 <html translate="no" class="notranslate">
@@ -214,12 +226,12 @@ body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
 <body>
 <div class="header notranslate" translate="no">
 <b>🐺 LOBOBOT22</b><br>
-<div class="line">Bal $199.20 | Neta $-0.80 | Ops 1</div>
+<div class="line notranslate" id="topbar">Bal $199.20 | Neta $-0.80 | Ops 1 | Win 66%</div>
 <div class="orange">
 MERCADO: NORMAL | MODO: LOBO 🐺<br>
 TP +0.3% | SL -0.7% | ATR 0.30%
 </div>
-<div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8</div>
+<div class="line notranslate" id="livebar">BTC $78,308.02 | BNB $737.71 | NORMAL (0.30%) | Bal $199.2 | Neta $-0.8 | Win 66%</div>
 </div>
 
 <div id="chart_btc"></div>
@@ -255,7 +267,8 @@ new TradingView.widget({
 async function refresh(){
  try{
   let r=await fetch('/api/data');let d=await r.json();
-  document.getElementById('livebar').innerHTML = `BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance} | Neta $${d.neto_hoy}`;
+  document.getElementById('topbar').innerHTML = `Bal $${d.balance} | Neta $${d.neto_hoy} | Ops ${d.ops_hoy} | Win ${d.winrate}%`;
+  document.getElementById('livebar').innerHTML = `BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance} | Neta $${d.neto_hoy} | Win ${d.winrate}%`;
  }catch(e){}
 }
 setInterval(refresh,8000);refresh();
@@ -275,6 +288,9 @@ def api_data():
         "balance": ESTADO["balance"],
         "neto_hoy": ESTADO["neto_hoy"],
         "ops_hoy": ESTADO["ops_hoy"],
+        "winrate": calcular_winrate(),
+        "ganadas": ESTADO["ganadas"],
+        "perdidas": ESTADO["perdidas"],
         "modo": ESTADO["modo"],
         "mercado": ESTADO["mercado"],
         "btc": ESTADO["btc"],
