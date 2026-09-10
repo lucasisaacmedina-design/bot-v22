@@ -1,4 +1,4 @@
-import os, threading, random
+import os, threading, random, time
 from datetime import datetime, timedelta
 from flask import Flask, render_template_string, jsonify
 import telebot
@@ -44,6 +44,33 @@ def get_estado_texto():
         mins = int((ESTADO["pausa_hasta"] - datetime.now()).total_seconds()/60)+1
         return f"⏸️ Pausa {mins}min"
     return "🟢 PRENDIDO"
+
+# --- MOTOR AUTOMATICO DEMO ---
+def motor_demo():
+    while True:
+        time.sleep(random.randint(45, 90))
+        if not ESTADO["prendido"]:
+            continue
+        if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
+            continue
+        
+        es_ganada = random.random() < 0.66
+        if es_ganada:
+            ESTADO["ganadas"] += 1
+            ESTADO["ops_hoy"] += 1
+            ESTADO["neto_hoy"] = round(ESTADO["neto_hoy"] + 0.60, 2)
+            ESTADO["balance"] = round(ESTADO["balance"] + 0.60, 2)
+            ESTADO["historial"].append(f"{datetime.now().strftime('%H:%M')} - BTC - LOBO - TP +0.3% = +$0.60 Neto")
+        else:
+            ESTADO["perdidas"] += 1
+            ESTADO["ops_hoy"] += 1
+            ESTADO["neto_hoy"] = round(ESTADO["neto_hoy"] - 0.80, 2)
+            ESTADO["balance"] = round(ESTADO["balance"] - 0.80, 2)
+            ESTADO["historial"].append(f"{datetime.now().strftime('%H:%M')} - BNB - RATA - SL -0.7% = -$0.80 Neto (Pausa 10min)")
+            ESTADO["pausa_hasta"] = datetime.now() + timedelta(minutes=10)
+        
+        if len(ESTADO["historial"]) > 20:
+            ESTADO["historial"] = ESTADO["historial"][-20:]
 
 @bot.message_handler(commands=['introduccion', 'start_intro'])
 def introduccion(message):
@@ -203,7 +230,6 @@ No opero más hasta que toques /start de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# --- WEB FIX DEFINITIVO: LOBOBOT22 + WINRATE + ANTI-TRADUCCION ---
 HTML = """
 <!DOCTYPE html>
 <html translate="no" class="notranslate">
@@ -302,6 +328,7 @@ def run_bot():
     bot.infinity_polling(skip_pending=True)
 
 threading.Thread(target=run_bot, daemon=True).start()
+threading.Thread(target=motor_demo, daemon=True).start()
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
