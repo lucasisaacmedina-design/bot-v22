@@ -93,18 +93,21 @@ Tu plata está en USDT (1 USDT = 1 Dólar). Todo lo que ves es neto, ya con comi
 Empezá por /introduccion"""
     bot.send_message(message.chat.id, texto)
 
-@bot.message_handler(commands=['introduccion', 'start_intro'])
+@bot.message_handler(commands=['introduccion'])
 def introduccion(message):
     texto = """👋 1 BIENVENIDO A LOBO V32.2 FIX - EXPLICACIÓN COMPLETA
+
 *MONEDAS QUE USO:*
 *BTC - Bitcoin:* Vale ~$78.000
 *BNB - Binance Coin:* Vale ~$737
 *USDT:* 1 USDT = 1 Dólar. Tu Balance $199.60 son 199 dólares.
+
 *LO QUE VES EN /balance:*
 Balance: tu plata total real en USDT
 Neto: ganancia/pérdida REAL ya con comisión
 Ops: cantidad de operaciones hoy
 TP +0.3% / SL -0.7% / ATR 0.30%
+
 Siguiente: /estrategias y /prender"""
     bot.send_message(message.chat.id, texto)
 
@@ -126,15 +129,22 @@ Mercado: {ESTADO['mercado']}
 Modo: 🐺 {ESTADO['modo']}
 BTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']} | ATR: 0.30%
 Estado Bot: {estado} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']}L)
-Siguiente: /balance o /apagar"""
+Siguiente: /balance para ver tu plata o /apagar para pausarme"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['prender', 'iniciar'])
 def prender(message):
     ESTADO["prendido"] = True
-    texto = f"""Estoy activo y buscando. No tenes que tocar nada.
+    ESTADO["pausa_hasta"] = None
+    texto = f"""🚀 4 BOT PRENDIDO
 
-Siguiente: /balance para ver tu plata o /apagar para pausarme"""
+🟢 Bot: PRENDIDO
+Balance: ${ESTADO['balance']} USDT
+Mercado: {ESTADO['mercado']} | MODO {ESTADO['modo']}
+
+Ya estoy buscando entrada. Te aviso por acá cuando opere.
+
+Usá /balance para ver tu plata en vivo o /apagar para pausarme."""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['balance'])
@@ -142,21 +152,27 @@ def balance(message):
     estado = get_estado_texto()
     win = calcular_winrate()
     texto = f"""💰 5 BALANCE EN VIVO
+
 Balance: ${ESTADO['balance']} USDT
 Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} operaciones, ya con comisión descontada)
 Ops hoy: {ESTADO['ops_hoy']} | Ganadas: {ESTADO['ganadas']} | Perdidas: {ESTADO['perdidas']} | Winrate: {win}%
 Estado: {estado}
-Tocá /historial"""
+
+No actualices TradingView con F5.
+Este balance es el real de Telegram y se actualiza solo.
+
+Tocá /historial para ver la operación."""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['historial'])
 def historial(message):
-    hist = "\n".join(ESTADO["historial"])
+    hist = "\n".join(ESTADO["historial"][-15:])
     win = calcular_winrate()
     texto = f"""📜 6 HISTORIAL DE HOY
+
 {hist}
 
-Total Neto hoy: ${ESTADO['neto_hoy']} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']}L) | Ops: {ESTADO['ops_hoy']}
+Total Neto hoy: ${ESTADO['neto_hoy']} | Winrate: {win}% ({ESTADO['ganadas']}W/{ESTADO['perdidas']}L)
 
 Tocá /balance en 15 min para ver recuperación."""
     bot.send_message(message.chat.id, texto)
@@ -165,21 +181,46 @@ Tocá /balance en 15 min para ver recuperación."""
 def help_cmd(message):
     estado = get_estado_texto()
     win = calcular_winrate()
-    texto = f"""❓ 7 HELP
-*Pausa 10min* = NORMAL después de SL
-*Bot PRENDIDO pero no opera* = Mercado lateral, cuidando plata
-*Balance -$0.40* = Neto real +0.60+0.60-0.80-0.80 = -0.40
-Estado: {estado} | {ESTADO['mercado']} | Bal ${ESTADO['balance']} | Ops {ESTADO['ops_hoy']} | Win {win}%
-/apagar para pausar o /balance"""
+    pausa_txt = "No"
+    if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
+        mins = int((ESTADO["pausa_hasta"] - datetime.now()).total_seconds()/60)+1
+        pausa_txt = f"Pausa {mins}min"
+    
+    texto = f"""❓ 7 HELP - DUDAS FRECUENTES
+
+*1. ¿Por qué estoy en Pausa 10min?*
+Es NORMAL después de un SL. Es para cuidarte.
+
+*2. ¿Bot PRENDIDO pero no opera?*
+Mercado LATERAL (0.10% o menos) o VOLATIL. Es NORMAL también. Si el mercado está esperando entrada. No está roto.
+
+*3. ¿Balance en negativo -$0.80?*
+Ese es el NETO ya con comisión de Binance descontada. Es de 1 operación. En la próxima lo recupera. Tocá /balance en 15 min y /historial para verla.
+
+*4. ¿Error de API o Binance?*
+Apretá /apagar y después /prender de nuevo. Si sigue, escribime.
+
+*ESTADO AHORA MISMO:*
+Bot: {estado}
+Mercado: {ESTADO['mercado']} | {ESTADO['modo']}
+Balance: ${ESTADO['balance']} | Ops hoy: {ESTADO['ops_hoy']} | Win {win}%
+
+¿Seguís trabado? Escribime directo: @TuUsuarioDeSoporte
+
+Siguiente: /apagar para pausar o /balance para ver tu plata"""
     bot.send_message(message.chat.id, texto)
 
-@bot.message_handler(commands=['apagar', 'stop'])
+@bot.message_handler(commands=['apagar'])
 def apagar(message):
     ESTADO["prendido"] = False
     texto = f"""🛑 8 BOT PAUSADO
+
 🔴 Bot: APAGADO
 Balance congelado: ${ESTADO['balance']} USDT
-No opero más hasta /prender"""
+
+No opero más hasta que toques /prender de nuevo.
+
+Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
 HTML = """
