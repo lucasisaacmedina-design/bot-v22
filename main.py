@@ -193,50 +193,72 @@ No opero más hasta que toques /start de nuevo.
 Tu plata queda segura en Binance."""
     bot.send_message(message.chat.id, texto)
 
-# --- WEB PRO NUEVA ---
+# --- WEB NUEVA: TRADINGVIEW ARRIBA BTC ABAJO BNB ---
 HTML = """
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>LOBO V33 BETA</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOBO V33 - BTC + BNB</title>
+<script src="https://s3.tradingview.com/tv.js"></script>
 <style>
-body{background:#0e1117;color:#fff;font-family:Inter,Arial;margin:0;padding:15px}
-.card{background:#1a1e26;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid #2a2f3a}
-.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold}
-.green{background:#0ecb81;color:#000}.red{background:#f6465d}.yellow{background:#fcd535;color:#000}
-h2{margin:0 0 10px;font-size:18px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.val{font-size:22px;font-weight:800}
-.small{font-size:13px;color:#8b8f9a}
+body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial,sans-serif}
+.header{background:#1e222d;padding:10px 14px;border-bottom:1px solid #2a2e39}
+.header b{color:#fff;font-size:15px}
+.line{font-size:13px;margin-top:4px}
+.orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;color:#d1d4dc}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold}
+.green{color:#26a69a}.red{color:#ef5350}
+#chart_btc{height:56vh;width:100%}
+#chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}
 </style></head><body>
-<div class="card"><h2>🐺 LOBO V33 - BETA EN VIVO</h2>
-<div class="grid">
-<div><div class="small">Estado</div><div id="estado" class="badge green">🟢 PRENDIDO</div></div>
-<div><div class="small">Balance</div><div id="balance" class="val">$199.20</div></div>
-<div><div class="small">Modo</div><div id="modo" class="badge yellow">LOBO - NORMAL</div></div>
-<div><div class="small">BTC</div><div id="btc" class="val">$78.430</div></div>
-</div></div>
-<div class="card"><canvas id="btcChart" height="120"></canvas></div>
-<div class="card"><canvas id="balChart" height="120"></canvas></div>
-<div class="card small">Neto hoy <b id="neto">-$0.80</b> | Ops <b id="ops">1</b> | <span id="mercado">NORMAL (0.30%)</span><br>Auto-actualiza cada 5s - No toques F5</div>
+<div class="header">
+<b>🐺 LOBO V29.2 ALFA SOCIOS $100+$100</b><br>
+<div class="line">Bal $199.20 | Neta $-0.80 | Ops 1</div>
+<div class="orange">
+MERCADO: NORMAL | MODO: LOBO 🐺<br>
+TP +0.3% | SL -0.7% | ATR 0.30%
+</div>
+<div class="line" id="livebar">BTC $78,308.02 | BNB $737.71 | Cargando...</div>
+</div>
+
+<div id="chart_btc"></div>
+<div id="chart_bnb"></div>
+
 <script>
-let btcC,balC
-async function load(){
-let r=await fetch('/api/data');let d=await r.json();
-document.getElementById('estado').innerText=d.estado_texto
-document.getElementById('balance').innerText='$'+d.balance
-document.getElementById('modo').innerText=d.modo+' - '+d.mercado
-document.getElementById('btc').innerText='$'+d.btc
-document.getElementById('neto').innerText='$'+d.neto_hoy
-document.getElementById('ops').innerText=d.ops_hoy
-document.getElementById('mercado').innerText=d.mercado
-if(!btcC){
-btcC=new Chart(document.getElementById('btcChart'),{type:'line',data:{labels:d.btc_history.map((_,i)=>i),datasets:[{label:'BTC',data:d.btc_history,borderColor:'#fcd535',backgroundColor:'rgba(252,213,53,0.1)',tension:0.4,fill:true}]},options:{plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'#222'}}}}})
-balC=new Chart(document.getElementById('balChart'),{type:'line',data:{labels:d.balance_history.map((_,i)=>i),datasets:[{label:'Balance',data:d.balance_history,borderColor:'#0ecb81',backgroundColor:'rgba(14,203,129,0.1)',tension:0.4,fill:true}]},options:{plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'#222'}}}}})
-}else{btcC.data.datasets[0].data=d.btc_history;btcC.update();balC.data.datasets[0].data=d.balance_history;balC.update();}
+new TradingView.widget({
+  "autosize": true,
+  "symbol": "BINANCE:BTCUSDT",
+  "interval": "5",
+  "timezone": "America/Argentina/Buenos_Aires",
+  "theme": "dark",
+  "style": "1",
+  "locale": "es",
+  "toolbar_bg": "#131722",
+  "enable_publishing": false,
+  "hide_top_toolbar": false,
+  "container_id": "chart_btc"
+});
+new TradingView.widget({
+  "autosize": true,
+  "symbol": "BINANCE:BNBUSDT",
+  "interval": "5",
+  "timezone": "America/Argentina/Buenos_Aires",
+  "theme": "dark",
+  "style": "1",
+  "locale": "es",
+  "toolbar_bg": "#131722",
+  "enable_publishing": false,
+  "hide_top_toolbar": false,
+  "container_id": "chart_bnb"
+});
+async function refresh(){
+ try{
+  let r=await fetch('/api/data');let d=await r.json();
+  document.getElementById('livebar').innerHTML = `BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | ${d.estado_texto} | Bal $${d.balance} | Neta $${d.neto_hoy}`;
+ }catch(e){}
 }
-setInterval(load,5000);load();
-</script></body></html>
+setInterval(refresh,8000);refresh();
+</script>
+</body></html>
 """
 
 @app.route('/')
@@ -245,12 +267,8 @@ def home():
 
 @app.route('/api/data')
 def api_data():
-    # Simulación leve para que se mueva el gráfico
     ESTADO["btc"] = round(78430 + random.uniform(-150,150),2)
-    ESTADO["btc_history"].append(ESTADO["btc"])
-    ESTADO["btc_history"] = ESTADO["btc_history"][-40:]
-    ESTADO["balance_history"].append(ESTADO["balance"] + random.uniform(-0.3,0.3))
-    ESTADO["balance_history"] = ESTADO["balance_history"][-40:]
+    ESTADO["bnb"] = round(737.50 + random.uniform(-2,2),2)
     return jsonify({
         "balance": ESTADO["balance"],
         "neto_hoy": ESTADO["neto_hoy"],
@@ -258,8 +276,7 @@ def api_data():
         "modo": ESTADO["modo"],
         "mercado": ESTADO["mercado"],
         "btc": ESTADO["btc"],
-        "btc_history": ESTADO["btc_history"],
-        "balance_history": ESTADO["balance_history"],
+        "bnb": ESTADO["bnb"],
         "estado_texto": get_estado_texto()
     })
 
