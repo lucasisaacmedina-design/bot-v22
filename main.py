@@ -317,8 +317,8 @@ def motor_demo():
                     continue
             if es_admin_id:
                 analizar_mercado_y_elegir_modo(user_data, user_id)
-                # V26.6 MEGALODON=CEDEARs 30% + ORCA FUTURO 25%
-                modo_elegido = random.choices(["RATA","LOBO","TIBURON","ORCA","MEGALODON"], weights=[15][20][10][25][30], k=1)[0]
+                # V26.6 FIX - PESOS CORREGIDOS: 15,20,10,25,30
+                modo_elegido = random.choices(["RATA","LOBO","TIBURON","ORCA","MEGALODON"], weights=[15,20,10,25,30], k=1)[0]
                 if modo_elegido == "RATA":
                     es_ganada,gan,perd=random.random()<0.72,0.80,0.50
                     tp,sl="+0.2% BTC","-0.4% BTC"
@@ -332,7 +332,6 @@ def motor_demo():
                     tp,sl="+2.5% FUTURO","-1.8% FUTURO"
                     activo="BTC FUTURO"
                 elif modo_elegido == "MEGALODON":
-                    # MEGALODON = CEDEARs PURO - TU IDEA ORIGINAL
                     cedear = random.choice(["AAPL","TSLA","NVDA","MELI","MSFT","GOOGL"])
                     es_ganada,gan,perd=random.random()<0.70,6.20,2.80
                     tp,sl=f"+3.5% CEDEAR {cedear}","-2.2% CEDEAR"
