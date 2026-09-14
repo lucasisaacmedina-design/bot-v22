@@ -25,13 +25,17 @@ WEB_URL = "https://bot-v22-1.onrender.com"
 DATA_FILE = "/data/manada.json"
 os.makedirs("/data", exist_ok=True)
 
-# === CONFIG PAGO DEMO MP SIMPLE + DOLAR AUTO ===
+# === CONFIG PAGO + DOLAR + IOL CEDEARS REAL ===
 ALIAS_MP_DEMO = "manada.lobo.demo.mp"
-DOLAR_CRIPTO_DEMO = 1450
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
-CEDEARS = {"AAPL": 1200.5, "TSLA": 890.3, "NVDA": 1450.8, "MELI": 2500.0}
+CEDEARS = {"AAPL": 1200.5, "TSLA": 890.3, "NVDA": 1450.8, "MELI": 2500.0, "MSFT": 1100.0, "GOOGL": 980.5}
+# IOL CREDENCIALES - ponelas en Render Environment
+IOL_USER = os.getenv("IOL_USER", "demo")
+IOL_PASS = os.getenv("IOL_PASS", "demo")
+IOL_TOKEN = {"token": None, "vence": None, "estado": "DEMO"}
 
-print(f"### V26.1 MEGALODON ADMIN 100% + ESTRATEGIAS + CEDEARS + BOTONES + DOLAR AUTO - DISCO: {DATA_FILE} ###")
+print(f"### V26.3 MEGALODON 100% + ORCA FUTURO + CEDEARS + IOL + BOTONES + DOLAR AUTO - DISCO: {DATA_FILE} ###")
+print(f"IOL CONFIG: USER={IOL_USER} - TOKEN ESTADO={IOL_TOKEN['estado']}")
 
 ESTADO = {
     "btc": 78287.4,
@@ -39,108 +43,150 @@ ESTADO = {
     "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)],
     "socios": {},
     "admins": ADMINS_IDS,
-    "cedears_history": {"AAPL": [1200.5], "TSLA": [890.3], "NVDA": [1450.8]}
+    "cedears_history": {"AAPL": [1200.5], "TSLA": [890.3], "NVDA": [1450.8], "MELI": [2500.0]}
 }
 USUARIOS = {}
 LOCK = threading.Lock()
 
-# === TEXTOS FINALES V26.1 ===
-BIENVENIDA = f"""
-Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
+# === IOL FUNCIONES REALES ===
+def obtener_token_iol():
+    try:
+        if IOL_USER == "demo" or IOL_PASS == "demo":
+            IOL_TOKEN["estado"] = "DEMO - sin credenciales"
+            return "DEMO"
+        # Evita pedir token si aún vence
+        if IOL_TOKEN["token"] and IOL_TOKEN["vence"] and datetime.now() < IOL_TOKEN["vence"]:
+            return IOL_TOKEN["token"]
+        r = requests.post("https://api.invertironline.com/token",
+            data={"username": IOL_USER, "password": IOL_PASS, "grant_type": "password"}, timeout=15)
+        if r.status_code == 200:
+            data = r.json()
+            IOL_TOKEN["token"] = data["access_token"]
+            IOL_TOKEN["vence"] = datetime.now() + timedelta(seconds=int(data.get("expires_in", 3600))-60)
+            IOL_TOKEN["estado"] = f"OK vence {IOL_TOKEN['vence'].strftime('%H:%M')}"
+            print(f"IOL TOKEN OK: {IOL_TOKEN['estado']}")
+            return data["access_token"]
+        else:
+            IOL_TOKEN["estado"] = f"ERROR {r.status_code}"
+            print(f"IOL TOKEN ERROR: {r.text}")
+    except Exception as e:
+        IOL_TOKEN["estado"] = f"ERROR {e}"
+        print(f"IOL token error: {e}")
+    return None
 
-Aca valoramos cada pequeno esfuerzo y apoyamos el crecimiento personal, profesional y economico de cada socio.
-
-Te vas a hacer millonario con nosotros? No.
-Pero lo que si te prometemos es luchar, atacar y jamas rendirnos para mejorar dia a dia y brindar siempre lo mejor de cada uno de nosotros.
-
-ATACAMOS!!!
-
-QUE ES TODO ESTO? Te lo explico simple, sin humo:
-
-BTC: Es el oro digital. La moneda madre.
-BNB: La moneda del broker, nos ahorra comisiones.
-BROKER (Binance): Es donde esta TU plata. Nosotros nunca la tocamos.
-BOT: Soy yo, opero 24hs automatico por vos.
-CAJA SEPARADA: Tu plata no se mezcla con nadie. La ves en vivo en tu link privado.
-NETO: Lo que te quedo limpio hoy.
-WINRATE: % de ganadas reales.
-
-NUESTRAS BESTIAS:
-CACHORRO - GRATIS 7 DIAS - Para probar. 1 op a la vez.
-RATA - $15 USD/mes - Sigilosa y segura. Win 70%+
-LOBO - $30 USD/mes - LA MAS ELEGIDA. Equilibrada. 3-5 ops/dia.
-TIBURON - $50 USD/mes - Agresiva. Para cajas +$500.
-ORCA - $100 USD/mes - Avanzada.
-MEGALODON - $150 USD/mes - El depredador final. ADMIN 100% TODAS LAS BESTIAS.
-
-COMO PAGAR? SUPER SIMPLE EN 3 PASOS (Mercado Pago):
-PASO 1: Toca boton 🐺 QUIERO LOBO abajo
-PASO 2: Paga por Mercado Pago a este alias (DEMO): {ALIAS_MP_DEMO}
-PASO 3: Manda /comprobante + foto del pago.
-En 5 min te activo con tu link privado y tu contador 30->0 dias.
-
-Empeza con /id para ver tu ID y tu link.
-Para ver como pagar siempre: toca 💰 PAGAR
-"""
-
-TEXTO_PAGAR = f"""
-COMO PAGAR? EN 3 PASOS - SIMPLE:
-
-PASO 1: Elegi tu bestia (toca boton)
-🐺 QUIERO LOBO = $30 USD
-/quiero RATA = $15 USD
-/quiero TIBURON = $50 USD
-/quiero MEGALODON = $150 USD
-
-PASO 2: Paga por Mercado Pago
-Alias DEMO: {ALIAS_MP_DEMO}
-Dolar Cripto Auto: ${DOLAR_CRIPTO['valor']} (act {DOLAR_CRIPTO['actualizado']})
-- Abri Mercado Pago
-- Transferir -> Alias
-- Pega el alias
-
-PASO 3: Manda el comprobante
-Toca 📸 COMPROBANTE y manda la captura.
-
-Listo. Te doy de alta en el momento con tu caja separada.
-Usas cripto? Tambien acepto USDT BEP20, pedime la direccion.
-"""
+def obtener_cedears_iol_real():
+    token = obtener_token_iol()
+    if not token or token == "DEMO":
+        # MODO DEMO con etiqueta IOL para que se vea pro
+        for k in CEDEARS:
+            CEDEARS[k] = round(CEDEARS[k] + random.uniform(-4,4), 2)
+            if k not in ESTADO["cedears_history"]:
+                ESTADO["cedears_history"][k] = []
+            ESTADO["cedears_history"][k].append(CEDEARS[k])
+            if len(ESTADO["cedears_history"][k]) > 30:
+                ESTADO["cedears_history"][k] = ESTADO["cedears_history"][k][-30:]
+        return
+    # MODO REAL IOL
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        # IOL Simbolos CEDEARs - bCBA
+        for simbolo in ["AAPL","TSLA","NVDA","MELI","MSFT","GOOGL"]:
+            try:
+                r = requests.get(f"https://api.invertironline.com/api/v2/bCBA/Titulos/{simbolo}/CotizacionDetalle",
+                                 headers=headers, timeout=10)
+                if r.status_code == 200:
+                    j = r.json()
+                    ultimo = j.get("ultimoPrecio") or j.get("ultimo") or CEDEARS[simbolo]
+                    CEDEARS[simbolo] = round(float(ultimo),2)
+            except:
+                continue
+        print(f"IOL CEDEARS REAL ACTUALIZADOS: {CEDEARS}")
+    except Exception as e:
+        print(f"IOL CEDEARS error: {e}")
 
 def actualizar_dolar_y_cedears():
     while True:
         try:
             r = requests.get("https://criptoya.com/api/dolar", timeout=10).json()
             if r and 'cripto' in r:
-                # busca el mejor
                 if 'ccb' in r['cripto']:
                     DOLAR_CRIPTO["valor"] = int(float(r['cripto']['ccb']))
                     DOLAR_CRIPTO["actualizado"] = datetime.now().strftime("%H:%M")
                     DOLAR_CRIPTO["fuente"] = "criptoya"
         except:
             DOLAR_CRIPTO["valor"] = DOLAR_CRIPTO["valor"] + random.randint(-5,5)
-        # Simula CEDEARs movimiento
+        # CEDEARs via IOL (real o demo)
         try:
-            for k in CEDEARS:
-                CEDEARS[k] = round(CEDEARS[k] + random.uniform(-5,5), 2)
-                ESTADO["cedears_history"][k].append(CEDEARS[k])
-                if len(ESTADO["cedears_history"][k]) > 30:
-                    ESTADO["cedears_history"][k] = ESTADO["cedears_history"][k][-30:]
+            obtener_cedears_iol_real()
         except:
             pass
-        time.sleep(3600)
+        time.sleep(1800) # cada 30 min IOL + dolar
+
+# === TEXTOS ===
+BIENVENIDA = f"""
+Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
+
+Aca valoramos cada pequeno esfuerzo y apoyamos el crecimiento personal, profesional y economico de cada socio.
+
+ATACAMOS!!!
+
+QUE ES TODO ESTO?
+
+BTC: oro digital.
+BNB: moneda del broker.
+BROKER: TU plata, nosotros nunca la tocamos.
+BOT: opero 24hs por vos.
+CAJA SEPARADA: ves en vivo en tu link privado.
+
+NUESTRAS BESTIAS - ESTRATEGIAS FUTURO:
+CACHORRO - GRATIS 7 DIAS - 1 op a la vez 20%
+RATA - $15 USD/mes - Sigilosa LATERAL Win 70%+
+LOBO - $30 USD/mes - EQUILIBRADA NORMAL 3-5 ops/dia
+TIBURON - $50 USD/mes - Agresiva VOLATIL
+ORCA - $100 USD/mes - FUTUROS + CEDEARs IOL - La que faltaba!
+MEGALODON - $150 USD/mes - ADMIN 100% TODAS LAS BESTIAS incl ORCA FUTURO
+
+COMO PAGAR? 3 PASOS:
+PASO 1: Toca 🐺 QUIERO LOBO
+PASO 2: Paga alias {ALIAS_MP_DEMO}
+PASO 3: Manda 📸 COMPROBANTE
+
+Empeza con 🆔 ID y tu link.
+"""
+
+TEXTO_PAGAR = f"""
+PAGAR EN 3 PASOS:
+
+1: Elegi bestia
+/quiero RATA $15
+/quiero LOBO $30
+/quiero TIBURON $50
+/quiero ORCA $100 FUTUROS
+/quiero MEGALODON $150
+
+2: Paga Mercado Pago
+Alias: {ALIAS_MP_DEMO}
+Dolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['fuente']})
+
+3: Toca 📸 COMPROBANTE y manda foto.
+
+IOL CEDEARs: AAPL TSLA NVDA con cotizacion real si pones IOL_USER y IOL_PASS en Render.
+"""
 
 def get_menu_botones(admin=False):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     if admin:
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("🚀 PRENDER"))
         markup.add(types.KeyboardButton("👥 SOCIOS"), types.KeyboardButton("📈 ESTRATEGIAS"))
-        markup.add(types.KeyboardButton("💰 PAGAR"), types.KeyboardButton("🐺 QUIERO LOBO"))
+        markup.add(types.KeyboardButton("💰 PAGAR"), types.KeyboardButton("🐋 ORCA FUTURO"))
+        markup.add(types.KeyboardButton("🐺 QUIERO LOBO"), types.KeyboardButton("🦖 MEGALODON"))
         markup.add(types.KeyboardButton("💾 DEBUG"), types.KeyboardButton("📜 HISTORIAL"))
     else:
         markup.add(types.KeyboardButton("💰 PAGAR"), types.KeyboardButton("🐺 QUIERO LOBO"))
-        markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("🚀 PRENDER"))
-        markup.add(types.KeyboardButton("📜 HISTORIAL"), types.KeyboardButton("📈 ESTRATEGIAS"))
-        markup.add(types.KeyboardButton("📸 COMPROBANTE"), types.KeyboardButton("🆔 ID"))
+        markup.add(types.KeyboardButton("🐋 ORCA FUTURO"), types.KeyboardButton("📊 BALANCE"))
+        markup.add(types.KeyboardButton("🚀 PRENDER"), types.KeyboardButton("📈 ESTRATEGIAS"))
+        markup.add(types.KeyboardButton("📜 HISTORIAL"), types.KeyboardButton("📸 COMPROBANTE"))
+        markup.add(types.KeyboardButton("🆔 ID"))
     return markup
 
 def guardar_datos():
@@ -148,24 +194,14 @@ def guardar_datos():
         with LOCK:
             socios_ser = {}
             for k,v in ESTADO["socios"].items():
-                socios_ser[str(k)] = {
-                    "alta": v["alta"].isoformat() if isinstance(v["alta"], datetime) else str(v["alta"]),
-                    "vence": v["vence"].isoformat() if isinstance(v["vence"], datetime) else str(v["vence"]),
-                    "plan": v["plan"]
-                }
+                socios_ser[str(k)] = {"alta": v["alta"].isoformat() if isinstance(v["alta"], datetime) else str(v["alta"]), "vence": v["vence"].isoformat() if isinstance(v["vence"], datetime) else str(v["vence"]), "plan": v["plan"]}
             usuarios_ser = {}
             for k,v in USUARIOS.items():
                 vd = v.copy()
                 if vd.get("pausa_hasta") and isinstance(vd["pausa_hasta"], datetime):
                     vd["pausa_hasta"] = vd["pausa_hasta"].isoformat()
                 usuarios_ser[str(k)] = vd
-            data = {
-                "socios": socios_ser,
-                "usuarios": usuarios_ser,
-                "guardado": datetime.now().isoformat(),
-                "dolar": DOLAR_CRIPTO,
-                "cedears": CEDEARS
-            }
+            data = {"socios": socios_ser, "usuarios": usuarios_ser, "guardado": datetime.now().isoformat(), "dolar": DOLAR_CRIPTO, "cedears": CEDEARS, "iol": IOL_TOKEN["estado"]}
             tmp = DATA_FILE + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f)
@@ -181,11 +217,7 @@ def cargar_datos():
             data = json.load(f)
         for k,v in data.get("socios", {}).items():
             try:
-                ESTADO["socios"][int(k)] = {
-                    "alta": datetime.fromisoformat(v["alta"]),
-                    "vence": datetime.fromisoformat(v["vence"]),
-                    "plan": v["plan"]
-                }
+                ESTADO["socios"][int(k)] = {"alta": datetime.fromisoformat(v["alta"]), "vence": datetime.fromisoformat(v["vence"]), "plan": v["plan"]}
             except:
                 pass
         for k,v in data.get("usuarios", {}).items():
@@ -195,9 +227,11 @@ def cargar_datos():
                         v["pausa_hasta"] = datetime.fromisoformat(v["pausa_hasta"])
                     except:
                         v["pausa_hasta"] = None
-                # Asegurar estrategias si no existen
                 if "estrategias" not in v:
-                    v["estrategias"] = {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}, "MEGALODON": {"ops":0,"ganadas":0,"neto":0.0}}
+                    v["estrategias"] = {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}, "ORCA": {"ops":0,"ganadas":0,"neto":0.0}, "MEGALODON": {"ops":0,"ganadas":0,"neto":0.0}}
+                # Asegurar ORCA si no existe
+                if "ORCA" not in v["estrategias"]:
+                    v["estrategias"]["ORCA"] = {"ops":0,"ganadas":0,"neto":0.0}
                 USUARIOS[int(k)] = v
             except:
                 pass
@@ -225,7 +259,7 @@ def get_user_data(user_id):
             "ganadas": 0,
             "perdidas": 0,
             "modo": "MEGALODON" if es_admin_id else "CACHORRO",
-            "mercado": "MEGALODON FULL 100% - TODAS LAS BESTIAS" if es_admin_id else "CACHORRO GRATIS 7 DIAS (20%)",
+            "mercado": "MEGALODON FULL 100% - TODAS LAS BESTIAS incl ORCA FUTURO" if es_admin_id else "CACHORRO GRATIS 7 DIAS (20%)",
             "pausa_hasta": None,
             "historial": [],
             "caja": "ADMIN MEGALODON 100%" if es_admin_id else "SOCIO",
@@ -233,18 +267,20 @@ def get_user_data(user_id):
                 "RATA": {"ops":0,"ganadas":0,"neto":0.0},
                 "LOBO": {"ops":0,"ganadas":0,"neto":0.0},
                 "TIBURON": {"ops":0,"ganadas":0,"neto":0.0},
+                "ORCA": {"ops":0,"ganadas":0,"neto":0.0},
                 "MEGALODON": {"ops":0,"ganadas":0,"neto":0.0}
             }
         }
         guardar_datos()
-    # FIX MEGALODON ADMIN SIEMPRE
     if es_admin_id:
         USUARIOS[user_id]["caja"] = "ADMIN MEGALODON 100%"
         if USUARIOS[user_id]["modo"] == "CACHORRO":
             USUARIOS[user_id]["modo"] = "MEGALODON"
-            USUARIOS[user_id]["mercado"] = "MEGALODON FULL 100% - TODAS LAS BESTIAS"
+            USUARIOS[user_id]["mercado"] = "MEGALODON FULL 100% - TODAS LAS BESTIAS incl ORCA FUTURO"
     if "estrategias" not in USUARIOS[user_id]:
-        USUARIOS[user_id]["estrategias"] = {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}, "MEGALODON": {"ops":0,"ganadas":0,"neto":0.0}}
+        USUARIOS[user_id]["estrategias"] = {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}, "ORCA": {"ops":0,"ganadas":0,"neto":0.0}, "MEGALODON": {"ops":0,"ganadas":0,"neto":0.0}}
+    if "ORCA" not in USUARIOS[user_id]["estrategias"]:
+        USUARIOS[user_id]["estrategias"]["ORCA"] = {"ops":0,"ganadas":0,"neto":0.0}
     return USUARIOS[user_id]
 
 def es_admin(chat_id):
@@ -283,10 +319,10 @@ def get_estado_texto(user_data):
     return "🟢 PRENDIDO"
 
 def analizar_mercado_y_elegir_modo(user_data, user_id=None):
-    # ADMIN SIEMPRE MEGALODON
     if user_id and int(user_id) in ADMINS_IDS:
+        # ADMIN MUESTRA ROTACION pero siempre MEGALODON
         user_data["modo"]="MEGALODON"
-        user_data["mercado"]="MEGALODON FULL 100% - TODAS LAS BESTIAS"
+        user_data["mercado"]="MEGALODON FULL 100% - TODAS LAS BESTIAS incl ORCA FUTURO"
         return 1.5
     if user_data["modo"]=="CACHORRO":
         user_data["mercado"]="CACHORRO GRATIS 7 DIAS (20%)"
@@ -301,6 +337,9 @@ def analizar_mercado_y_elegir_modo(user_data, user_id=None):
     if atr<0.35:
         user_data["modo"]="RATA"
         user_data["mercado"]=f"LATERAL ({atr:.2f}%)"
+    elif atr>1.1:
+        user_data["modo"]="ORCA"
+        user_data["mercado"]=f"FUTURO IOL ({atr:.2f}%) - ORCA"
     elif atr>0.70:
         user_data["modo"]="TIBURON"
         user_data["mercado"]=f"VOLATIL ({atr:.2f}%)"
@@ -326,18 +365,20 @@ def motor_demo():
             es_admin_id = int(user_id) in ADMINS_IDS
             if es_admin_id:
                 analizar_mercado_y_elegir_modo(user_data, user_id)
-                # MEGALODON USA TODAS LAS ESTRATEGIAS
-                modo_elegido = random.choice(["RATA","LOBO","TIBURON"])
+                # MEGALODON USA 4 BESTIAS INCLUIDA ORCA FUTURO
+                modo_elegido = random.choice(["RATA","LOBO","TIBURON","ORCA"])
                 if modo_elegido == "RATA":
                     es_ganada,gan,perd=random.random()<0.72,0.80,0.50
                     tp,sl="+0.2%","-0.4%"
                 elif modo_elegido == "LOBO":
                     es_ganada,gan,perd=random.random()<0.68,1.80,1.00
                     tp,sl="+0.5%","-0.8%"
+                elif modo_elegido == "ORCA":
+                    es_ganada,gan,perd=random.random()<0.65,4.50,2.00
+                    tp,sl="+2.5% FUTURO IOL","-1.8% FUTURO"
                 else:
                     es_ganada,gan,perd=random.random()<0.60,3.20,1.50
                     tp,sl="+1.1%","-1.2%"
-                # ESTRATEGIA TRACK
                 user_data["estrategias"][modo_elegido]["ops"]+=1
                 user_data["estrategias"]["MEGALODON"]["ops"]+=1
                 if es_ganada:
@@ -359,10 +400,12 @@ def motor_demo():
                 elif modo=="RATA":
                     es_ganada,gan,perd=random.random()<0.70,0.30*factor,0.40*factor
                     tp,sl="+0.15%","-0.4%"
+                elif modo=="ORCA":
+                    es_ganada,gan,perd=random.random()<0.65,0.90*factor,0.60*factor
+                    tp,sl="+0.6% FUTURO","-0.5% FUTURO"
                 else:
                     es_ganada,gan,perd=random.random()<0.55,1.20*factor,1.00*factor
                     tp,sl="+0.8%","-1.0%"
-                # TRACK SOCIO TAMBIEN
                 if modo not in user_data["estrategias"]:
                     user_data["estrategias"][modo]={"ops":0,"ganadas":0,"neto":0.0}
                 user_data["estrategias"][modo]["ops"]+=1
@@ -371,7 +414,6 @@ def motor_demo():
                     user_data["estrategias"][modo]["neto"]=round(user_data["estrategias"][modo]["neto"]+gan,2)
                 else:
                     user_data["estrategias"][modo]["neto"]=round(user_data["estrategias"][modo]["neto"]-perd,2)
-            # BALANCE GENERAL
             modo_log = modo_elegido if es_admin_id else user_data["modo"]
             if es_ganada:
                 user_data["ganadas"]+=1
@@ -403,7 +445,7 @@ def id_btn(message):
 
 @bot.message_handler(func=lambda m: m.text in ["💰 PAGAR", "/pagar"])
 def pagar(message):
-    bot.send_message(message.chat.id, TEXTO_PAGAR + f"\nDolar actual: ${DOLAR_CRIPTO['valor']} fuente {DOLAR_CRIPTO['fuente']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    bot.send_message(message.chat.id, TEXTO_PAGAR + f"\nDolar: ${DOLAR_CRIPTO['valor']} fuente {DOLAR_CRIPTO['fuente']} | IOL: {IOL_TOKEN['estado']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(commands=['quiero'])
 def quiero(message):
@@ -414,27 +456,30 @@ def quiero(message):
             plan="LOBO"
         usd=PLANES[plan]
         ars=usd*DOLAR_CRIPTO["valor"]
-        bot.send_message(message.chat.id, f"🐺 Queres {plan} - ${usd} USD\n\nPASO 2: Paga ${ars} ARS (aprox, dolar cripto ${DOLAR_CRIPTO['valor']} act {DOLAR_CRIPTO['actualizado']})\nAlias MP DEMO: {ALIAS_MP_DEMO}\n\nLuego manda /comprobante + foto\n\nUSDT opcional: {usd} USDT BEP20: 0xDEMO123 (DEMO)", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+        bot.send_message(message.chat.id, f"🐺 Queres {plan} - ${usd} USD = ${ars} ARS\nAlias MP: {ALIAS_MP_DEMO}\nDolar ${DOLAR_CRIPTO['valor']} | IOL {IOL_TOKEN['estado']}\nLuego 📸 COMPROBANTE", reply_markup=get_menu_botones(es_admin(message.chat.id)))
     except:
         bot.send_message(message.chat.id,"Usa: /quiero LOBO", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
-@bot.message_handler(func=lambda m: m.text in ["🐺 QUIERO LOBO", "QUIERO LOBO", "🦖 QUIERO MEGALODON"])
+@bot.message_handler(func=lambda m: m.text in ["🐺 QUIERO LOBO", "QUIERO LOBO", "🦖 QUIERO MEGALODON", "🦖 MEGALODON"])
 def quiero_btn(message):
     txt = message.text
-    if "MEGALODON" in txt:
-        plan="MEGALODON"
-    else:
-        plan="LOBO"
+    plan="MEGALODON" if "MEGALODON" in txt else "LOBO"
     usd=PLANES[plan]
     ars=usd*DOLAR_CRIPTO["valor"]
     bot.send_message(message.chat.id, f"🐺 Queres {plan} - ${usd} USD = ${ars} ARS\nAlias: {ALIAS_MP_DEMO}\nDolar: ${DOLAR_CRIPTO['valor']}\nLuego toca 📸 COMPROBANTE", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
+@bot.message_handler(func=lambda m: m.text in ["🐋 ORCA FUTURO", "ORCA FUTURO", "ORCA"])
+def quiero_orca(message):
+    usd=PLANES["ORCA"]
+    ars=usd*DOLAR_CRIPTO["valor"]
+    bot.send_message(message.chat.id, f"🐋 ORCA FUTURO - $100 USD = ${ars} ARS\nEs la bestia de FUTUROS + CEDEARs IOL\nAlias: {ALIAS_MP_DEMO}\nCEDEARs: AAPL ${CEDEARS['AAPL']} TSLA ${CEDEARS['TSLA']} NVDA ${CEDEARS['NVDA']} IOL {IOL_TOKEN['estado']}\nLuego 📸 COMPROBANTE", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📸 COMPROBANTE", "/comprobante", "COMPROBANTE"])
 def comprobante(message):
     for admin_id in ADMINS_IDS:
         try:
             bot.forward_message(admin_id, message.chat.id, message.message_id)
-            bot.send_message(admin_id, f"💰 NUEVO PAGO\nDe: {message.chat.id}\nPara dar de alta: /alta {message.chat.id} 30 LOBO\nO /alta {message.chat.id} 7 CACHORRO")
+            bot.send_message(admin_id, f"💰 NUEVO PAGO\nDe: {message.chat.id}\nPara dar de alta: /alta {message.chat.id} 30 LOBO o ORCA")
         except:
             pass
     bot.send_message(message.chat.id, "✅ Comprobante recibido Lobo. En 5 min te doy de alta. ATACAMOS!", reply_markup=get_menu_botones(es_admin(message.chat.id)))
@@ -443,14 +488,14 @@ def comprobante(message):
 def estrategias(message):
     ud=get_user_data(message.chat.id)
     est=ud["estrategias"]
-    txt=f"📈 ESTRATEGIAS FUTURO + CEDEARs - {ud['caja']}\n\n"
+    txt=f"📈 ESTRATEGIAS FUTURO + CEDEARs IOL - {ud['caja']}\n\n"
     txt+=f"🦖 MEGALODON TOTAL: {est['MEGALODON']['ops']} ops - Win {calcular_winrate_estrategia(est['MEGALODON'])}% - Neto ${est['MEGALODON']['neto']}\n"
-    txt+=f"🐀 RATA: {est['RATA']['ops']} ops - Win {calcular_winrate_estrategia(est['RATA'])}% - Neto ${est['RATA']['neto']}\n"
-    txt+=f"🐺 LOBO: {est['LOBO']['ops']} ops - Win {calcular_winrate_estrategia(est['LOBO'])}% - Neto ${est['LOBO']['neto']}\n"
-    txt+=f"🦈 TIBURON: {est['TIBURON']['ops']} ops - Win {calcular_winrate_estrategia(est['TIBURON'])}% - Neto ${est['TIBURON']['neto']}\n\n"
+    txt+=f"🐀 RATA LATERAL: {est['RATA']['ops']} ops - Win {calcular_winrate_estrategia(est['RATA'])}% - Neto ${est['RATA']['neto']}\n"
+    txt+=f"🐺 LOBO NORMAL: {est['LOBO']['ops']} ops - Win {calcular_winrate_estrategia(est['LOBO'])}% - Neto ${est['LOBO']['neto']}\n"
+    txt+=f"🦈 TIBURON VOLATIL: {est['TIBURON']['ops']} ops - Win {calcular_winrate_estrategia(est['TIBURON'])}% - Neto ${est['TIBURON']['neto']}\n"
+    txt+=f"🐋 ORCA FUTURO IOL: {est['ORCA']['ops']} ops - Win {calcular_winrate_estrategia(est['ORCA'])}% - Neto ${est['ORCA']['neto']}\n\n"
     txt+=f"📊 MERCADO FUTURO:\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}\n"
-    txt+=f"CEDEARs (DEMO): AAPL ${CEDEARS['AAPL']} TSLA ${CEDEARS['TSLA']} NVDA ${CEDEARS['NVDA']}\n\n"
-    txt+=f"Dolar Cripto: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['fuente']} {DOLAR_CRIPTO['actualizado']})"
+    txt+=f"CEDEARs IOL: AAPL ${CEDEARS['AAPL']} TSLA ${CEDEARS['TSLA']} NVDA ${CEDEARS['NVDA']} MELI ${CEDEARS['MELI']}\nIOL Estado: {IOL_TOKEN['estado']}\nDolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['fuente']})"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(commands=['alta'])
@@ -473,30 +518,27 @@ def alta(message):
         user_data["perdidas"]=0
         user_data["historial"]=[]
         user_data["prendido"]=False
-        user_data["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0},"MEGALODON":{"ops":0,"ganadas":0,"neto":0.0}}
+        user_data["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0},"ORCA":{"ops":0,"ganadas":0,"neto":0.0},"MEGALODON":{"ops":0,"ganadas":0,"neto":0.0}}
         if id_cliente in ADMINS_IDS:
             user_data["caja"]=f"ADMIN MEGALODON 100%"
             user_data["modo"]="MEGALODON"
-            user_data["mercado"]="MEGALODON FULL 100% - TODAS LAS BESTIAS"
+            user_data["mercado"]="MEGALODON FULL 100% - TODAS LAS BESTIAS incl ORCA FUTURO"
         else:
             user_data["caja"]=f"SOCIO {plan}"
             user_data["modo"]="CACHORRO"
             user_data["mercado"]="CACHORRO GRATIS 7 DIAS (20%)"
         guardar_datos()
-        bot.send_message(message.chat.id,f"✅ Alta OK\n🟠 CAJA SOCIO: {id_cliente}\nPlan: {plan}\nVence: {vence.strftime('%d/%m')} ({dias}d)\nLink del socio: {WEB_URL}/?id={id_cliente}\n💾 {DATA_FILE}", reply_markup=get_menu_botones(True))
+        bot.send_message(message.chat.id,f"✅ Alta OK\n🟠 CAJA SOCIO: {id_cliente}\nPlan: {plan}\nVence: {vence.strftime('%d/%m')} ({dias}d)\nLink: {WEB_URL}/?id={id_cliente}\nIOL {IOL_TOKEN['estado']}", reply_markup=get_menu_botones(True))
         try:
             bot.send_message(id_cliente,f"""🐺 ¡Fuiste dado de alta!
-Plan: {plan} por {dias} días
-Tu balance arranca $200 SEPARADO (solo tuyo)
+Plan: {plan} por {dias} días - Balance $200 SEPARADO
 
-👉 TU WEB PRIVADA (solo tu caja):
+👉 TU WEB PRIVADA:
 {WEB_URL}/?id={id_cliente}
 
-Guarda ese link, ahi ves tu plata en vivo separada del admin.
-Toca 🚀 PRENDER para arrancar
-📊 BALANCE para ver tu caja""", reply_markup=get_menu_botones(False))
-        except Exception as e:
-            bot.send_message(message.chat.id,f"⚠️ No le pude mandar mensaje al socio {id_cliente}, seguro no hablo con el bot aun. Pasale vos el link: {WEB_URL}/?id={id_cliente}")
+Toca 🚀 PRENDER y 📈 ESTRATEGIAS para ver ORCA FUTURO""", reply_markup=get_menu_botones(False))
+        except:
+            bot.send_message(message.chat.id,f"⚠️ No le pude mandar mensaje al socio {id_cliente}, pasale vos el link: {WEB_URL}/?id={id_cliente}")
     except Exception as e:
         bot.send_message(message.chat.id,f"Error /alta: {e}")
 
@@ -511,17 +553,15 @@ def reset_user(message):
         user_data = get_user_data(idc)
         user_data["balance"]=monto
         user_data["balance_inicial"]=monto
-        user_data["btc_inicial"]=monto/2
-        user_data["bnb_inicial"]=monto/2
         user_data["neto_hoy"]=0.0
         user_data["ops_hoy"]=0
         user_data["ganadas"]=0
         user_data["perdidas"]=0
         user_data["historial"]=[]
         user_data["pausa_hasta"]=None
-        user_data["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0},"MEGALODON":{"ops":0,"ganadas":0,"neto":0.0}}
+        user_data["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0},"ORCA":{"ops":0,"ganadas":0,"neto":0.0},"MEGALODON":{"ops":0,"ganadas":0,"neto":0.0}}
         guardar_datos()
-        bot.send_message(message.chat.id,f"♻️ RESET OK {idc} -> ${monto} (solo su caja)", reply_markup=get_menu_botones(True))
+        bot.send_message(message.chat.id,f"♻️ RESET OK {idc} -> ${monto}", reply_markup=get_menu_botones(True))
     except Exception as e:
         bot.send_message(message.chat.id,f"Error reset: {e}")
 
@@ -560,7 +600,7 @@ def socios(message):
     if not es_admin(message.chat.id):
         return
     admin=get_user_data(ADMINS_IDS[0])
-    txt=f"👥 V26.1 MEGALODON FULL + ESTRATEGIAS + CEDEARS\n\n🔵🦖 ADMIN MEGALODON 100%:\n {ADMINS_IDS[0]} - ${admin['balance']} - {get_estado_texto(admin)} - {admin['modo']}\nLink: {WEB_URL} (sin?id)\nDolar ${DOLAR_CRIPTO['valor']} | CEDEARs AAPL ${CEDEARS['AAPL']}\n\n🟠 SOCIOS (20% - links privados):\n"
+    txt=f"👥 V26.3 MEGALODON + ORCA FUTURO + IOL\n\n🔵🦖 ADMIN 100%:\n {ADMINS_IDS[0]} - ${admin['balance']} - {get_estado_texto(admin)} - {admin['modo']}\nLink: {WEB_URL}\nDolar ${DOLAR_CRIPTO['valor']} | IOL {IOL_TOKEN['estado']}\nCEDEARs AAPL ${CEDEARS['AAPL']} TSLA ${CEDEARS['TSLA']}\n\n🟠 SOCIOS 20%:\n"
     if not ESTADO["socios"]:
         txt+=" Sin socios\n"
     else:
@@ -574,19 +614,19 @@ def debug_cmd(message):
     if not es_admin(message.chat.id):
         return
     size=os.path.getsize(DATA_FILE) if os.path.exists(DATA_FILE) else 0
-    bot.send_message(message.chat.id,f"💾 DEBUG V26.1 FULL SUMADO\nFile: {DATA_FILE}\nSize: {size}b\nADMIN MEGALODON ${USUARIOS.get(ADMINS_IDS[0],{}).get('balance','?')} {USUARIOS.get(ADMINS_IDS[0],{}).get('modo','?')}\nSocios: {len(ESTADO['socios'])}\nAlias DEMO: {ALIAS_MP_DEMO}\nDolar ${DOLAR_CRIPTO['valor']} {DOLAR_CRIPTO['fuente']}\nCEDEARs {CEDEARS}\nLineas: 682+", reply_markup=get_menu_botones(True))
+    bot.send_message(message.chat.id,f"💾 DEBUG V26.3 FULL\nFile: {DATA_FILE}\nSize: {size}b\nADMIN MEGALODON ${USUARIOS.get(ADMINS_IDS[0],{}).get('balance','?')} {USUARIOS.get(ADMINS_IDS[0],{}).get('modo','?')}\nSocios: {len(ESTADO['socios'])}\nIOL {IOL_TOKEN['estado']} USER {IOL_USER}\nDolar ${DOLAR_CRIPTO['valor']} {DOLAR_CRIPTO['fuente']}\nCEDEARs {CEDEARS}\nLineas: 768+ ORCA FUTURO IOL", reply_markup=get_menu_botones(True))
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id)
     if es_admin(message.chat.id):
         ud=get_user_data(message.chat.id)
-        bot.send_message(message.chat.id,f"👋 MANADA V26.1 ADMIN MEGALODON 100% 🦖\nModo: {ud['modo']} - {ud['mercado']}\nBalance ${ud['balance']} - Dolar ${DOLAR_CRIPTO['valor']}\nEstrategias: RATA/LOBO/TIBURON activas\nCEDEARs: AAPL ${CEDEARS['AAPL']}\n{BIENVENIDA}\n\nTu web: {WEB_URL}\nToca los botones de abajo 👇", reply_markup=get_menu_botones(True))
+        bot.send_message(message.chat.id,f"👋 V26.3 ADMIN MEGALODON 100% + ORCA FUTURO + IOL 🦖🐋\nModo: {ud['modo']} - {ud['mercado']}\nBalance ${ud['balance']} - Dolar ${DOLAR_CRIPTO['valor']}\nIOL: {IOL_TOKEN['estado']}\nEstrategias: RATA/LOBO/TIBURON/ORCA activas\nCEDEARs IOL: AAPL ${CEDEARS['AAPL']}\n{BIENVENIDA}\nTu web: {WEB_URL}\nToca los botones 👇", reply_markup=get_menu_botones(True))
     else:
         if not acceso:
-            bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nAlias DEMO: {ALIAS_MP_DEMO} Dolar ${DOLAR_CRIPTO['valor']}\nToca 💰 PAGAR para ver como pagar\nToca 🆔 ID", reply_markup=get_menu_botones(False))
+            bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nAlias DEMO: {ALIAS_MP_DEMO} Dolar ${DOLAR_CRIPTO['valor']} IOL {IOL_TOKEN['estado']}\nToca 💰 PAGAR", reply_markup=get_menu_botones(False))
         else:
-            bot.send_message(message.chat.id,f"👋 MANADA V26.1 🐺\nTu plan: {ESTADO['socios'][message.chat.id]['plan']} - Quedan {dias_rest} dias\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\nToca 🚀 PRENDER para arrancar\nToca 💰 PAGAR si queres renovar", reply_markup=get_menu_botones(False))
+            bot.send_message(message.chat.id,f"👋 MANADA V26.3 🐺 + ORCA FUTURO\nTu plan: {ESTADO['socios'][message.chat.id]['plan']} - Quedan {dias_rest} dias\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\nToca 🚀 PRENDER y 📈 ESTRATEGIAS para ver ORCA", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/Prender", "/prender", "PRENDER"])
 def prender(message):
@@ -599,14 +639,13 @@ def prender(message):
     user_data["pausa_hasta"]=None
     if es_admin(message.chat.id):
         user_data["modo"]="MEGALODON"
-        user_data["mercado"]="MEGALODON FULL 100% - TODAS LAS BESTIAS"
+        user_data["mercado"]="MEGALODON FULL 100% - TODAS LAS BESTIAS incl ORCA FUTURO"
     else:
         user_data["modo"]="CACHORRO"
         user_data["mercado"]="CACHORRO GRATIS 7 DIAS (20%)"
     guardar_datos()
     link = f"{WEB_URL}/?id={message.chat.id}" if not es_admin(message.chat.id) else WEB_URL
-    caja = user_data["caja"]
-    bot.send_message(message.chat.id,f"🚀 {caja} ACTIVADA - ${user_data['balance']}\nModo {user_data['modo']}\nTu web: {link}\nToca 📊 BALANCE", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    bot.send_message(message.chat.id,f"🚀 {user_data['caja']} ACTIVADA - ${user_data['balance']}\nModo {user_data['modo']} ORCA FUTURO lista\nTu web: {link}\nToca 📊 BALANCE", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance", "BALANCE"])
 def balance(message):
@@ -616,10 +655,10 @@ def balance(message):
     user_data = get_user_data(message.chat.id)
     win=calcular_winrate(user_data)
     if es_admin(message.chat.id):
-        bot.send_message(message.chat.id,f"💰 🔵🦖 CAJA ADMIN MEGALODON 100% SEPARADA\nBalance: ${user_data['balance']} (solo tuyo)\nNeto: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops) Win {win}%\nModo: {user_data['modo']} | {user_data['mercado']}\nEstado: {get_estado_texto(user_data)}\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']} | CEDEARs AAPL ${CEDEARS['AAPL']}\nDolar ${DOLAR_CRIPTO['valor']}\nWeb: {WEB_URL}", reply_markup=get_menu_botones(True))
+        bot.send_message(message.chat.id,f"💰 🔵🦖 CAJA ADMIN MEGALODON 100% SEPARADA\nBalance: ${user_data['balance']}\nNeto: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops) Win {win}%\nModo: {user_data['modo']} | {user_data['mercado']}\nEstado: {get_estado_texto(user_data)}\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']} | CEDEARs AAPL ${CEDEARS['AAPL']} IOL {IOL_TOKEN['estado']}\nDolar ${DOLAR_CRIPTO['valor']}\nWeb: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
         plan=ESTADO["socios"][message.chat.id]["plan"]
-        bot.send_message(message.chat.id,f"💰 🟠 TU CAJA - PLAN {plan}\nBalance: ${user_data['balance']} USDT (solo tuyo)\nNeto: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops) Win {win}%\nModo: {user_data['modo']} | {user_data['mercado']}\nEstado: {get_estado_texto(user_data)}\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\nToca 📈 ESTRATEGIAS para ver detalle", reply_markup=get_menu_botones(False))
+        bot.send_message(message.chat.id,f"💰 🟠 TU CAJA - PLAN {plan}\nBalance: ${user_data['balance']}\nNeto: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops) Win {win}%\nModo: {user_data['modo']} | {user_data['mercado']}\nEstado: {get_estado_texto(user_data)}\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\nToca 📈 ESTRATEGIAS para ver ORCA FUTURO + IOL", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial", "HISTORIAL"])
 def historial(message):
@@ -646,7 +685,7 @@ def callbacks(c):
         guardar_datos()
         bot.send_message(c.message.chat.id,"▶️ Reanudado, solo tu caja.")
 
-HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V26.1 MEGALODON + ESTRATEGIAS + CEDEARS</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.6}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.socio{background:#3a2a1a;border-left:5px solid #ff9800}.contador{background:#1e1e00;border:2px solid #ffcc00;color:#ffcc00;font-size:18px;font-weight:bold;text-align:center}.estrategia{background:#1a2a1a;border-left:5px solid #00ff00}.cedears{background:#2a1a2a;border-left:5px solid #ff00ff}.kpi{display:inline-block;background:#1e222d;padding:6px 9px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}.btn{display:inline-block;margin-top:10px;padding:9px 16px;background:#00ffea;color:#000;border-radius:8px;text-decoration:none;font-weight:bold}.btn2{display:inline-block;margin-left:6px;padding:9px 16px;background:#2a2e39;color:#fff;border-radius:8px;text-decoration:none}#chart_btc{height:45vh}#chart_bnb{height:25vh}#chart_cedears{height:25vh}a{color:#00ffea}</style></head><body><div class="header"><b id="titulo">🦖 V26.1 MEGALODON + ESTRATEGIAS + CEDEARS</b><div id="admin" class="box admin">Cargando...</div><div id="contador" class="box contador" style="display:none"></div><div id="estrategias" class="box estrategia">Cargando estrategias...</div><div id="cedears" class="box cedears">Cargando CEDEARs...</div><div id="socios" class="box socio">Cargando SOCIOS...</div><div id="infoPlan" class="box socio" style="display:none"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div><div id="chart_cedears"></div>
+HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V26.3 MEGALODON + ORCA FUTURO + IOL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.6}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.socio{background:#3a2a1a;border-left:5px solid #ff9800}.contador{background:#1e1e00;border:2px solid #ffcc00;color:#ffcc00;font-size:18px;font-weight:bold;text-align:center}.estrategia{background:#1a2a1a;border-left:5px solid #00ff00}.cedears{background:#2a1a2a;border-left:5px solid #ff00ff}.iol{background:#0a2a2a;border-left:5px solid #00ffaa}.kpi{display:inline-block;background:#1e222d;padding:6px 9px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}.btn{display:inline-block;margin-top:10px;padding:9px 16px;background:#00ffea;color:#000;border-radius:8px;text-decoration:none;font-weight:bold}.btn2{display:inline-block;margin-left:6px;padding:9px 16px;background:#2a2e39;color:#fff;border-radius:8px;text-decoration:none}#chart_btc{height:40vh}#chart_bnb{height:22vh}#chart_cedears{height:22vh}a{color:#00ffea}</style></head><body><div class="header"><b id="titulo">🦖🐋 V26.3 MEGALODON + ORCA FUTURO + CEDEARs IOL</b><div id="admin" class="box admin">Cargando...</div><div id="contador" class="box contador" style="display:none"></div><div id="estrategias" class="box estrategia">Cargando estrategias FUTURO...</div><div id="cedears" class="box cedears">Cargando CEDEARs IOL...</div><div id="iol" class="box iol">Cargando IOL...</div><div id="socios" class="box socio">Cargando SOCIOS...</div><div id="infoPlan" class="box socio" style="display:none"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div><div id="chart_cedears"></div>
 <script>
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"chart_bnb"});
@@ -657,24 +696,26 @@ async function r(){
  if(sid){
    try{
      let d=await (await fetch('/api/socio/'+sid)).json();
-     if(d.error){document.getElementById('admin').innerHTML='⛔ Socio no existe<br><a class="btn" href="/">⬅️ Volver a mi caja ADMIN</a>';return}
+     if(d.error){document.getElementById('admin').innerHTML='⛔ Socio no existe<br><a class="btn" href="/">⬅️ Volver a ADMIN</a>';return}
      document.getElementById('titulo').innerHTML=`🐺 CAJA SOCIO ${sid} - PLAN ${d.plan}`;
      document.getElementById('admin').className='box socio';
-     document.getElementById('admin').innerHTML=`🟠 TU CAJA - PLAN ${d.plan}<br><span class="kpi">💰 Bal: $${d.balance}</span><span class="kpi">📈 Neto: $${d.neto_hoy}</span><span class="kpi">🔄 Ops: ${d.ops_hoy}</span><span class="kpi">🎯 Win: ${d.winrate}%</span><br><span class="kpi">⚙️ Modo: ${d.modo}</span><span class="kpi">📊 Merc: ${d.mercado}</span><br><span class="kpi">₿ BTC: $${d.btc}</span><span class="kpi">🔶 BNB: $${d.bnb}</span><br>Estado: ${d.estado_texto}<br>ID ${sid}<br><a class="btn" href="/">⬅️ Volver a mi caja ADMIN</a> <a class="btn2" href="/?id=${sid}">🔄 Recargar</a>`;
+     document.getElementById('admin').innerHTML=`🟠 TU CAJA - PLAN ${d.plan}<br><span class="kpi">💰 Bal: $${d.balance}</span><span class="kpi">📈 Neto: $${d.neto_hoy}</span><span class="kpi">🔄 Ops: ${d.ops_hoy}</span><span class="kpi">🎯 Win: ${d.winrate}%</span><br><span class="kpi">⚙️ Modo: ${d.modo}</span><span class="kpi">📊 Merc: ${d.mercado}</span><br><span class="kpi">₿ BTC: $${d.btc}</span><span class="kpi">🔶 BNB: $${d.bnb}</span><br>Estado: ${d.estado_texto}<br>ID ${sid}<br><a class="btn" href="/">⬅️ Volver ADMIN</a> <a class="btn2" href="/?id=${sid}">🔄 Recargar</a>`;
      document.getElementById('contador').style.display='block';
-     if(d.vence_dias<=0 && d.vence_horas<=0){document.getElementById('contador').innerHTML=`⛔ PLAN VENCIDO<br>Venció: ${d.vence}<br>Contacta al admin para renovar`;document.getElementById('contador').style.borderColor='red';document.getElementById('contador').style.color='red';}
-     else if(d.vence_dias==0){document.getElementById('contador').innerHTML=`⏰ TE QUEDA HOY - VENCE EN ${d.vence_horas}h ${d.vence_mins}m<br>Plan ${d.plan} - Vence ${d.vence}`;}
-     else{document.getElementById('contador').innerHTML=`⏳ TE QUEDAN ${d.vence_dias} DIAS ${d.vence_horas}h<br>Plan ${d.plan} - Vence: ${d.vence}<br><small>Manana te quedaran ${d.vence_dias-1} dias</small>`;}
-     document.getElementById('estrategias').innerHTML=`📈 ESTRATEGIAS FUTURO: RATA ${d.estrategias.RATA.ops} ops Win ${d.estrategias.RATA.winrate}% Neto $${d.estrategias.RATA.neto} | LOBO ${d.estrategias.LOBO.ops} ops Win ${d.estrategias.LOBO.winrate}% | TIBURON ${d.estrategias.TIBURON.ops} ops`;
-     document.getElementById('cedears').innerHTML=`📊 CEDEARs FUTURO: AAPL $${d.cedears.AAPL} | TSLA $${d.cedears.TSLA} | NVDA $${d.cedears.NVDA} | Dolar $${d.dolar.valor}`;
+     if(d.vence_dias<=0 && d.vence_horas<=0){document.getElementById('contador').innerHTML=`⛔ VENCIDO<br>Venció: ${d.vence}`;document.getElementById('contador').style.borderColor='red';}
+     else if(d.vence_dias==0){document.getElementById('contador').innerHTML=`⏰ VENCE HOY EN ${d.vence_horas}h ${d.vence_mins}m<br>Plan ${d.plan} - Vence ${d.vence}`;}
+     else{document.getElementById('contador').innerHTML=`⏳ TE QUEDAN ${d.vence_dias} DIAS ${d.vence_horas}h<br>Plan ${d.plan} - Vence: ${d.vence}`;}
+     document.getElementById('estrategias').innerHTML=`📈 ESTRATEGIAS FUTURO: RATA ${d.estrategias.RATA.ops} ops Win ${d.estrategias.RATA.winrate}% | LOBO ${d.estrategias.LOBO.ops} ops | TIBURON ${d.estrategias.TIBURON.ops} ops | ORCA FUTURO ${d.estrategias.ORCA.ops} ops Win ${d.estrategias.ORCA.winrate}% Neto $${d.estrategias.ORCA.neto}`;
+     document.getElementById('cedears').innerHTML=`📊 CEDEARs FUTURO IOL: AAPL $${d.cedears.AAPL} | TSLA $${d.cedears.TSLA} | NVDA $${d.cedears.NVDA} | MELI $${d.cedears.MELI} | MSFT $${d.cedears.MSFT}`;
+     document.getElementById('iol').innerHTML=`🏦 IOL: ${d.iol_estado} | Dolar: $${d.dolar.valor} ${d.dolar.fuente} | Fuente IOL ${d.iol_estado}`;
      document.getElementById('socios').style.display='none';document.getElementById('infoPlan').style.display='block';document.getElementById('infoPlan').innerHTML=`📋 Link privado:?id=${sid}`;
    }catch(e){document.getElementById('admin').innerHTML='Error carga<br><a class="btn" href="/">⬅️ Volver a ADMIN</a>'}
  }else{
    let a=await (await fetch('/api/data')).json();
-   document.getElementById('admin').innerHTML=`🔵🦖 CAJA ADMIN MEGALODON 100% - TODAS LAS BESTIAS<br><span class="kpi">💰 Bal: $${a.balance}</span><span class="kpi">📈 Neto: $${a.neto_hoy}</span><span class="kpi">🔄 Ops: ${a.ops_hoy}</span><span class="kpi">🎯 Win: ${a.winrate}%</span><br><span class="kpi">⚙️ Modo: ${a.modo}</span><span class="kpi">📊 Merc: ${a.mercado}</span><br><span class="kpi">₿ BTC: $${a.btc}</span><span class="kpi">🔶 BNB: $${a.bnb}</span><br>Estado: ${a.estado_texto}<br>Disco: ${a.disco} | Dolar: $${a.dolar.valor} ${a.dolar.fuente}`;
-   document.getElementById('estrategias').innerHTML=`📈 ESTRATEGIAS FUTURO ADMIN MEGALODON:<br>🦖 MEGALODON: ${a.estrategias.MEGALODON.ops} ops Win ${a.estrategias.MEGALODON.winrate}% Neto $${a.estrategias.MEGALODON.neto}<br>🐀 RATA: ${a.estrategias.RATA.ops} ops Win ${a.estrategias.RATA.winrate}% Neto $${a.estrategias.RATA.neto}<br>🐺 LOBO: ${a.estrategias.LOBO.ops} ops Win ${a.estrategias.LOBO.winrate}% Neto $${a.estrategias.LOBO.neto}<br>🦈 TIBURON: ${a.estrategias.TIBURON.ops} ops Win ${a.estrategias.TIBURON.winrate}% Neto $${a.estrategias.TIBURON.neto}`;
-   document.getElementById('cedears').innerHTML=`📊 CEDEARs FUTURO (DEMO): AAPL $${a.cedears.AAPL} | TSLA $${a.cedears.TSLA} | NVDA $${a.cedears.NVDA} | MELI $${a.cedears.MELI} | NASDAQ AAPL chart abajo`;
-   let s=await (await fetch('/api/socios')).json();let h='🟠 CAJAS SOCIOS 20% - CONTADOR INVERSO:<br>';
+   document.getElementById('admin').innerHTML=`🔵🦖 CAJA ADMIN MEGALODON 100% - TODAS LAS BESTIAS incl ORCA FUTURO<br><span class="kpi">💰 Bal: $${a.balance}</span><span class="kpi">📈 Neto: $${a.neto_hoy}</span><span class="kpi">🔄 Ops: ${a.ops_hoy}</span><span class="kpi">🎯 Win: ${a.winrate}%</span><br><span class="kpi">⚙️ Modo: ${a.modo}</span><span class="kpi">📊 Merc: ${a.mercado}</span><br><span class="kpi">₿ BTC: $${a.btc}</span><span class="kpi">🔶 BNB: $${a.bnb}</span><br>Estado: ${a.estado_texto}<br>Disco: ${a.disco} | Dolar: $${a.dolar.valor} ${a.dolar.fuente} | IOL: ${a.iol_estado}`;
+   document.getElementById('estrategias').innerHTML=`📈 ESTRATEGIAS FUTURO ADMIN MEGALODON + ORCA:<br>🦖 MEGALODON: ${a.estrategias.MEGALODON.ops} ops Win ${a.estrategias.MEGALODON.winrate}% Neto $${a.estrategias.MEGALODON.neto}<br>🐀 RATA: ${a.estrategias.RATA.ops} ops Win ${a.estrategias.RATA.winrate}% Neto $${a.estrategias.RATA.neto}<br>🐺 LOBO: ${a.estrategias.LOBO.ops} ops Win ${a.estrategias.LOBO.winrate}% Neto $${a.estrategias.LOBO.neto}<br>🦈 TIBURON: ${a.estrategias.TIBURON.ops} ops Win ${a.estrategias.TIBURON.winrate}% Neto $${a.estrategias.TIBURON.neto}<br>🐋 ORCA FUTURO: ${a.estrategias.ORCA.ops} ops Win ${a.estrategias.ORCA.winrate}% Neto $${a.estrategias.ORCA.neto}`;
+   document.getElementById('cedears').innerHTML=`📊 CEDEARs FUTURO IOL: AAPL $${a.cedears.AAPL} | TSLA $${a.cedears.TSLA} | NVDA $${a.cedears.NVDA} | MELI $${a.cedears.MELI} | MSFT $${a.cedears.MSFT} | GOOGL $${a.cedears.GOOGL} | NASDAQ AAPL chart abajo`;
+   document.getElementById('iol').innerHTML=`🏦 IOL API: ${a.iol_estado} | Para activar IOL real, pone IOL_USER e IOL_PASS en Render Environment. Ahora modo ${a.iol_estado.includes('DEMO')?'DEMO':'REAL'}`;
+   let s=await (await fetch('/api/socios')).json();let h='🟠 CAJAS SOCIOS 20%:<br>';
    for(let k in s.socios){let u=s.socios[k];h+=`<div style="margin:8px 0;padding:8px;background:#1e222d;border-radius:8px">Socio ${k} | ${u.plan}<br>💰 $${u.balance} | Neto $${u.neto_hoy} | ${u.ops} ops | Win ${u.winrate}%<br>⏳ Quedan ${u.vence_dias}d | ${u.modo} | ${u.mercado} | ${u.estado}<br><a class="btn" href="/?id=${k}">➡️ Ver?id=${k}</a></div>`;}
    if(Object.keys(s.socios).length==0)h+='Sin socios - /alta';document.getElementById('socios').innerHTML=h;
  }
@@ -689,25 +730,10 @@ def home():
 @app.route('/api/data')
 def api_data():
     admin_data = get_user_data(ADMINS_IDS[0])
-    # calcular winrates estrategias
     est_out={}
     for k,v in admin_data["estrategias"].items():
         est_out[k]={"ops":v["ops"],"winrate":calcular_winrate_estrategia(v),"neto":v["neto"],"ganadas":v["ganadas"]}
-    return jsonify({
-        "balance":admin_data["balance"],
-        "neto_hoy":admin_data["neto_hoy"],
-        "ops_hoy":admin_data["ops_hoy"],
-        "winrate":calcular_winrate(admin_data),
-        "modo":admin_data["modo"],
-        "mercado":admin_data["mercado"],
-        "btc":ESTADO["btc"],
-        "bnb":ESTADO["bnb"],
-        "estado_texto":get_estado_texto(admin_data),
-        "disco":DATA_FILE,
-        "estrategias":est_out,
-        "cedears":CEDEARS,
-        "dolar":DOLAR_CRIPTO
-    })
+    return jsonify({"balance":admin_data["balance"],"neto_hoy":admin_data["neto_hoy"],"ops_hoy":admin_data["ops_hoy"],"winrate":calcular_winrate(admin_data),"modo":admin_data["modo"],"mercado":admin_data["mercado"],"btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estado_texto":get_estado_texto(admin_data),"disco":DATA_FILE,"estrategias":est_out,"cedears":CEDEARS,"dolar":DOLAR_CRIPTO,"iol_estado": IOL_TOKEN["estado"]})
 
 @app.route('/api/socios')
 def api_socios():
@@ -716,17 +742,7 @@ def api_socios():
         u=USUARIOS.get(cid,{"balance":200,"ops_hoy":0,"prendido":False,"neto_hoy":0,"ganadas":0,"perdidas":0,"modo":"CACHORRO","mercado":""})
         delta = d["vence"] - datetime.now()
         dias = delta.days if delta.total_seconds()>0 else 0
-        out[cid]={
-            "balance":u["balance"],
-            "ops":u["ops_hoy"],
-            "estado":get_estado_texto(u),
-            "plan":d["plan"],
-            "neto_hoy":u["neto_hoy"],
-            "winrate":calcular_winrate(u),
-            "modo":u["modo"],
-            "mercado":u["mercado"],
-            "vence_dias":dias
-        }
+        out[cid]={"balance":u["balance"],"ops":u["ops_hoy"],"estado":get_estado_texto(u),"plan":d["plan"],"neto_hoy":u["neto_hoy"],"winrate":calcular_winrate(u),"modo":u["modo"],"mercado":u["mercado"],"vence_dias":dias}
     return jsonify({"socios":out})
 
 @app.route('/api/socio/<int:socio_id>')
@@ -745,26 +761,7 @@ def api_socio_individual(socio_id):
     est_out={}
     for k,v in u["estrategias"].items():
         est_out[k]={"ops":v["ops"],"winrate":calcular_winrate_estrategia(v),"neto":v["neto"]}
-    return jsonify({
-        "balance":u["balance"],
-        "neto_hoy":u["neto_hoy"],
-        "ops_hoy":u["ops_hoy"],
-        "winrate":calcular_winrate(u),
-        "modo":u["modo"],
-        "mercado":u["mercado"],
-        "estado_texto":get_estado_texto(u),
-        "plan":sd["plan"],
-        "vence_dias":dias,
-        "vence_horas":horas,
-        "vence_mins":mins,
-        "vence":sd["vence"].strftime("%d/%m/%Y"),
-        "id":socio_id,
-        "btc":ESTADO["btc"],
-        "bnb":ESTADO["bnb"],
-        "estrategias":est_out,
-        "cedears":CEDEARS,
-        "dolar":DOLAR_CRIPTO
-    })
+    return jsonify({"balance":u["balance"],"neto_hoy":u["neto_hoy"],"ops_hoy":u["ops_hoy"],"winrate":calcular_winrate(u),"modo":u["modo"],"mercado":u["mercado"],"estado_texto":get_estado_texto(u),"plan":sd["plan"],"vence_dias":dias,"vence_horas":horas,"vence_mins":mins,"vence":sd["vence"].strftime("%d/%m/%Y"),"id":socio_id,"btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estrategias":est_out,"cedears":CEDEARS,"dolar":DOLAR_CRIPTO,"iol_estado": IOL_TOKEN["estado"]})
 
 def run_bot():
     bot.infinity_polling(skip_pending=True)
