@@ -20,9 +20,10 @@ CACHORRO_DIAS = 7
 ADMINS_IDS = [6530209116]
 PLANES = {"RATA":15,"LOBO":30,"TIBURON":50,"ORCA":100,"MEGALODON":150}
 
-# PERSISTENCIA DISCO $1 - TU PAGO
-DATA_FILE = "/data/manada.json" if os.path.exists("/data") else "manada.json"
-print(f"DISCO ACTIVO: {DATA_FILE}")
+# --- FIX PULIDO 1: DISCO FORZADO SIEMPRE A /data (TU PAGO DE $1) ---
+DATA_FILE = "/data/manada.json"
+os.makedirs("/data", exist_ok=True)
+print(f"### LOBOBOT22 V25 PULIDA - DISCO FORZADO: {DATA_FILE} Existe /data: {os.path.exists('/data')} ###")
 
 ESTADO = {
     "btc": 78287.4,
@@ -55,13 +56,14 @@ def guardar_datos():
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f)
             os.replace(tmp, DATA_FILE)
+            print(f"GUARDADO OK EN {DATA_FILE}")
     except Exception as e:
         print(f"Error guardando: {e}")
 
 def cargar_datos():
     try:
         if not os.path.exists(DATA_FILE):
-            print("Sin archivo previo, limpio")
+            print("Sin archivo previo, limpio - se creará en /data/manada.json")
             return
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -80,7 +82,7 @@ def cargar_datos():
                     except: v["pausa_hasta"] = None
                 USUARIOS[int(k)] = v
             except: pass
-        print(f"DATOS CARGADOS: {len(USUARIOS)} usuarios, {len(ESTADO['socios'])} socios")
+        print(f"DATOS CARGADOS DE {DATA_FILE}: {len(USUARIOS)} usuarios, {len(ESTADO['socios'])} socios")
     except Exception as e:
         print(f"Error cargando: {e}")
 
@@ -202,7 +204,7 @@ def reset_user(message):
         user_data["balance"]=monto; user_data["balance_inicial"]=monto; user_data["btc_inicial"]=monto/2; user_data["bnb_inicial"]=monto/2
         user_data["neto_hoy"]=0.0; user_data["ops_hoy"]=0; user_data["ganadas"]=0; user_data["perdidas"]=0; user_data["historial"]=[]; user_data["pausa_hasta"]=None
         guardar_datos()
-        bot.send_message(message.chat.id,f"♻️ RESET OK\nID {idc} -> ${monto} limpio\nOps reseteadas a 0 💾")
+        bot.send_message(message.chat.id,f"♻️ RESET OK\nID {idc} -> ${monto} limpio\nOps reseteadas a 0 💾 {DATA_FILE}")
         try: bot.send_message(idc,f"♻️ Tu balance fue reseteado a ${monto} limpio\nTocá /Prender para arrancar de nuevo")
         except: pass
     except Exception as e: bot.send_message(message.chat.id,f"Error reset: {e}")
@@ -224,13 +226,13 @@ def baja(message):
         if idc in ESTADO["socios"]: del ESTADO["socios"][idc]
         if idc in USUARIOS: del USUARIOS[idc]
         guardar_datos()
-        bot.send_message(message.chat.id,f"🗑️ Baja OK ID {idc} eliminado 💾");
+        bot.send_message(message.chat.id,f"🗑️ Baja OK ID {idc} eliminado 💾 {DATA_FILE}");
     except: bot.send_message(message.chat.id,"Uso: /baja <ID>")
 
 @bot.message_handler(commands=['socios'])
 def socios(message):
     if not es_admin(message.chat.id): return
-    if not ESTADO["socios"]: bot.send_message(message.chat.id,"Sin socios aún"); return
+    if not ESTADO["socios"]: bot.send_message(message.chat.id,f"Sin socios aún\nDisco: {DATA_FILE}"); return
     txt=f"👥 SOCIOS ACTIVOS (Disco: {DATA_FILE}):\n"
     for cid,data in ESTADO["socios"].items():
         dias=(data["vence"]-datetime.now()).days+1
@@ -238,6 +240,14 @@ def socios(message):
         bal = USUARIOS.get(cid, {}).get("balance", 200)
         txt+=f"{estado} {cid} - {data['plan']} - ${bal} - Vence {data['vence'].strftime('%d/%m')} ({dias}d)\n"
     bot.send_message(message.chat.id,txt)
+
+@bot.message_handler(commands=['debug'])
+def debug_cmd(message):
+    if not es_admin(message.chat.id): return
+    existe=os.path.exists("/data")
+    existe_file=os.path.exists(DATA_FILE)
+    size=os.path.getsize(DATA_FILE) if existe_file else 0
+    bot.send_message(message.chat.id,f"💾 DEBUG V25 PULIDA\n/data existe: {existe}\nFile: {DATA_FILE}\nExiste file: {existe_file}\nSize: {size} bytes\nRAM socios: {len(ESTADO['socios'])}\nRAM usuarios: {len(USUARIOS)}")
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -255,9 +265,10 @@ def prender(message):
     guardar_datos()
     if es_admin(message.chat.id): txt_dias="♾️ ADMIN ILIMITADO - No vence"
     else: txt_dias=f"Te quedan {dias_rest} días de prueba GRATIS"
+    # FIX PULIDO 2: "Tu cuenta arranca" no "Tu contado arranca"
     texto=f"""🚀 MODO CACHORRO GRATIS ACTIVADO 🐶
-Tu contador arranca en ${user_data['balance']} ($100 BTC + $100 BNB)
-Por 7 días opero solo con 20% para que pruebes sin miedo.
+Tu cuenta arranca en ${user_data['balance']} ($100 BTC + $100 BNB)
+Por 7 días opero solo con el 20% para que pruebes sin miedo.
 {txt_dias}.
 ⚠️ IMPORTANTE: Conectá tu API REAL acá:
 - Binance Spot: para RATA/LOBO/TIBURON
@@ -308,8 +319,8 @@ def callbacks(c):
     if c.data=="retirar": bot.send_message(c.message.chat.id,f"💸 Para retirar:\n1. Andá a tu Binance/IOL\n2. Tu balance REAL es ${user_data['balance']}\n3. Retirá a tu banco.")
     elif c.data=="reanudar": user_data["prendido"]=True; guardar_datos(); bot.send_message(c.message.chat.id,"▶️ REANUDADO - Ya estoy operando de nuevo. /balance")
 
-# HTML COMPLETO RESTAURADO - EL QUE TENIAS EN V23.3
-HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LOBOBOT22 V24.2 FINAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px;border-bottom:1px solid #2a2e39}.orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;font-size:13px}#chart_btc{height:56vh;width:100%}#chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}</style></head><body><div class="header"><b>🐺 LOBOBOT22 V24.2 FINAL - PERSISTENTE DISCO $1 - $200 BASE</b><div id="topbar">Cargando...</div><div class="orange" id="mercadoBox">MERCADO...</div><div id="livebar">BTC/BNB...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_bnb"});async function refresh(){let r=await fetch('/api/data');let d=await r.json();document.getElementById('topbar').innerHTML=`Bal $${d.balance} | Base $200 | Neto $${d.neto_hoy} | Ops ${d.ops_hoy} | Win ${d.winrate}% - ${d.modo} | 💾 ${d.disco}`;document.getElementById('livebar').innerHTML=`BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance}`;let tp_sl=d.modo=="LOBO"?"TP +0.3% | SL -0.7%":d.modo=="RATA"?"TP +0.15% | SL -0.4%":d.modo=="TIBURON"?"TP +0.8% | SL -1.0% 🦈":"CACHORRO 20% GRATIS 🐶";document.getElementById('mercadoBox').innerHTML=`MERCADO: ${d.mercado} | MODO: ${d.modo}<br>${tp_sl} | Binance + IOL | Demo REAL | Disco ${d.disco} | Admin 6530209116`}setInterval(refresh,5000);refresh();</script></body></html>"""
+# FIX PULIDO 3: HTML CON translate="no" PARA QUE NO DIGA "Balón"
+HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>LOBOBOT22 V25 PULIDA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px;border-bottom:1px solid #2a2e39}.orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;font-size:13px}#chart_btc{height:56vh;width:100%}#chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}.notranslate{translate:no}</style></head><body translate="no" class="notranslate"><div class="header"><b class="notranslate" translate="no">🐺 LOBOBOT22 V25 PULIDA - PERSISTENTE DISCO $1 - $200 BASE</b><div id="topbar" class="notranslate" translate="no">Cargando...</div><div class="orange notranslate" id="mercadoBox" translate="no">MERCADO...</div><div id="livebar" class="notranslate" translate="no">BTC/BNB...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_bnb"});async function refresh(){let r=await fetch('/api/data');let d=await r.json();document.getElementById('topbar').innerHTML=`Bal $${d.balance} | Base $200 | Neto $${d.neto_hoy} | Ops ${d.ops_hoy} | Win ${d.winrate}% - ${d.modo} | 💾 ${d.disco}`;document.getElementById('livebar').innerHTML=`BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance}`;let tp_sl=d.modo=="LOBO"?"TP +0.3% | SL -0.7%":d.modo=="RATA"?"TP +0.15% | SL -0.4%":d.modo=="TIBURON"?"TP +0.8% | SL -1.0% 🦈":"CACHORRO 20% GRATIS 🐶";document.getElementById('mercadoBox').innerHTML=`MERCADO: ${d.mercado} | MODO: ${d.modo}<br>${tp_sl} | Binance + IOL | Demo REAL | Disco ${d.disco} | Admin 6530209116`}setInterval(refresh,5000);refresh();</script></body></html>"""
 
 @app.route('/')
 def home(): return render_template_string(HTML)
