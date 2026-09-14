@@ -13,26 +13,21 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- CONFIG V23.1 FINAL CON /alta ---
-# BASE REAL $200
+# --- CONFIG V23.2 FINAL CORREGIDA ---
 BALANCE_INICIAL = 200.0
 CACHORRO_PORC = 0.20
 CACHORRO_DIAS = 7
 
-# ADMIN PRINCIPAL - VOS
-# ID: 6530209116 - Lobo
-# Mañana agregamos el del socio aca mismo
-ADMINS_IDS = [6530209116]
+ADMINS_IDS = [6530209116] # Vos - Mañana agregamos socio
 
 PLANES = {
     "RATA": 15,
     "LOBO": 30,
     "TIBURON": 50,
-    "ORCA": 100, # Futuros 2%
-    "MEGALODON": 150 # CEDEARs IOL
+    "ORCA": 100,
+    "MEGALODON": 150
 }
 
-# ESTADO GLOBAL
 ESTADO = {
     "prendido": False,
     "balance": BALANCE_INICIAL,
@@ -44,26 +39,23 @@ ESTADO = {
     "ganadas": 0,
     "perdidas": 0,
     "modo": "CACHORRO",
-    "mercado": "NORMAL (0.45%)",
+    "mercado": "CACHORRO GRATIS 7 DIAS (20%)",
     "pausa_hasta": None,
     "btc": 78287.4,
     "bnb": 739.68,
     "historial": [],
     "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)],
-    "socios": {}, # chat_id: {alta: datetime, vence: datetime, plan: str}
+    "socios": {},
     "admins": ADMINS_IDS
 }
 
-# --- FUNCIONES DE ACCESO ---
 def es_admin(chat_id):
-    """Chequea si es admin"""
     try:
         return int(chat_id) in ESTADO["admins"]
     except:
         return False
 
 def tiene_acceso(chat_id):
-    """Devuelve True, dias_restantes si tiene acceso"""
     chat_id = int(chat_id)
     if es_admin(chat_id):
         return True, 999
@@ -88,6 +80,10 @@ def get_estado_texto():
     return "🟢 PRENDIDO"
 
 def analizar_mercado_y_elegir_modo():
+    # Si estamos en CACHORRO GRATIS, NO CAMBIA A RATA
+    if ESTADO["modo"] == "CACHORRO":
+        ESTADO["mercado"] = "CACHORRO GRATIS 7 DIAS (20%)"
+        return 0.20
     try:
         ultimos = ESTADO["btc_history"][-10:]
         atr = round((max(ultimos) - min(ultimos)) / ESTADO["btc"] * 100, 2)
@@ -113,7 +109,9 @@ def motor_demo():
             continue
         if ESTADO["pausa_hasta"] and datetime.now() < ESTADO["pausa_hasta"]:
             continue
-        analizar_mercado_y_elegir_modo()
+        # Solo analiza mercado si NO es cachorro
+        if ESTADO["modo"]!= "CACHORRO":
+            analizar_mercado_y_elegir_modo()
         ESTADO["btc_history"].append(ESTADO["btc"])
         if len(ESTADO["btc_history"])>30:
             ESTADO["btc_history"]=ESTADO["btc_history"][-30:]
@@ -144,11 +142,11 @@ def motor_demo():
         if len(ESTADO["historial"])>20:
             ESTADO["historial"]=ESTADO["historial"][-20:]
 
-# --- COMANDOS TELEGRAM ---
 @bot.message_handler(commands=['id'])
 def get_id(message):
     bot.send_message(message.chat.id, f"Tu ID es: {message.chat.id}\nPasaselo al admin")
 
+# --- ALTA CORREGIDA: AHORA DICE CACHORRO GRATIS ---
 @bot.message_handler(commands=['alta'])
 def alta(message):
     if not es_admin(message.chat.id):
@@ -157,20 +155,57 @@ def alta(message):
     try:
         parts = message.text.split()
         if len(parts) < 3:
-            bot.send_message(message.chat.id, "Uso: /alta <ID_CLIENTE> <DIAS> <PLAN>\nEj: /alta 123456789 7 RATA")
+            bot.send_message(message.chat.id, "Uso: /alta <ID> <DIAS> <PLAN>\nEj: /alta 123456 7 CACHORRO")
             return
         id_cliente = int(parts[1])
         dias = int(parts[2])
-        plan = parts[3].upper() if len(parts) > 3 else "CACHORRO"
+        # CORRECCION: Si no pone plan o pone CACHORRO, va a CACHORRO GRATIS 7 DIAS
+        if len(parts) > 3:
+            plan_raw = parts[3].upper()
+            if plan_raw in ["CACHORRO", "GRATIS"]:
+                plan = "CACHORRO GRATIS 7 DIAS"
+            else:
+                plan = plan_raw
+        else:
+            plan = "CACHORRO GRATIS 7 DIAS"
+
         vence = datetime.now() + timedelta(days=dias)
         ESTADO["socios"][id_cliente] = {"alta": datetime.now(), "vence": vence, "plan": plan}
         bot.send_message(message.chat.id, f"✅ Alta OK\nID: {id_cliente}\nPlan: {plan}\nVence: {vence.strftime('%d/%m %H:%M')} ({dias} días)")
         try:
-            bot.send_message(id_cliente, f"🐺 ¡Fuiste dado de alta!\nPlan {plan} por {dias} días\nVence {vence.strftime('%d/%m')}\nTocá /Prender")
+            bot.send_message(id_cliente, f"🐺 ¡Fuiste dado de alta!\nPlan {plan} por {dias} días GRATIS\nTocá /Prender para arrancar con $200 base")
         except:
             pass
     except Exception as e:
         bot.send_message(message.chat.id, f"Error en /alta: {e}")
+
+@bot.message_handler(commands=['baja'])
+def baja(message):
+    if not es_admin(message.chat.id): return
+    try:
+        idc=int(message.text.split()[1])
+        if idc in ESTADO["socios"]:
+            del ESTADO["socios"][idc]
+            bot.send_message(message.chat.id,f"🗑️ Baja OK ID {idc} eliminado")
+            try: bot.send_message(idc,"⛔ Tu acceso fue revocado por admin")
+            except: pass
+        else:
+            bot.send_message(message.chat.id,"ID no encontrado")
+    except:
+        bot.send_message(message.chat.id,"Uso: /baja <ID>")
+
+@bot.message_handler(commands=['socios'])
+def socios(message):
+    if not es_admin(message.chat.id): return
+    if not ESTADO["socios"]:
+        bot.send_message(message.chat.id,"Sin socios aún")
+        return
+    txt="👥 SOCIOS ACTIVOS:\n"
+    for cid, data in ESTADO["socios"].items():
+        dias=(data["vence"]-datetime.now()).days+1
+        estado="✅" if dias>0 else "⛔ VENCIDO"
+        txt+=f"{estado} {cid} - {data['plan']} - Vence {data['vence'].strftime('%d/%m')} ({dias}d)\n"
+    bot.send_message(message.chat.id,txt)
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -181,14 +216,14 @@ def start(message):
     texto = """👋 Bienvenido a la MANADA LOBOBOT22 🐺
 AYUDANOS A AYUDAR 🙏
 Te explico 1x1:
-• BTC: Bitcoin, la moneda madre ~$78k
-• BNB: Moneda de Binance, paga menos comisión
-• USDT: 1 Dólar digital, tu plata
-• Blockchain: libro contable imposible de hackear
-• Broker: Binance (crypto) / IOL (CEDEARs)
-• Wallet: tu billetera, vos tenés las llaves
-• Trading: comprar barato, vender caro
-• LoboBot22: bot que analiza TradingView y opera solo
+- BTC: Bitcoin, la moneda madre ~$78k
+- BNB: Moneda de Binance, paga menos comisión
+- USDT: 1 Dólar digital, tu plata
+- Blockchain: libro contable imposible de hackear
+- Broker: Binance (crypto) / IOL (CEDEARs)
+- Wallet: tu billetera, vos tenés las llaves
+- Trading: comprar barato, vender caro
+- LoboBot22: bot que analiza TradingView y opera solo
 Tu plata SIEMPRE en TU cuenta. Nosotros nunca tocamos nada.
 ¿ATACAMOS? 🐺
 👉 Tocá /Prender"""
@@ -203,18 +238,19 @@ def prender(message):
     ESTADO["prendido"]=True
     ESTADO["pausa_hasta"]=None
     ESTADO["modo"]="CACHORRO"
-    texto = f"""🚀 MODO CACHORRO ACTIVADO 🐶
+    ESTADO["mercado"]="CACHORRO GRATIS 7 DIAS (20%)"
+    texto = f"""🚀 MODO CACHORRO GRATIS ACTIVADO 🐶
 Tu contador arranca en $200 ($100 BTC + $100 BNB)
 Por 7 días opero solo con 20% para que pruebes sin miedo.
-Te quedan {dias_rest} días.
+Te quedan {dias_rest} días de prueba GRATIS.
 ⚠️ IMPORTANTE: Conectá tu API REAL acá:
 - Binance Spot: para RATA/LOBO/TIBURON
-- Binance Futuros: para ORCA $100 (Futuros 2% riesgo - alto riesgo)
-- IOL: para MEGALODON $150 (CEDEARs)
+- Binance Futuros: para ORCA $100
+- IOL: para MEGALODON $150
 Demo actual: Balance ${ESTADO['balance']} | Mercado {ESTADO['mercado']}
 Usá /balance para ver tu plata REAL
 Usá /Apagar para pausar
-Aviso: Trading con riesgo. Futuros puede liquidar cuenta. Rentabilidad pasada no garantiza futura."""
+Aviso: Trading con riesgo."""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['balance'])
@@ -230,11 +266,10 @@ def balance(message):
 Balance: ${ESTADO['balance']} USDT
 ├─ BTC: ${round(btc_part,2)} (50%)
 └─ BNB: ${round(bnb_part,2)} (50%)
-Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} ops, comisión descontada)
+Neto hoy: ${ESTADO['neto_hoy']} ({ESTADO['ops_hoy']} ops)
 Ganadas: {ESTADO['ganadas']} | Perdidas: {ESTADO['perdidas']} | Winrate: {win}%
 Modo: {ESTADO['modo']} | Mercado: {ESTADO['mercado']}
-Estado: {get_estado_texto()}
-Este es tu balance REAL de API. Gráfico TradingView abajo es visual."""
+Estado: {get_estado_texto()}"""
     bot.send_message(message.chat.id, texto)
 
 @bot.message_handler(commands=['historial'])
@@ -254,13 +289,12 @@ def apagar(message):
 @bot.callback_query_handler(func=lambda c: True)
 def callbacks(c):
     if c.data=="retirar":
-        bot.send_message(c.message.chat.id, f"💸 Para retirar:\n1. Andá a tu Binance/IOL\n2. Tu balance REAL es ${ESTADO['balance']}\n3. Retirá a tu banco. El bot queda apagado.")
+        bot.send_message(c.message.chat.id, f"💸 Para retirar:\n1. Andá a tu Binance/IOL\n2. Tu balance REAL es ${ESTADO['balance']}\n3. Retirá a tu banco.")
     elif c.data=="reanudar":
         ESTADO["prendido"]=True
         bot.send_message(c.message.chat.id, "▶️ REANUDADO - Ya estoy operando de nuevo. /balance")
 
-# --- PANEL WEB ---
-HTML = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LOBOBOT22 V23.1</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial} .header{background:#1e222d;padding:10px;border-bottom:1px solid #2a2e39} .orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;font-size:13px} #chart_btc{height:56vh;width:100%}#chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}</style></head><body><div class="header"><b>🐺 LOBOBOT22 V23.1 - $200 BASE | CACHORRO 20% | ADMIN 6530209116</b><div id="topbar">Cargando...</div><div class="orange" id="mercadoBox">MERCADO...</div><div id="livebar">BTC/BNB...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_bnb"});async function refresh(){let r=await fetch('/api/data');let d=await r.json();document.getElementById('topbar').innerHTML=`Bal $${d.balance} | Base $200 | Neto $${d.neto_hoy} | Ops ${d.ops_hoy} | Win ${d.winrate}% - ${d.modo}`;document.getElementById('livebar').innerHTML=`BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance}`;let tp_sl=d.modo=="LOBO"?"TP +0.3% | SL -0.7%":d.modo=="RATA"?"TP +0.15% | SL -0.4%":d.modo=="TIBURON"?"TP +0.8% | SL -1.0% 🦈":"CACHORRO 20% 🐶";document.getElementById('mercadoBox').innerHTML=`MERCADO: ${d.mercado} | MODO: ${d.modo}<br>${tp_sl} | Binance + IOL | Demo con balance REAL`}setInterval(refresh,5000);refresh();</script></body></html>"""
+HTML = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LOBOBOT22 V23.2</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px;border-bottom:1px solid #2a2e39}.orange{border-left:3px solid #ff9800;padding-left:8px;margin:8px 0;font-size:13px} #chart_btc{height:56vh;width:100%}#chart_bnb{height:38vh;width:100%;border-top:2px solid #2a2e39}</style></head><body><div class="header"><b>🐺 LOBOBOT22 V23.2 - $200 BASE | CACHORRO GRATIS 7 DIAS | ADMIN 6530209116</b><div id="topbar">Cargando...</div><div class="orange" id="mercadoBox">MERCADO...</div><div id="livebar">BTC/BNB...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_bnb"});async function refresh(){let r=await fetch('/api/data');let d=await r.json();document.getElementById('topbar').innerHTML=`Bal $${d.balance} | Base $200 | Neto $${d.neto_hoy} | Ops ${d.ops_hoy} | Win ${d.winrate}% - ${d.modo}`;document.getElementById('livebar').innerHTML=`BTC $${d.btc} | BNB $${d.bnb} | ${d.mercado} | Bal $${d.balance}`;let tp_sl=d.modo=="LOBO"?"TP +0.3% | SL -0.7%":d.modo=="RATA"?"TP +0.15% | SL -0.4%":d.modo=="TIBURON"?"TP +0.8% | SL -1.0% 🦈":"CACHORRO 20% GRATIS 🐶";document.getElementById('mercadoBox').innerHTML=`MERCADO: ${d.mercado} | MODO: ${d.modo}<br>${tp_sl} | Binance + IOL | Demo REAL`}setInterval(refresh,5000);refresh();</script></body></html>"""
 
 @app.route('/')
 def home():
