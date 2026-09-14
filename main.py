@@ -396,8 +396,8 @@ def callbacks(c):
         guardar_datos()
         bot.send_message(c.message.chat.id,"▶️ Reanudado, solo tu caja.")
 
-# HTML V25.4 FULL CON RETORNO Y DETALLES
-HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V25.4 FULL 374</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.6}.admin{background:#0d2a4a;border-left:5px solid #00bfff}.socio{background:#3a2a1a;border-left:5px solid #ff9800}.kpi{display:inline-block;background:#1e222d;padding:6px 9px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}.btn{display:inline-block;margin-top:10px;padding:9px 16px;background:#00bfff;color:#000;border-radius:8px;text-decoration:none;font-weight:bold}.btn2{display:inline-block;margin-left:6px;padding:9px 16px;background:#2a2e39;color:#fff;border-radius:8px;text-decoration:none}#chart_btc{height:50vh}#chart_bnb{height:28vh}a{color:#00bfff}</style></head><body><div class="header"><b id="titulo">🐺 V25.4 FULL 374 - CAJAS SEPARADAS</b><div id="admin" class="box admin">Cargando ADMIN FULL...</div><div id="socios" class="box socio">Cargando SOCIOS...</div><div id="infoPlan" class="box socio" style="display:none"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
+# HTML V25.5 CONTADOR INVERSO - PARCHE SOLO ESTO
+HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V25.5 CONTADOR INVERSO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.6}.admin{background:#0d2a4a;border-left:5px solid #00bfff}.socio{background:#3a2a1a;border-left:5px solid #ff9800}.contador{background:#1e1e00;border:2px solid #ffcc00;color:#ffcc00;font-size:18px;font-weight:bold;text-align:center}.kpi{display:inline-block;background:#1e222d;padding:6px 9px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}.btn{display:inline-block;margin-top:10px;padding:9px 16px;background:#00bfff;color:#000;border-radius:8px;text-decoration:none;font-weight:bold}.btn2{display:inline-block;margin-left:6px;padding:9px 16px;background:#2a2e39;color:#fff;border-radius:8px;text-decoration:none}#chart_btc{height:50vh}#chart_bnb{height:28vh}a{color:#00bfff}</style></head><body><div class="header"><b id="titulo">🐺 V25.5 CONTADOR INVERSO</b><div id="admin" class="box admin">Cargando...</div><div id="contador" class="box contador" style="display:none"></div><div id="socios" class="box socio">Cargando SOCIOS...</div><div id="infoPlan" class="box socio" style="display:none"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
 <script>
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"chart_bnb"});
@@ -419,12 +419,20 @@ async function r(){
         <span class="kpi">📊 Merc: ${d.mercado}</span><br>
         <span class="kpi">₿ BTC: $${d.btc}</span>
         <span class="kpi">🔶 BNB: $${d.bnb}</span><br>
-        Estado: ${d.estado_texto}<br>Vence: ${d.vence} (${d.vence_dias}d) | ID ${sid}<br>
+        Estado: ${d.estado_texto}<br>ID ${sid}<br>
         <a class="btn" href="/">⬅️ Volver a mi caja ADMIN</a> <a class="btn2" href="/?id=${sid}">🔄 Recargar</a>`;
+     document.getElementById('contador').style.display='block';
+     if(d.vence_dias<=0 && d.vence_horas<=0){
+       document.getElementById('contador').innerHTML=`⛔ PLAN VENCIDO<br>Venció: ${d.vence}<br>Contactá al admin para renovar`;
+       document.getElementById('contador').style.borderColor='red';document.getElementById('contador').style.color='red';
+     }else if(d.vence_dias==0){
+       document.getElementById('contador').innerHTML=`⏰ TE QUEDA HOY - VENCE EN ${d.vence_horas}h ${d.vence_mins}m<br>Plan ${d.plan} - Vence ${d.vence}`;
+     }else{
+       document.getElementById('contador').innerHTML=`⏳ TE QUEDAN ${d.vence_dias} DÍAS ${d.vence_horas}h<br>Plan ${d.plan} - Vence: ${d.vence}<br><small>Mañana te quedarán ${d.vence_dias-1} días</small>`;
+     }
      document.getElementById('socios').style.display='none';
-     let tp=d.modo=='LOBO'?'+0.3% / -0.7%':d.modo=='RATA'?'+0.15% / -0.4%':d.modo=='TIBURON'?'+0.8% / -1.0%':'CACHORRO 20%';
      document.getElementById('infoPlan').style.display='block';
-     document.getElementById('infoPlan').innerHTML=`📋 TU PLAN: ${d.plan} | TP/SL: ${tp}<br>Link privado:?id=${sid}`;
+     document.getElementById('infoPlan').innerHTML=`📋 Link privado:?id=${sid}`;
    }catch(e){document.getElementById('admin').innerHTML='Error carga<br><a class="btn" href="/">⬅️ Volver a ADMIN</a>'}
  }else{
    let a=await (await fetch('/api/data')).json();
@@ -439,12 +447,12 @@ async function r(){
       <span class="kpi">🔶 BNB: $${a.bnb}</span><br>
       Estado: ${a.estado_texto}<br>Disco: ${a.disco}`;
    let s=await (await fetch('/api/socios')).json();
-   let h='🟠 CAJAS SOCIOS 20% SEPARADAS (click Ver):<br>';
+   let h='🟠 CAJAS SOCIOS 20% - CONTADOR INVERSO:<br>';
    for(let k in s.socios){
      let u=s.socios[k];
      h+=`<div style="margin:8px 0;padding:8px;background:#1e222d;border-radius:8px">Socio ${k} | ${u.plan}<br>
-     💰 Bal: $${u.balance} | 📈 Neto: $${u.neto_hoy} | 🔄 Ops: ${u.ops} | 🎯 Win: ${u.winrate}%<br>
-     ⚙️ ${u.modo} | ${u.mercado} | ${u.estado}<br>
+     💰 $${u.balance} | Neto $${u.neto_hoy} | ${u.ops} ops | Win ${u.winrate}%<br>
+     ⏳ Quedan ${u.vence_dias}d | ${u.modo} | ${u.mercado} | ${u.estado}<br>
      <a class="btn" href="/?id=${k}">➡️ Ver?id=${k}</a></div>`;
    }
    if(Object.keys(s.socios).length==0)h+='Sin socios - /alta';
@@ -481,6 +489,8 @@ def api_socios():
     out={}
     for cid,d in ESTADO["socios"].items():
         u=USUARIOS.get(cid,{"balance":200,"ops_hoy":0,"prendido":False,"neto_hoy":0,"ganadas":0,"perdidas":0,"modo":"CACHORRO","mercado":""})
+        delta = d["vence"] - datetime.now()
+        dias = delta.days if delta.total_seconds()>0 else 0
         out[cid]={
             "balance":u["balance"],
             "ops":u["ops_hoy"],
@@ -489,7 +499,8 @@ def api_socios():
             "neto_hoy":u["neto_hoy"],
             "winrate":calcular_winrate(u),
             "modo":u["modo"],
-            "mercado":u["mercado"]
+            "mercado":u["mercado"],
+            "vence_dias":dias
         }
     return jsonify({"socios":out})
 
@@ -499,7 +510,13 @@ def api_socio_individual(socio_id):
         return jsonify({"error":"no existe"}),404
     sd=ESTADO["socios"][socio_id]
     u=USUARIOS.get(socio_id) or get_user_data(socio_id)
-    dias=(sd["vence"]-datetime.now()).days+1
+    delta = sd["vence"] - datetime.now()
+    if delta.total_seconds() <= 0:
+        dias=0; horas=0; mins=0
+    else:
+        dias=delta.days
+        horas=int(delta.total_seconds()//3600)%24
+        mins=int(delta.total_seconds()//60)%60
     return jsonify({
         "balance":u["balance"],
         "neto_hoy":u["neto_hoy"],
@@ -510,6 +527,8 @@ def api_socio_individual(socio_id):
         "estado_texto":get_estado_texto(u),
         "plan":sd["plan"],
         "vence_dias":dias,
+        "vence_horas":horas,
+        "vence_mins":mins,
         "vence":sd["vence"].strftime("%d/%m/%Y"),
         "id":socio_id,
         "btc":ESTADO["btc"],
