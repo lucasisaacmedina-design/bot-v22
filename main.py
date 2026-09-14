@@ -19,10 +19,11 @@ CACHORRO_PORC = 0.20
 CACHORRO_DIAS = 7
 ADMINS_IDS = [6530209116]
 PLANES = {"RATA":15,"LOBO":30,"TIBURON":50,"ORCA":100,"MEGALODON":150}
+WEB_URL = "https://bot-v22-1.onrender.com" # TU DOMINIO
 
 DATA_FILE = "/data/manada.json"
 os.makedirs("/data", exist_ok=True)
-print(f"### V25.1 CAJAS SEPARADAS FULL 334+ - DISCO: {DATA_FILE} ###")
+print(f"### V25.2 WEB POR SOCIO - DISCO: {DATA_FILE} ###")
 
 ESTADO = {
     "btc": 78287.4,
@@ -55,14 +56,12 @@ def guardar_datos():
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f)
             os.replace(tmp, DATA_FILE)
-            print(f"GUARDADO OK EN {DATA_FILE}")
     except Exception as e:
         print(f"Error guardando: {e}")
 
 def cargar_datos():
     try:
         if not os.path.exists(DATA_FILE):
-            print("Sin archivo previo")
             return
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -81,7 +80,6 @@ def cargar_datos():
                     except: v["pausa_hasta"] = None
                 USUARIOS[int(k)] = v
             except: pass
-        print(f"CARGADOS {DATA_FILE}: {len(USUARIOS)} usuarios, {len(ESTADO['socios'])} socios")
     except Exception as e:
         print(f"Error cargando: {e}")
 
@@ -174,14 +172,13 @@ def motor_demo():
         if contador>=10: guardar_datos(); contador=0
 
 @bot.message_handler(commands=['id'])
-def get_id(message): bot.send_message(message.chat.id,f"Tu ID es: {message.chat.id}\nPasaselo al admin")
+def get_id(message): bot.send_message(message.chat.id,f"Tu ID es: {message.chat.id}")
 
 @bot.message_handler(commands=['alta'])
 def alta(message):
-    if not es_admin(message.chat.id): bot.send_message(message.chat.id,"⛔ Solo admins"); return
+    if not es_admin(message.chat.id): return
     try:
         parts=message.text.split()
-        if len(parts)<3: bot.send_message(message.chat.id,"Uso: /alta <ID> <DIAS> <PLAN>"); return
         id_cliente=int(parts[1]); dias=int(parts[2])
         plan="CACHORRO GRATIS 7 DIAS" if len(parts)<4 or parts[3].upper() in ["CACHORRO","GRATIS"] else parts[3].upper()
         vence=datetime.now()+timedelta(days=dias)
@@ -189,22 +186,32 @@ def alta(message):
         user_data = get_user_data(id_cliente)
         user_data["balance"]=BALANCE_INICIAL; user_data["balance_inicial"]=BALANCE_INICIAL; user_data["neto_hoy"]=0.0; user_data["ops_hoy"]=0; user_data["ganadas"]=0; user_data["perdidas"]=0; user_data["historial"]=[]; user_data["prendido"]=False; user_data["caja"]=f"SOCIO {plan}"
         guardar_datos()
-        bot.send_message(message.chat.id,f"✅ Alta OK\n🟠 CAJA SOCIO: {id_cliente}\nPlan: {plan}\nVence: {vence.strftime('%d/%m %H:%M')} ({dias}d)\nBalance: $200 SEPARADO\n💾 {DATA_FILE}")
-        try: bot.send_message(id_cliente,f"🐺 ¡Alta! Plan {plan} por {dias}d\n/Prender")
-        except: pass
+        bot.send_message(message.chat.id,f"✅ Alta OK\n🟠 CAJA SOCIO: {id_cliente}\nPlan: {plan}\nVence: {vence.strftime('%d/%m')} ({dias}d)\nLink del socio: {WEB_URL}/?id={id_cliente}\n💾 {DATA_FILE}")
+        try:
+            bot.send_message(id_cliente,f"""🐺 ¡Fuiste dado de alta!
+Plan: {plan} por {dias} días
+Tu balance arranca $200 SEPARADO (solo tuyo)
+
+👉 TU WEB PRIVADA (solo tu caja):
+{WEB_URL}/?id={id_cliente}
+
+Guardá ese link, ahí ves tu plata en vivo separada del admin.
+Tocá /Prender para arrancar
+/balance para ver tu caja""")
+        except Exception as e:
+            bot.send_message(message.chat.id,f"⚠️ No le pude mandar mensaje al socio {id_cliente}, seguro no habló con el bot aún. Pasale vos el link: {WEB_URL}/?id={id_cliente}")
     except Exception as e: bot.send_message(message.chat.id,f"Error /alta: {e}")
 
 @bot.message_handler(commands=['reset'])
 def reset_user(message):
     if not es_admin(message.chat.id): return
     try:
-        parts=message.text.split()
-        idc=int(parts[1]); monto=float(parts[2]) if len(parts)>2 else BALANCE_INICIAL
+        parts=message.text.split(); idc=int(parts[1]); monto=float(parts[2]) if len(parts)>2 else BALANCE_INICIAL
         user_data = get_user_data(idc)
         user_data["balance"]=monto; user_data["balance_inicial"]=monto; user_data["btc_inicial"]=monto/2; user_data["bnb_inicial"]=monto/2
         user_data["neto_hoy"]=0.0; user_data["ops_hoy"]=0; user_data["ganadas"]=0; user_data["perdidas"]=0; user_data["historial"]=[]; user_data["pausa_hasta"]=None
         guardar_datos()
-        bot.send_message(message.chat.id,f"♻️ RESET OK {idc} -> ${monto} (solo su caja) 💾")
+        bot.send_message(message.chat.id,f"♻️ RESET OK {idc} -> ${monto} (solo su caja)")
     except Exception as e: bot.send_message(message.chat.id,f"Error reset: {e}")
 
 @bot.message_handler(commands=['addbalance','add'])
@@ -213,7 +220,7 @@ def add_balance(message):
     try:
         parts=message.text.split(); idc=int(parts[1]); monto=float(parts[2])
         user_data=get_user_data(idc); user_data["balance"]=round(user_data["balance"]+monto,2); guardar_datos()
-        bot.send_message(message.chat.id,f"➕ ${monto} a {idc} (solo su caja) -> ${user_data['balance']}")
+        bot.send_message(message.chat.id,f"➕ ${monto} a {idc} -> ${user_data['balance']}")
     except: bot.send_message(message.chat.id,"Uso: /add <ID> <MONTO>")
 
 @bot.message_handler(commands=['baja'])
@@ -224,34 +231,37 @@ def baja(message):
         if idc in ESTADO["socios"]: del ESTADO["socios"][idc]
         if idc in USUARIOS: del USUARIOS[idc]
         guardar_datos()
-        bot.send_message(message.chat.id,f"🗑️ Baja OK {idc} 💾");
+        bot.send_message(message.chat.id,f"🗑️ Baja OK {idc}");
     except: bot.send_message(message.chat.id,"Uso: /baja <ID>")
 
 @bot.message_handler(commands=['socios'])
 def socios(message):
     if not es_admin(message.chat.id): return
     admin=get_user_data(ADMINS_IDS[0])
-    txt=f"👥 V25.1 CAJAS SEPARADAS - {DATA_FILE}\n\n🔵 CAJA ADMIN (TU PARTE - 100% - NO TOCA SOCIOS):\n {ADMINS_IDS[0]} - ${admin['balance']} - {get_estado_texto(admin)} - {admin['ops_hoy']} ops\n\n🟠 CAJAS SOCIOS (20% - SEPARADAS DE VOS):\n"
+    txt=f"👥 V25.2 CAJAS SEPARADAS - Link por socio\n\n🔵 ADMIN (vos) 100%:\n {ADMINS_IDS[0]} - ${admin['balance']} - {get_estado_texto(admin)}\nLink: {WEB_URL} (sin?id)\n\n🟠 SOCIOS (20% - links privados):\n"
     if not ESTADO["socios"]: txt+=" Sin socios\n"
     else:
         for cid,data in ESTADO["socios"].items():
-            dias=(data["vence"]-datetime.now()).days+1
             bal = USUARIOS.get(cid, {}).get("balance", 200)
-            txt+=f" {cid} - {data['plan']} - ${bal} - Vence {dias}d - {get_estado_texto(USUARIOS.get(cid,{'prendido':False}))}\n"
+            txt+=f" {cid} - {data['plan']} - ${bal} - {WEB_URL}/?id={cid}\n"
     bot.send_message(message.chat.id,txt)
 
 @bot.message_handler(commands=['debug'])
 def debug_cmd(message):
     if not es_admin(message.chat.id): return
     size=os.path.getsize(DATA_FILE) if os.path.exists(DATA_FILE) else 0
-    bot.send_message(message.chat.id,f"💾 DEBUG V25.1 FULL\nFile: {DATA_FILE}\nSize: {size}b\nADMIN ${USUARIOS.get(ADMINS_IDS[0],{}).get('balance','?')}\nSocios: {len(ESTADO['socios'])}\nUsuarios: {len(USUARIOS)}")
+    bot.send_message(message.chat.id,f"💾 DEBUG V25.2\nFile: {DATA_FILE}\nSize: {size}b\nADMIN ${USUARIOS.get(ADMINS_IDS[0],{}).get('balance','?')}\nSocios: {len(ESTADO['socios'])}")
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id)
     if not acceso and len(ESTADO["socios"])>0 and not es_admin(message.chat.id):
-        bot.send_message(message.chat.id,f"🔒 Bot privado\nID: {message.chat.id}"); return
-    bot.send_message(message.chat.id,"👋 MANADA V25.1 CAJAS SEPARADAS 🐺\nTu caja es solo tuya\n/Prender")
+        bot.send_message(message.chat.id,f"🔒 Bot privado\nTu ID: {message.chat.id}"); return
+    if es_admin(message.chat.id):
+        bot.send_message(message.chat.id,f"👋 MANADA V25.2 ADMIN 🐺\nTu web: {WEB_URL}\nWeb de socio: {WEB_URL}/?id=ID\n/Prender /socios")
+    else:
+        u=get_user_data(message.chat.id)
+        bot.send_message(message.chat.id,f"👋 MANADA V25.2 🐺\nTu plan: {ESTADO['socios'][message.chat.id]['plan']}\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\n/Prender para arrancar con tu caja separada")
 
 @bot.message_handler(commands=['Prender','prender'])
 def prender(message):
@@ -260,8 +270,9 @@ def prender(message):
     user_data = get_user_data(message.chat.id)
     user_data["prendido"]=True; user_data["pausa_hasta"]=None; user_data["modo"]="CACHORRO"; user_data["mercado"]="CACHORRO GRATIS 7 DIAS (20%)"
     guardar_datos()
+    link = f"{WEB_URL}/?id={message.chat.id}" if not es_admin(message.chat.id) else WEB_URL
     caja = "🔵 ADMIN 100%" if es_admin(message.chat.id) else "🟠 SOCIO 20%"
-    bot.send_message(message.chat.id,f"🚀 {caja} ACTIVADA - ${user_data['balance']} - Tu caja opera sola\n/balance")
+    bot.send_message(message.chat.id,f"🚀 {caja} ACTIVADA - ${user_data['balance']}\nTu web: {link}\n/balance")
 
 @bot.message_handler(commands=['balance'])
 def balance(message):
@@ -269,8 +280,11 @@ def balance(message):
     if not acceso: return
     user_data = get_user_data(message.chat.id)
     win=calcular_winrate(user_data)
-    caja = "🔵 CAJA ADMIN (TU PARTE 100% - SEPARADA)" if es_admin(message.chat.id) else f"🟠 CAJA SOCIO (20% SEPARADA) {ESTADO['socios'][message.chat.id]['plan']}"
-    bot.send_message(message.chat.id,f"💰 {caja}\nBalance: ${user_data['balance']} USDT (Solo tuyo, no toca otras cajas)\nNeto hoy: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops)\nWinrate: {win}%\nEstado: {get_estado_texto(user_data)}")
+    if es_admin(message.chat.id):
+        bot.send_message(message.chat.id,f"💰 🔵 CAJA ADMIN 100% SEPARADA\nBalance: ${user_data['balance']} (solo tuyo)\nNeto: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops) Win {win}%\nEstado: {get_estado_texto(user_data)}\nWeb: {WEB_URL}")
+    else:
+        plan=ESTADO["socios"][message.chat.id]["plan"]
+        bot.send_message(message.chat.id,f"💰 🟠 TU CAJA - PLAN {plan}\nBalance: ${user_data['balance']} USDT (solo tuyo)\nNeto: ${user_data['neto_hoy']} ({user_data['ops_hoy']} ops) Win {win}%\nEstado: {get_estado_texto(user_data)}\nTu web privada:\n{WEB_URL}/?id={message.chat.id}")
 
 @bot.message_handler(commands=['historial'])
 def historial(message):
@@ -284,23 +298,54 @@ def apagar(message):
     markup=telebot.types.InlineKeyboardMarkup()
     markup.add(telebot.types.InlineKeyboardButton("RETIRAR 💸",callback_data="retirar"),telebot.types.InlineKeyboardButton("REANUDAR ▶️",callback_data="reanudar"))
     user_data["prendido"]=False; guardar_datos()
-    bot.send_message(message.chat.id,f"🛑 Tu caja {user_data['caja']} pausada en ${user_data['balance']}\nLas otras cajas siguen operando.",reply_markup=markup)
+    bot.send_message(message.chat.id,f"🛑 Tu caja {user_data['caja']} pausada en ${user_data['balance']}\nLas otras siguen.",reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: True)
 def callbacks(c):
     user_data = get_user_data(c.message.chat.id)
-    if c.data=="retirar": bot.send_message(c.message.chat.id,f"💸 Tu balance REAL de tu caja {user_data['caja']} es ${user_data['balance']}")
-    elif c.data=="reanudar": user_data["prendido"]=True; guardar_datos(); bot.send_message(c.message.chat.id,"▶️ Tu caja reanudada. Solo tu caja opera.")
+    if c.data=="retirar": bot.send_message(c.message.chat.id,f"💸 Tu caja {user_data['caja']}: ${user_data['balance']}")
+    elif c.data=="reanudar": user_data["prendido"]=True; guardar_datos(); bot.send_message(c.message.chat.id,"▶️ Reanudado, solo tu caja.")
 
-HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V25.1 CAJAS SEPARADAS</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:8px;margin:6px;border-radius:6px;font-size:12px}.admin{background:#0d2a4a;border-left:4px solid #00bfff}.socio{background:#3a2a1a;border-left:4px solid #ff9800}#chart_btc{height:56vh}#chart_bnb{height:32vh}</style></head><body><div class="header"><b>🐺 V25.1 CAJAS SEPARADAS FULL</b><div id="admin" class="box admin">Cargando ADMIN...</div><div id="socios" class="box socio">Cargando SOCIOS...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"chart_bnb"});async function r(){let a=await (await fetch('/api/data')).json();document.getElementById('admin').innerHTML=`🔵 CAJA ADMIN (TU PARTE 100%) | $${a.balance} | ${a.ops_hoy} ops | ${a.estado_texto}`;let s=await (await fetch('/api/socios')).json();let h='🟠 CAJAS SOCIOS (20% SEPARADAS):<br>';for(let k in s.socios){let u=s.socios[k];h+=`Socio ${k} ${u.plan}: $${u.balance} ${u.ops} ops ${u.estado}<br>`}document.getElementById('socios').innerHTML=h}setInterval(r,4000);r()</script></body></html>"""
+HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V25.2 WEB POR SOCIO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:10px;margin:6px;border-radius:8px;font-size:13px}.admin{background:#0d2a4a;border-left:4px solid #00bfff}.socio{background:#3a2a1a;border-left:4px solid #ff9800}#chart_btc{height:56vh}#chart_bnb{height:32vh}.hidden{display:none}a{color:#00bfff}</style></head><body><div class="header"><b id="titulo">🐺 V25.2 CAJAS SEPARADAS</b><div id="admin" class="box admin">Cargando...</div><div id="socios" class="box socio">Cargando...</div><div id="infoPlan" class="box socio"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
+<script>
+new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});
+new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"chart_bnb"});
+function getId(){return new URLSearchParams(window.location.search).get('id')}
+async function r(){
+ let sid=getId();
+ if(sid){
+   try{
+     let d=await (await fetch('/api/socio/'+sid)).json();
+     if(d.error){document.getElementById('admin').innerHTML='⛔ Socio no existe';return}
+     document.getElementById('titulo').innerHTML=`🐺 CAJA SOCIO ${sid} - PLAN ${d.plan}`;
+     document.getElementById('admin').className='box socio';
+     document.getElementById('admin').innerHTML=`🟠 TU CAJA - PLAN ${d.plan}<br>💰 Balance $${d.balance} (solo tuyo, separado)<br>Ops ${d.ops_hoy} | Neto $${d.neto_hoy} | Win ${d.winrate}%<br>Estado: ${d.estado_texto}<br>Modo: ${d.modo}<br><small>ID ${sid} - Esta es tu dashboard privado</small>`;
+     document.getElementById('socios').className='hidden';
+     let tp=d.modo=='LOBO'?'+0.3% / -0.7%':d.modo=='RATA'?'+0.15% / -0.4%':d.modo=='TIBURON'?'+0.8% / -1.0%':'CACHORRO 20% GRATIS';
+     document.getElementById('infoPlan').innerHTML=`📋 TU PLAN: ${d.plan}<br>TP/SL: ${tp}<br>Vence: ${d.vence} (${d.vence_dias}d)<br>Link privado:?id=${sid}`;
+   }catch(e){document.getElementById('admin').innerHTML='Error'}
+ }else{
+   let a=await (await fetch('/api/data')).json();
+   document.getElementById('admin').innerHTML=`🔵 CAJA ADMIN 100% | $${a.balance} | ${a.ops_hoy} ops | ${a.estado_texto} | Neto $${a.neto_hoy}`;
+   let s=await (await fetch('/api/socios')).json();
+   let h='🟠 CAJAS SOCIOS (links privados?id=):<br>';
+   for(let k in s.socios){let u=s.socios[k];h+=`Socio ${k} ${u.plan}: $${u.balance} ${u.ops} ops <a href="/?id=${k}">Ver?id=${k}</a><br>`}
+   document.getElementById('socios').innerHTML=h;
+   document.getElementById('infoPlan').innerHTML=`👑 ADMIN - Vos ves todo. Cada socio entra con su link?id= para ver solo su caja y su plan.`;
+ }
+}
+setInterval(r,4000);r();
+</script></body></html>"""
 
 @app.route('/')
 def home(): return render_template_string(HTML)
+
 @app.route('/api/data')
 def api_data():
     ESTADO["btc"]=round(78287.4+random.uniform(-350,350),2); ESTADO["bnb"]=round(739.68+random.uniform(-5,5),2)
     admin_data = get_user_data(ADMINS_IDS[0])
     return jsonify({"balance":admin_data["balance"],"neto_hoy":admin_data["neto_hoy"],"ops_hoy":admin_data["ops_hoy"],"winrate":calcular_winrate(admin_data),"modo":admin_data["modo"],"mercado":admin_data["mercado"],"btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estado_texto":get_estado_texto(admin_data),"disco":DATA_FILE})
+
 @app.route('/api/socios')
 def api_socios():
     out={}
@@ -308,6 +353,20 @@ def api_socios():
         u=USUARIOS.get(cid,{"balance":200,"ops_hoy":0,"prendido":False})
         out[cid]={"balance":u["balance"],"ops":u["ops_hoy"],"estado":get_estado_texto(u),"plan":d["plan"]}
     return jsonify({"socios":out})
+
+@app.route('/api/socio/<int:socio_id>')
+def api_socio_individual(socio_id):
+    if socio_id not in ESTADO["socios"]:
+        return jsonify({"error":"no existe"}),404
+    sd=ESTADO["socios"][socio_id]
+    u=USUARIOS.get(socio_id) or get_user_data(socio_id)
+    dias=(sd["vence"]-datetime.now()).days+1
+    return jsonify({
+        "balance":u["balance"],"neto_hoy":u["neto_hoy"],"ops_hoy":u["ops_hoy"],
+        "winrate":calcular_winrate(u),"modo":u["modo"],"mercado":u["mercado"],
+        "estado_texto":get_estado_texto(u),"plan":sd["plan"],"vence_dias":dias,
+        "vence":sd["vence"].strftime("%d/%m/%Y"),"id":socio_id
+    })
 
 def run_bot(): bot.infinity_polling(skip_pending=True)
 threading.Thread(target=run_bot, daemon=True).start()
