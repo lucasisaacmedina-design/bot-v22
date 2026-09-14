@@ -20,10 +20,14 @@ CACHORRO_DIAS = 7
 ADMINS_IDS = [6530209116]
 PLANES = {"RATA":15,"LOBO":30,"TIBURON":50,"ORCA":100,"MEGALODON":150}
 WEB_URL = "https://bot-v22-1.onrender.com"
-
 DATA_FILE = "/data/manada.json"
 os.makedirs("/data", exist_ok=True)
-print(f"### V25.4 FULL RESTAURADO 374 + RETORNO - DISCO: {DATA_FILE} ###")
+
+# === CONFIG PAGO DEMO MP SIMPLE ===
+ALIAS_MP_DEMO = "manada.lobo.demo.mp"
+DOLAR_CRIPTO_DEMO = 1450
+
+print(f"### V25.5 FULL RESTAURADO + MP SIMPLE - DISCO: {DATA_FILE} ###")
 
 ESTADO = {
     "btc": 78287.4,
@@ -34,6 +38,67 @@ ESTADO = {
 }
 USUARIOS = {}
 LOCK = threading.Lock()
+
+# === TEXTOS FINALES V25.5 ===
+BIENVENIDA = f"""
+Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
+
+Aca valoramos cada pequeno esfuerzo y apoyamos el crecimiento personal, profesional y economico de cada socio.
+
+Te vas a hacer millonario con nosotros? No.
+Pero lo que si te prometemos es luchar, atacar y jamas rendirnos para mejorar dia a dia y brindar siempre lo mejor de cada uno de nosotros.
+
+ATACAMOS!!!
+
+QUE ES TODO ESTO? Te lo explico simple, sin humo:
+
+BTC: Es el oro digital. La moneda madre.
+BNB: La moneda del broker, nos ahorra comisiones.
+BROKER (Binance): Es donde esta TU plata. Nosotros nunca la tocamos.
+BOT: Soy yo, opero 24hs automatico por vos.
+CAJA SEPARADA: Tu plata no se mezcla con nadie. La ves en vivo en tu link privado.
+NETO: Lo que te quedo limpio hoy.
+WINRATE: % de ganadas reales.
+
+NUESTRAS BESTIAS:
+CACHORRO - GRATIS 7 DIAS - Para probar. 1 op a la vez.
+RATA - $15 USD/mes - Sigilosa y segura. Win 70%+
+LOBO - $30 USD/mes - LA MAS ELEGIDA. Equilibrada. 3-5 ops/dia.
+TIBURON - $50 USD/mes - Agresiva. Para cajas +$500.
+ORCA - $100 USD/mes - Avanzada.
+MEGALODON - $150 USD/mes - El depredador final.
+
+COMO PAGAR? SUPER SIMPLE EN 3 PASOS (Mercado Pago):
+PASO 1: Elegi tu bestia. Ej: /quiero LOBO
+PASO 2: Paga por Mercado Pago a este alias (DEMO): {ALIAS_MP_DEMO}
+PASO 3: Manda /comprobante + foto del pago.
+En 5 min te activo con tu link privado y tu contador 30->0 dias.
+
+Empeza con /id para ver tu ID y tu link.
+Para ver como pagar siempre: /pagar
+"""
+
+TEXTO_PAGAR = f"""
+COMO PAGAR? EN 3 PASOS - SIMPLE:
+
+PASO 1: Elegi tu bestia
+/quiero RATA = $15 USD
+/quiero LOBO = $30 USD
+/quiero TIBURON = $50 USD
+
+PASO 2: Paga por Mercado Pago
+Alias DEMO: {ALIAS_MP_DEMO}
+- Abri Mercado Pago
+- Transferir -> Alias
+- Pega el alias
+- Te digo el monto en pesos al dolar cripto del dia
+
+PASO 3: Manda el comprobante
+Escribi /comprobante y manda la captura.
+
+Listo. Te doy de alta en el momento con tu caja separada.
+Usas cripto? Tambien acepto USDT BEP20, pedime la direccion.
+"""
 
 def guardar_datos():
     try:
@@ -214,7 +279,34 @@ def motor_demo():
 
 @bot.message_handler(commands=['id'])
 def get_id(message):
-    bot.send_message(message.chat.id,f"Tu ID es: {message.chat.id}")
+    bot.send_message(message.chat.id,f"Tu ID es: {message.chat.id}\nTu link: {WEB_URL}/?id={message.chat.id}")
+
+@bot.message_handler(commands=['pagar'])
+def pagar(message):
+    bot.send_message(message.chat.id, TEXTO_PAGAR)
+
+@bot.message_handler(commands=['quiero'])
+def quiero(message):
+    try:
+        parts=message.text.split()
+        plan=parts[1].upper() if len(parts)>1 else "LOBO"
+        if plan not in PLANES:
+            plan="LOBO"
+        usd=PLANES[plan]
+        ars=usd*DOLAR_CRIPTO_DEMO
+        bot.send_message(message.chat.id, f"🐺 Queres {plan} - ${usd} USD\n\nPASO 2: Paga ${ars} ARS (aprox, dolar cripto ${DOLAR_CRIPTO_DEMO})\nAlias MP DEMO: {ALIAS_MP_DEMO}\n\nLuego manda /comprobante + foto\n\nUSDT opcional: {usd} USDT BEP20: 0xDEMO123 (DEMO)")
+    except:
+        bot.send_message(message.chat.id,"Usa: /quiero LOBO")
+
+@bot.message_handler(commands=['comprobante'])
+def comprobante(message):
+    for admin_id in ADMINS_IDS:
+        try:
+            bot.forward_message(admin_id, message.chat.id, message.message_id)
+            bot.send_message(admin_id, f"💰 NUEVO PAGO\nDe: {message.chat.id}\nPara dar de alta: /alta {message.chat.id} 30 LOBO\nO /alta {message.chat.id} 7 CACHORRO")
+        except:
+            pass
+    bot.send_message(message.chat.id, "✅ Comprobante recibido Lobo. En 5 min te doy de alta. ATACAMOS!")
 
 @bot.message_handler(commands=['alta'])
 def alta(message):
@@ -247,11 +339,11 @@ Tu balance arranca $200 SEPARADO (solo tuyo)
 👉 TU WEB PRIVADA (solo tu caja):
 {WEB_URL}/?id={id_cliente}
 
-Guardá ese link, ahí ves tu plata en vivo separada del admin.
-Tocá /Prender para arrancar
+Guarda ese link, ahi ves tu plata en vivo separada del admin.
+Toca /Prender para arrancar
 /balance para ver tu caja""")
         except Exception as e:
-            bot.send_message(message.chat.id,f"⚠️ No le pude mandar mensaje al socio {id_cliente}, seguro no habló con el bot aún. Pasale vos el link: {WEB_URL}/?id={id_cliente}")
+            bot.send_message(message.chat.id,f"⚠️ No le pude mandar mensaje al socio {id_cliente}, seguro no hablo con el bot aun. Pasale vos el link: {WEB_URL}/?id={id_cliente}")
     except Exception as e:
         bot.send_message(message.chat.id,f"Error /alta: {e}")
 
@@ -305,7 +397,7 @@ def baja(message):
         if idc in USUARIOS:
             del USUARIOS[idc]
         guardar_datos()
-        bot.send_message(message.chat.id,f"🗑️ Baja OK {idc}");
+        bot.send_message(message.chat.id,f"🗑️ Baja OK {idc}")
     except:
         bot.send_message(message.chat.id,"Uso: /baja <ID>")
 
@@ -314,7 +406,7 @@ def socios(message):
     if not es_admin(message.chat.id):
         return
     admin=get_user_data(ADMINS_IDS[0])
-    txt=f"👥 V25.4 CAJAS SEPARADAS FULL - Link por socio\n\n🔵 ADMIN (vos) 100%:\n {ADMINS_IDS[0]} - ${admin['balance']} - {get_estado_texto(admin)}\nLink: {WEB_URL} (sin?id)\n\n🟠 SOCIOS (20% - links privados):\n"
+    txt=f"👥 V25.5 FULL RESTAURADO + MP SIMPLE\n\n🔵 ADMIN (vos) 100%:\n {ADMINS_IDS[0]} - ${admin['balance']} - {get_estado_texto(admin)}\nLink: {WEB_URL} (sin?id)\n\n🟠 SOCIOS (20% - links privados):\n"
     if not ESTADO["socios"]:
         txt+=" Sin socios\n"
     else:
@@ -328,25 +420,24 @@ def debug_cmd(message):
     if not es_admin(message.chat.id):
         return
     size=os.path.getsize(DATA_FILE) if os.path.exists(DATA_FILE) else 0
-    bot.send_message(message.chat.id,f"💾 DEBUG V25.4\nFile: {DATA_FILE}\nSize: {size}b\nADMIN ${USUARIOS.get(ADMINS_IDS[0],{}).get('balance','?')}\nSocios: {len(ESTADO['socios'])}")
+    bot.send_message(message.chat.id,f"💾 DEBUG V25.5 FULL\nFile: {DATA_FILE}\nSize: {size}b\nADMIN ${USUARIOS.get(ADMINS_IDS[0],{}).get('balance','?')}\nSocios: {len(ESTADO['socios'])}\nAlias DEMO: {ALIAS_MP_DEMO}")
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id)
-    if not acceso and len(ESTADO["socios"])>0 and not es_admin(message.chat.id):
-        bot.send_message(message.chat.id,f"🔒 Bot privado\nTu ID: {message.chat.id}")
-        return
     if es_admin(message.chat.id):
-        bot.send_message(message.chat.id,f"👋 MANADA V25.4 ADMIN 🐺\nTu web: {WEB_URL}\nWeb de socio: {WEB_URL}/?id=ID\n/Prender /socios /balance /debug")
+        bot.send_message(message.chat.id,f"👋 MANADA V25.5 ADMIN FULL + MP SIMPLE 🐺\n{BIENVENIDA}\n\nTu web: {WEB_URL}\n/socios /balance /debug /pagar")
     else:
-        u=get_user_data(message.chat.id)
-        bot.send_message(message.chat.id,f"👋 MANADA V25.4 🐺\nTu plan: {ESTADO['socios'][message.chat.id]['plan']}\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\n/Prender para arrancar con tu caja separada")
+        if not acceso:
+            bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nAlias DEMO: {ALIAS_MP_DEMO}\n/pagar para ver como pagar\n/id")
+        else:
+            bot.send_message(message.chat.id,f"👋 MANADA V25.5 🐺\nTu plan: {ESTADO['socios'][message.chat.id]['plan']} - Quedan {dias_rest} dias\nTu web privada:\n{WEB_URL}/?id={message.chat.id}\n/Prender para arrancar\n/pagar si queres renovar")
 
 @bot.message_handler(commands=['Prender','prender'])
 def prender(message):
     acceso,dias_rest=tiene_acceso(message.chat.id)
     if not acceso:
-        bot.send_message(message.chat.id,"⛔ Vencido")
+        bot.send_message(message.chat.id,"⛔ Vencido - /pagar para renovar")
         return
     user_data = get_user_data(message.chat.id)
     user_data["prendido"]=True
@@ -374,7 +465,7 @@ def balance(message):
 @bot.message_handler(commands=['historial'])
 def historial(message):
     user_data = get_user_data(message.chat.id)
-    hist="\n".join(user_data["historial"][-15:]) or "Sin ops aún"
+    hist="\n".join(user_data["historial"][-15:]) or "Sin ops aun"
     bot.send_message(message.chat.id,f"📜 HISTORIAL {user_data['caja']}\n{hist}")
 
 @bot.message_handler(commands=['Apagar','apagar'])
@@ -396,8 +487,7 @@ def callbacks(c):
         guardar_datos()
         bot.send_message(c.message.chat.id,"▶️ Reanudado, solo tu caja.")
 
-# HTML V25.5 CONTADOR INVERSO - PARCHE SOLO ESTO
-HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V25.5 CONTADOR INVERSO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.6}.admin{background:#0d2a4a;border-left:5px solid #00bfff}.socio{background:#3a2a1a;border-left:5px solid #ff9800}.contador{background:#1e1e00;border:2px solid #ffcc00;color:#ffcc00;font-size:18px;font-weight:bold;text-align:center}.kpi{display:inline-block;background:#1e222d;padding:6px 9px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}.btn{display:inline-block;margin-top:10px;padding:9px 16px;background:#00bfff;color:#000;border-radius:8px;text-decoration:none;font-weight:bold}.btn2{display:inline-block;margin-left:6px;padding:9px 16px;background:#2a2e39;color:#fff;border-radius:8px;text-decoration:none}#chart_btc{height:50vh}#chart_bnb{height:28vh}a{color:#00bfff}</style></head><body><div class="header"><b id="titulo">🐺 V25.5 CONTADOR INVERSO</b><div id="admin" class="box admin">Cargando...</div><div id="contador" class="box contador" style="display:none"></div><div id="socios" class="box socio">Cargando SOCIOS...</div><div id="infoPlan" class="box socio" style="display:none"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
+HTML="""<!DOCTYPE html><html lang="es" translate="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google" content="notranslate"><title>V25.5 FULL + MP SIMPLE</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.6}.admin{background:#0d2a4a;border-left:5px solid #00bfff}.socio{background:#3a2a1a;border-left:5px solid #ff9800}.contador{background:#1e1e00;border:2px solid #ffcc00;color:#ffcc00;font-size:18px;font-weight:bold;text-align:center}.kpi{display:inline-block;background:#1e222d;padding:6px 9px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}.btn{display:inline-block;margin-top:10px;padding:9px 16px;background:#00bfff;color:#000;border-radius:8px;text-decoration:none;font-weight:bold}.btn2{display:inline-block;margin-left:6px;padding:9px 16px;background:#2a2e39;color:#fff;border-radius:8px;text-decoration:none}#chart_btc{height:50vh}#chart_bnb{height:28vh}a{color:#00bfff}</style></head><body><div class="header"><b id="titulo">🐺 V25.5 FULL + MP SIMPLE</b><div id="admin" class="box admin">Cargando...</div><div id="contador" class="box contador" style="display:none"></div><div id="socios" class="box socio">Cargando SOCIOS...</div><div id="infoPlan" class="box socio" style="display:none"></div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
 <script>
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"5","theme":"dark","container_id":"chart_bnb"});
@@ -410,53 +500,19 @@ async function r(){
      if(d.error){document.getElementById('admin').innerHTML='⛔ Socio no existe<br><a class="btn" href="/">⬅️ Volver a mi caja ADMIN</a>';return}
      document.getElementById('titulo').innerHTML=`🐺 CAJA SOCIO ${sid} - PLAN ${d.plan}`;
      document.getElementById('admin').className='box socio';
-     document.getElementById('admin').innerHTML=`🟠 TU CAJA - PLAN ${d.plan}<br>
-        <span class="kpi">💰 Bal: $${d.balance}</span>
-        <span class="kpi">📈 Neto: $${d.neto_hoy}</span>
-        <span class="kpi">🔄 Ops: ${d.ops_hoy}</span>
-        <span class="kpi">🎯 Win: ${d.winrate}%</span><br>
-        <span class="kpi">⚙️ Modo: ${d.modo}</span>
-        <span class="kpi">📊 Merc: ${d.mercado}</span><br>
-        <span class="kpi">₿ BTC: $${d.btc}</span>
-        <span class="kpi">🔶 BNB: $${d.bnb}</span><br>
-        Estado: ${d.estado_texto}<br>ID ${sid}<br>
-        <a class="btn" href="/">⬅️ Volver a mi caja ADMIN</a> <a class="btn2" href="/?id=${sid}">🔄 Recargar</a>`;
+     document.getElementById('admin').innerHTML=`🟠 TU CAJA - PLAN ${d.plan}<br><span class="kpi">💰 Bal: $${d.balance}</span><span class="kpi">📈 Neto: $${d.neto_hoy}</span><span class="kpi">🔄 Ops: ${d.ops_hoy}</span><span class="kpi">🎯 Win: ${d.winrate}%</span><br><span class="kpi">⚙️ Modo: ${d.modo}</span><span class="kpi">📊 Merc: ${d.mercado}</span><br><span class="kpi">₿ BTC: $${d.btc}</span><span class="kpi">🔶 BNB: $${d.bnb}</span><br>Estado: ${d.estado_texto}<br>ID ${sid}<br><a class="btn" href="/">⬅️ Volver a mi caja ADMIN</a> <a class="btn2" href="/?id=${sid}">🔄 Recargar</a>`;
      document.getElementById('contador').style.display='block';
-     if(d.vence_dias<=0 && d.vence_horas<=0){
-       document.getElementById('contador').innerHTML=`⛔ PLAN VENCIDO<br>Venció: ${d.vence}<br>Contactá al admin para renovar`;
-       document.getElementById('contador').style.borderColor='red';document.getElementById('contador').style.color='red';
-     }else if(d.vence_dias==0){
-       document.getElementById('contador').innerHTML=`⏰ TE QUEDA HOY - VENCE EN ${d.vence_horas}h ${d.vence_mins}m<br>Plan ${d.plan} - Vence ${d.vence}`;
-     }else{
-       document.getElementById('contador').innerHTML=`⏳ TE QUEDAN ${d.vence_dias} DÍAS ${d.vence_horas}h<br>Plan ${d.plan} - Vence: ${d.vence}<br><small>Mañana te quedarán ${d.vence_dias-1} días</small>`;
-     }
-     document.getElementById('socios').style.display='none';
-     document.getElementById('infoPlan').style.display='block';
-     document.getElementById('infoPlan').innerHTML=`📋 Link privado:?id=${sid}`;
+     if(d.vence_dias<=0 && d.vence_horas<=0){document.getElementById('contador').innerHTML=`⛔ PLAN VENCIDO<br>Venció: ${d.vence}<br>Contacta al admin para renovar`;document.getElementById('contador').style.borderColor='red';document.getElementById('contador').style.color='red';}
+     else if(d.vence_dias==0){document.getElementById('contador').innerHTML=`⏰ TE QUEDA HOY - VENCE EN ${d.vence_horas}h ${d.vence_mins}m<br>Plan ${d.plan} - Vence ${d.vence}`;}
+     else{document.getElementById('contador').innerHTML=`⏳ TE QUEDAN ${d.vence_dias} DIAS ${d.vence_horas}h<br>Plan ${d.plan} - Vence: ${d.vence}<br><small>Manana te quedaran ${d.vence_dias-1} dias</small>`;}
+     document.getElementById('socios').style.display='none';document.getElementById('infoPlan').style.display='block';document.getElementById('infoPlan').innerHTML=`📋 Link privado:?id=${sid}`;
    }catch(e){document.getElementById('admin').innerHTML='Error carga<br><a class="btn" href="/">⬅️ Volver a ADMIN</a>'}
  }else{
    let a=await (await fetch('/api/data')).json();
-   document.getElementById('admin').innerHTML=`🔵 CAJA ADMIN 100% - TU PARTE SEPARADA<br>
-      <span class="kpi">💰 Bal: $${a.balance}</span>
-      <span class="kpi">📈 Neto: $${a.neto_hoy}</span>
-      <span class="kpi">🔄 Ops: ${a.ops_hoy}</span>
-      <span class="kpi">🎯 Win: ${a.winrate}%</span><br>
-      <span class="kpi">⚙️ Modo: ${a.modo}</span>
-      <span class="kpi">📊 Merc: ${a.mercado}</span><br>
-      <span class="kpi">₿ BTC: $${a.btc}</span>
-      <span class="kpi">🔶 BNB: $${a.bnb}</span><br>
-      Estado: ${a.estado_texto}<br>Disco: ${a.disco}`;
-   let s=await (await fetch('/api/socios')).json();
-   let h='🟠 CAJAS SOCIOS 20% - CONTADOR INVERSO:<br>';
-   for(let k in s.socios){
-     let u=s.socios[k];
-     h+=`<div style="margin:8px 0;padding:8px;background:#1e222d;border-radius:8px">Socio ${k} | ${u.plan}<br>
-     💰 $${u.balance} | Neto $${u.neto_hoy} | ${u.ops} ops | Win ${u.winrate}%<br>
-     ⏳ Quedan ${u.vence_dias}d | ${u.modo} | ${u.mercado} | ${u.estado}<br>
-     <a class="btn" href="/?id=${k}">➡️ Ver?id=${k}</a></div>`;
-   }
-   if(Object.keys(s.socios).length==0)h+='Sin socios - /alta';
-   document.getElementById('socios').innerHTML=h;
+   document.getElementById('admin').innerHTML=`🔵 CAJA ADMIN 100% - TU PARTE SEPARADA<br><span class="kpi">💰 Bal: $${a.balance}</span><span class="kpi">📈 Neto: $${a.neto_hoy}</span><span class="kpi">🔄 Ops: ${a.ops_hoy}</span><span class="kpi">🎯 Win: ${a.winrate}%</span><br><span class="kpi">⚙️ Modo: ${a.modo}</span><span class="kpi">📊 Merc: ${a.mercado}</span><br><span class="kpi">₿ BTC: $${a.btc}</span><span class="kpi">🔶 BNB: $${a.bnb}</span><br>Estado: ${a.estado_texto}<br>Disco: ${a.disco}`;
+   let s=await (await fetch('/api/socios')).json();let h='🟠 CAJAS SOCIOS 20% - CONTADOR INVERSO:<br>';
+   for(let k in s.socios){let u=s.socios[k];h+=`<div style="margin:8px 0;padding:8px;background:#1e222d;border-radius:8px">Socio ${k} | ${u.plan}<br>💰 $${u.balance} | Neto $${u.neto_hoy} | ${u.ops} ops | Win ${u.winrate}%<br>⏳ Quedan ${u.vence_dias}d | ${u.modo} | ${u.mercado} | ${u.estado}<br><a class="btn" href="/?id=${k}">➡️ Ver?id=${k}</a></div>`;}
+   if(Object.keys(s.socios).length==0)h+='Sin socios - /alta';document.getElementById('socios').innerHTML=h;
  }
 }
 setInterval(r,3000);r();
