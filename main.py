@@ -8,6 +8,12 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template_string, jsonify
 import telebot
 from telebot import types
+try:
+    from zoneinfo import ZoneInfo
+    TZ = ZoneInfo("America/Argentina/Buenos_Aires")
+except:
+    import pytz
+    TZ = pytz.timezone('America/Argentina/Buenos_Aires')
 
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
@@ -16,7 +22,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-BALANCE_INICIAL = 200.0 # $100 BTC + $100 BNB
+BALANCE_INICIAL = 200.0
 CACHORRO_PORC = 0.20
 ADMINS_IDS = [6530209116]
 WEB_URL = "https://bot-v22-1.onrender.com"
@@ -27,13 +33,12 @@ ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
 
-print(f"### V26.8.1 FINAL - SOCIOS FIX + API ADMIN + HISTORIAL + SIN 3 LINEAS ###")
+print(f"### V26.8.2 FINAL - BALANCE CAPITAL + HISTORIAL FECHA ART ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
 LOCK = threading.Lock()
 
-# === FIX 1: SACAR LAS 3 LINEAS DEL MENU DE TELEGRAM ===
 try:
     bot.delete_my_commands()
     bot.set_my_commands([])
@@ -41,17 +46,19 @@ try:
 except Exception as e:
     print(f"No se pudo borrar menu: {e}")
 
+def ahora_art():
+    return datetime.now(TZ)
+
 def actualizar_dolar():
     while True:
         try:
             r = requests.get("https://criptoya.com/api/dolar", timeout=10).json()
             if r and 'cripto' in r and 'ccb' in r['cripto']:
                 DOLAR_CRIPTO["valor"] = int(float(r['cripto']['ccb']))
-                DOLAR_CRIPTO["actualizado"] = datetime.now().strftime("%H:%M")
+                DOLAR_CRIPTO["actualizado"] = ahora_art().strftime("%H:%M")
         except: DOLAR_CRIPTO["valor"] += random.randint(-5,5)
         time.sleep(1800)
 
-# ========= V26.7 BIENVENIDA LARGA SIN REPETIR Y SIN REFERIDO =========
 BIENVENIDA = """👋 MANADA V26.8.1 ADMIN FULL - MP PURO + API SEGURA 🐺
 
 Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
@@ -139,6 +146,16 @@ def guardar_datos():
             for k,v in USUARIOS.items():
                 vd = v.copy()
                 if vd.get("pausa_hasta") and isinstance(vd["pausa_hasta"], datetime): vd["pausa_hasta"] = vd["pausa_hasta"].isoformat()
+                hist_ser = []
+                for h in vd.get("historial", []):
+                    if isinstance(h, dict):
+                        hh = h.copy()
+                        if isinstance(hh.get("fecha"), datetime):
+                            hh["fecha"] = hh["fecha"].isoformat()
+                        hist_ser.append(hh)
+                    else:
+                        hist_ser.append(h)
+                vd["historial"] = hist_ser
                 usuarios_ser[str(k)] = vd
             with open(DATA_FILE+".tmp", "w", encoding="utf-8") as f: json.dump({"socios": socios_ser, "usuarios": usuarios_ser}, f)
             os.replace(DATA_FILE+".tmp", DATA_FILE)
@@ -156,6 +173,16 @@ def cargar_datos():
                 if v.get("pausa_hasta"):
                     try: v["pausa_hasta"] = datetime.fromisoformat(v["pausa_hasta"])
                     except: v["pausa_hasta"] = None
+                hist = []
+                for h in v.get("historial", []):
+                    if isinstance(h, dict) and h.get("fecha"):
+                        try:
+                            h["fecha"] = datetime.fromisoformat(h["fecha"])
+                            if h["fecha"].tzinfo is None:
+                                h["fecha"] = h["fecha"].replace(tzinfo=TZ)
+                        except: pass
+                    hist.append(h)
+                v["historial"] = hist
                 v["estrategias"].pop("ORCA", None); v["estrategias"].pop("MEGALODON", None)
                 USUARIOS[int(k)] = v
             except: pass
@@ -166,11 +193,12 @@ cargar_datos()
 def get_user_data(user_id):
     user_id = int(user_id); es_admin_id = user_id in ADMINS_IDS
     if user_id not in USUARIOS:
-        USUARIOS[user_id] = {"prendido": False, "balance": BALANCE_INICIAL, "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "modo": "LOBO" if es_admin_id else "CACHORRO", "mercado": "BASE SOLIDA BTC+BNB" if es_admin_id else "CACHORRO GRATIS 7 DIAS (20%)", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA" if es_admin_id else "SOCIO", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
+        USUARIOS[user_id] = {"prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "modo": "LOBO" if es_admin_id else "CACHORRO", "mercado": "BASE SOLIDA BTC+BNB" if es_admin_id else "CACHORRO GRATIS 7 DIAS (20%)", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA" if es_admin_id else "SOCIO", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
         guardar_datos()
     USUARIOS[user_id]["estrategias"].pop("ORCA", None); USUARIOS[user_id]["estrategias"].pop("MEGALODON", None)
     for k in ["RATA","LOBO","TIBURON"]:
         if k not in USUARIOS[user_id]["estrategias"]: USUARIOS[user_id]["estrategias"][k] = {"ops":0,"ganadas":0,"neto":0.0}
+    if "capital_inicial" not in USUARIOS[user_id]: USUARIOS[user_id]["capital_inicial"] = BALANCE_INICIAL
     if "api_key" not in USUARIOS[user_id]: USUARIOS[user_id]["api_key"] = None
     if "api_secret" not in USUARIOS[user_id]: USUARIOS[user_id]["api_secret"] = None
     if "api_cargada" not in USUARIOS[user_id]: USUARIOS[user_id]["api_cargada"] = False
@@ -225,14 +253,17 @@ def motor_demo():
                 if es_ganada: user_data["estrategias"]["LOBO"]["ganadas"]+=1; user_data["estrategias"]["LOBO"]["neto"]=round(user_data["estrategias"]["LOBO"]["neto"]+gan,2)
                 else: user_data["estrategias"]["LOBO"]["neto"]=round(user_data["estrategias"]["LOBO"]["neto"]-perd,2)
             modo_log = modo_elegido if es_admin_id else "CACHORRO"
-            if es_ganada: user_data["ganadas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]+gan,2); user_data["balance"]=round(user_data["balance"]+gan,2); user_data["historial"].append(f"{datetime.now().strftime('%H:%M')} - {activo_base} - {modo_log} - TP {tp} = +${gan}")
-            else: user_data["perdidas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]-perd,2); user_data["balance"]=round(user_data["balance"]-perd,2); user_data["historial"].append(f"{datetime.now().strftime('%H:%M')} - {activo_base} - {modo_log} - SL {sl} = -${perd}");
+            ahora = ahora_art()
+            tipo = f"TP {tp}" if es_ganada else f"SL {sl}"
+            monto = gan if es_ganada else -perd
+            user_data["historial"].append({"fecha": ahora, "moneda": activo_base, "modo": modo_log, "tipo": tipo, "monto": monto})
+            if es_ganada: user_data["ganadas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]+gan,2); user_data["balance"]=round(user_data["balance"]+gan,2)
+            else: user_data["perdidas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]-perd,2); user_data["balance"]=round(user_data["balance"]-perd,2)
             if not es_admin_id and not es_ganada: user_data["pausa_hasta"]=datetime.now()+timedelta(minutes=10)
-            if len(user_data["historial"])>20: user_data["historial"]=user_data["historial"][-20:]
+            if len(user_data["historial"])>200: user_data["historial"]=user_data["historial"][-200:]
         contador+=1
         if contador>=10: guardar_datos(); contador=0
 
-# --- COMANDOS TELEGRAM ---
 @bot.message_handler(commands=['setapi'])
 def setapi_cmd(message):
     try:
@@ -275,16 +306,16 @@ def btn_id(message):
 @bot.message_handler(func=lambda m: m.text in ["📈 ESTRATEGIAS", "/estrategias"])
 def estrategias(message):
     ud=get_user_data(message.chat.id); est=ud["estrategias"]
-    txt=f"📈 V26.8.1 BASE SOLIDA - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
+    txt=f"📈 V26.8.2 BASE SOLIDA - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
-    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.1 ADMIN BASE SOLIDA 🐺\nBalance ${ud['balance']} - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
+    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.2 ADMIN BASE SOLIDA 🐺\nBalance ${ud['balance']} - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
         if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nTocá 🐺 QUIERO LOBO para elegir plan $20/$40/$60", reply_markup=get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.1\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias restantes\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.2\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias restantes\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -305,24 +336,81 @@ def balance(message):
     if not acceso and not es_admin(message.chat.id):
         bot.send_message(message.chat.id,"⛔ Plan vencido. Tocá 💰 PAGAR o 🐺 QUIERO LOBO", reply_markup=get_menu_botones(False)); return
     ud = get_user_data(message.chat.id); win=calcular_winrate(ud)
+    capital_inicial = ud.get("capital_inicial", BALANCE_INICIAL)
+    ganancia_hoy = ud["neto_hoy"]
+    balance_total = ud["balance"]
+    ganancia_total = balance_total - capital_inicial
     plan_actual = ESTADO["socios"].get(message.chat.id, {}).get("plan","ADMIN BASE SOLIDA") if not es_admin(message.chat.id) else "ADMIN BASE SOLIDA"
     vence_txt = ESTADO["socios"].get(message.chat.id, {}).get("vence")
     vence_str = vence_txt.strftime("%d/%m/%Y") if vence_txt else "Ilimitado"
-    if es_admin(message.chat.id):
-        api_status = "✅ ADMIN" if ud.get("api_cargada") else "❌ FALTA /setapi APIKEY SECRET"
-    else:
-        api_status = "✅" if ud.get("api_cargada") else "❌"
-    bot.send_message(message.chat.id,f"💰 {ud['caja']}\nBalance: ${ud['balance']}\nNeto Hoy: ${ud['neto_hoy']}\nOps Hoy: {ud['ops_hoy']} - Winrate: {win}%\n\n⚙️ Modo: {ud['modo']}\n📊 Mercado: {ud['mercado']}\n📦 Plan: {plan_actual}\n⏳ Te quedan: {dias} dias - Vence {vence_str}\n🔑 API: {api_status} - Requisito $100 BTC + $100 BNB\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}\nDolar: ${DOLAR_CRIPTO['valor']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    api_status = "✅ ADMIN" if ud.get("api_cargada") and es_admin(message.chat.id) else ("✅" if ud.get("api_cargada") else "❌ FALTA /setapi")
+    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO
+
+💵 Capital Inicial: ${capital_inicial:.2f}
+📈 Ganancia Hoy: ${ganancia_hoy:+.2f}
+💼 Ganancia Total: ${ganancia_total:+.2f}
+💰 Balance Total Actual: ${balance_total:.2f}
+
+✅ Ops Ganadas Hoy: {ud['ganadas']}
+❌ Ops Perdidas Hoy: {ud['perdidas']}
+🔄 Total Ops Hoy: {ud['ops_hoy']}
+🎯 Winrate Hoy: {win}%
+
+⚙️ Modo: {ud['modo']}
+📊 Mercado: {ud['mercado']}
+📦 Plan: {plan_actual}
+⏳ Te quedan: {dias} dias - Vence {vence_str}
+🔑 API: {api_status} - Requisito $100 BTC + $100 BNB
+
+₿ BTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}
+💵 Dolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['actualizado']})
+🕒 Actualizado: {ahora_art().strftime('%d/%m/%Y %H:%M:%S')} ART"""
+    bot.send_message(message.chat.id, texto, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
-def historial(message): ud = get_user_data(message.chat.id); hist="\n".join(ud["historial"][-15:]) or "Sin ops"; bot.send_message(message.chat.id,f"📜 {ud['caja']}\n{hist}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+def historial(message):
+    ud = get_user_data(message.chat.id)
+    ahora = ahora_art()
+    hoy = ahora.date()
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
+    inicio_mes = hoy.replace(day=1)
+    hist_hoy = []
+    hist_semana = []
+    hist_mes = []
+    for h in reversed(ud["historial"]):
+        if isinstance(h, str):
+            hist_hoy.append(h)
+            continue
+        fecha = h["fecha"]
+        if fecha.tzinfo is None:
+            fecha = fecha.replace(tzinfo=TZ)
+        fecha_local = fecha.astimezone(TZ)
+        fecha_date = fecha_local.date()
+        linea = f"{fecha_local.strftime('%d/%m/%Y %H:%M:%S')} - {h['moneda']} - {h['modo']} - {h['tipo']} = ${h['monto']:+.2f}"
+        if fecha_date == hoy:
+            hist_hoy.append(linea)
+        if fecha_date >= inicio_semana:
+            hist_semana.append(h)
+        if fecha_date >= inicio_mes:
+            hist_mes.append(h)
+    gan_sem = sum(1 for x in hist_semana if isinstance(x, dict) and x["monto"]>0)
+    per_sem = len(hist_semana) - gan_sem
+    neto_sem = sum(x["monto"] for x in hist_semana if isinstance(x, dict))
+    gan_mes = sum(1 for x in hist_mes if isinstance(x, dict) and x["monto"]>0)
+    neto_mes = sum(x["monto"] for x in hist_mes if isinstance(x, dict))
+    txt = f"📜 {ud['caja']} - HISTORIAL COMPLETO\n\n📅 HOY {hoy.strftime('%d/%m/%Y')} - {len(hist_hoy)} ops\n"
+    txt += "\n".join(hist_hoy[-15:]) if hist_hoy else "Sin ops hoy"
+    txt += f"\n\n📅 SEMANA ({inicio_semana.strftime('%d/%m')} al {hoy.strftime('%d/%m/%Y')})\nOps: {len(hist_semana)} | Ganadas: {gan_sem} | Perdidas: {per_sem} | Neto: ${neto_sem:+.2f}\n"
+    txt += f"\n📅 MES ({ahora.strftime('%B %Y')})\nOps: {len(hist_mes)} | Ganadas: {gan_mes} | Neto: ${neto_mes:+.2f}\n"
+    txt += f"\n🕒 Actualizado: {ahora.strftime('%d/%m/%Y %H:%M:%S')} ART (GMT-3)"
+    bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["💰 PAGAR", "/pagar"])
 def pagar(message):
     dolar = DOLAR_CRIPTO['valor']
     ud = get_user_data(message.chat.id)
     api_status = "✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA - Hace /setapi TU_API_KEY TU_SECRET_KEY"
-    txt = f"""💰 PAGAR V26.8.1 - MP PURO + API SEGURA
+    txt = f"""💰 PAGAR V26.8.2 - MP PURO + API SEGURA
 Dolar Cripto: ${dolar} ({DOLAR_CRIPTO['actualizado']})
 
 ⚠️ REQUISITO OBLIGATORIO:
@@ -352,7 +440,7 @@ def quiero_lobo(message):
         types.InlineKeyboardButton(f"🐺 LOBO $40/mes (${40*dolar} ARS)", callback_data="plan_LOBO"),
         types.InlineKeyboardButton(f"🦈 TIBURON $60/mes (${60*dolar} ARS)", callback_data="plan_TIBURON")
     )
-    txt = f"""🐺 ELEGÍ TU MODO LOBO V26.8.1 - API OK ✅
+    txt = f"""🐺 ELEGÍ TU MODO LOBO V26.8.2 - API OK ✅
 
 Requisito ya cumplido: $100 BTC + $100 BNB + API
 
@@ -414,7 +502,7 @@ def admin_cmds(message):
         try:
             parts=message.text.split(); id_cliente=int(parts[1]); dias=int(parts[2]); plan=parts[3].upper() if len(parts)>3 else "CACHORRO"
             vence=datetime.now()+timedelta(days=dias); ESTADO["socios"][id_cliente]={"alta":datetime.now(),"vence":vence,"plan":plan}
-            ud = get_user_data(id_cliente); ud["balance"]=200.0; ud["neto_hoy"]=0; ud["ops_hoy"]=0; ud["ganadas"]=0; ud["perdidas"]=0; ud["historial"]=[]; ud["prendido"]=False; ud["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0}}
+            ud = get_user_data(id_cliente); ud["balance"]=200.0; ud["capital_inicial"]=200.0; ud["neto_hoy"]=0; ud["ops_hoy"]=0; ud["ganadas"]=0; ud["perdidas"]=0; ud["historial"]=[]; ud["prendido"]=False; ud["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0}}
             guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d - ⏳ Quedan {dias} dias -> {WEB_URL}/?id={id_cliente}")
         except Exception as e: bot.send_message(message.chat.id,f"Error: {e}")
     elif message.text.startswith('/socios'):
@@ -473,7 +561,7 @@ def cancel_baja(call):
     bot.answer_callback_query(call.id, "Cancelado")
     bot.delete_message(call.message.chat.id, call.message.message_id)
 
-HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.1 FINAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.7}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.socio{background:#2a2218;border-left:5px solid #ff9800}.kpi{display:inline-block;background:#1e222d;padding:7px 10px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}#chart_btc{height:50vh}#chart_bnb{height:30vh}.btn{display:inline-block;margin-top:8px;padding:8px 14px;background:#00ffea;color:#000;border-radius:6px;text-decoration:none;font-weight:bold}</style></head><body><div class="header"><b id="titulo">V26.8.1 - MP PURO + API SEGURA</b><div id="admin" class="box admin">Cargando detalle...</div><div id="socios" class="box socio">Cargando socios...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
+HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.2 FINAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.7}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.socio{background:#2a2218;border-left:5px solid #ff9800}.kpi{display:inline-block;background:#1e222d;padding:7px 10px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}#chart_btc{height:50vh}#chart_bnb{height:30vh}.btn{display:inline-block;margin-top:8px;padding:8px 14px;background:#00ffea;color:#000;border-radius:6px;text-decoration:none;font-weight:bold}</style></head><body><div class="header"><b id="titulo">V26.8.2 - MP PURO + API SEGURA</b><div id="admin" class="box admin">Cargando detalle...</div><div id="socios" class="box socio">Cargando socios...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
 <script>
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"1","theme":"dark","container_id":"chart_btc"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"1","theme":"dark","container_id":"chart_bnb"});
