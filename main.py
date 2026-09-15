@@ -25,8 +25,9 @@ os.makedirs("/data", exist_ok=True)
 
 ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
+PLANES = {"RATA":20,"LOBO":40,"TIBURON":60} # CORREGIDO $20 / $40 / $60
 
-print(f"### V22.9 FINAL LIMPIO - SIN ESTADO - SIN CUADRO ESTRATEGIA ###")
+print(f"### V22.9 FINAL LIMPIO - SIN ESTADO - SIN CUADRO ESTRATEGIA - PLANES 20/40/60 ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
@@ -42,7 +43,7 @@ def actualizar_dolar():
         except: DOLAR_CRIPTO["valor"] += random.randint(-5,5)
         time.sleep(1800)
 
-BIENVENIDA = "Hola Lobo V22.9 BASE SOLIDA\nRATA LATERAL / LOBO NORMAL / TIBURON VOLATIL\nCACHORRO 20% 7 DIAS"
+BIENVENIDA = "Hola Lobo V22.9 BASE SOLIDA\nRATA LATERAL $20 / LOBO NORMAL $40 / TIBURON VOLATIL $60\nCACHORRO 20% 7 DIAS GRATIS"
 
 def get_menu_botones(admin=False):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -184,7 +185,21 @@ def balance(message):
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
 def historial(message): ud = get_user_data(message.chat.id); hist="\n".join(ud["historial"][-15:]) or "Sin ops"; bot.send_message(message.chat.id,f"📜 {ud['caja']}\n{hist}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 @bot.message_handler(func=lambda m: m.text in ["💰 PAGAR", "/pagar"])
-def pagar(message): bot.send_message(message.chat.id,f"PAGAR V22.9 - Dolar ${DOLAR_CRIPTO['valor']}\nAlias: {ALIAS_MP_DEMO}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+def pagar(message):
+    dolar = DOLAR_CRIPTO['valor']
+    txt = f"""💰 PAGAR V22.9 BASE SOLIDA
+Dolar Cripto: ${dolar} ({DOLAR_CRIPTO['actualizado']})
+
+🐀 RATA: $20 USD/mes = ${20*dolar} ARS
+🐺 LOBO: $40 USD/mes = ${40*dolar} ARS
+🦈 TIBURON: $60 USD/mes = ${60*dolar} ARS
+
+Alias: {ALIAS_MP_DEMO}
+
+CACHORRO 20% es gratis 7 dias.
+Cuando pagas se te activa RATA/LOBO/TIBURON"""
+    bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
 @bot.message_handler(commands=['alta','socios'])
 def admin_cmds(message):
     if not es_admin(message.chat.id): return
