@@ -23,6 +23,8 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 BALANCE_INICIAL = 200.0
+BALANCE_BTC_INICIAL = 100.0
+BALANCE_BNB_INICIAL = 100.0
 CACHORRO_PORC = 0.20
 ADMINS_IDS = [6530209116]
 WEB_URL = "https://bot-v22-1.onrender.com"
@@ -33,7 +35,7 @@ ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
 
-print(f"### V26.8.3 B-200 DEMO FULL - 641 LINEAS + FIX CLEARAPI ###")
+print(f"### V26.8.4 B-200 BNB SEPARADO - 641 LINEAS + FIX CLEARAPI + BNB $100+$100 ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
@@ -63,13 +65,23 @@ def reset_diario_si_corresponde(user_data):
                 'ops': user_data.get('ops_hoy', 0),
                 'ganadas': user_data.get('ganadas', 0),
                 'perdidas': user_data.get('perdidas', 0),
-                'neto': user_data.get('neto_hoy', 0.0)
+                'neto': user_data.get('neto_hoy', 0.0),
+                'neto_btc': user_data.get('neto_hoy_btc', 0.0),
+                'neto_bnb': user_data.get('neto_hoy_bnb', 0.0)
             })
             user_data['historial_diario'] = user_data['historial_diario'][-30:]
         user_data['ops_hoy'] = 0
         user_data['ganadas'] = 0
         user_data['perdidas'] = 0
         user_data['neto_hoy'] = 0.0
+        user_data['neto_hoy_btc'] = 0.0
+        user_data['neto_hoy_bnb'] = 0.0
+        user_data['ops_hoy_btc'] = 0
+        user_data['ops_hoy_bnb'] = 0
+        user_data['ganadas_btc'] = 0
+        user_data['ganadas_bnb'] = 0
+        user_data['perdidas_btc'] = 0
+        user_data['perdidas_bnb'] = 0
         user_data['ultimo_reset'] = hoy_str
         print(f"[RESET DIARIO] {hoy_str} para {user_data.get('user_id')}")
     return user_data
@@ -88,11 +100,12 @@ def actualizar_dolar():
             DOLAR_CRIPTO["actualizado"] = ahora_art().strftime("%H:%M")
         time.sleep(1800)
 
-BIENVENIDA = """👋 MANADA V26.8.3 B-200 DEMO LIMPIO - MP PURO + API SEGURA 🐺
+BIENVENIDA = """👋 MANADA V26.8.4 B-200 BNB SEPARADO - MP PURO + API SEGURA 🐺
 
 Hola Lobo, bienvenido a la manada.
 
-V26.8.3 B-200 arranca en $200 DEMO limpio.
+V26.8.4 B-200 arranca en $200 DEMO limpio.
+$100 BTC + $100 BNB SEPARADOS.
 Sin API trucha TU_API...
 Para probar tocá BALANCE y PRENDER.
 
@@ -133,7 +146,6 @@ def cargar_datos():
     try:
         if not os.path.exists(DATA_FILE): return
         with open(DATA_FILE, "r", encoding="utf-8") as f: data = json.load(f)
-        # FIX B-200: Si detecta balance trucho >1000, borra archivo y arranca $200
         for k,v in data.get("usuarios", {}).items():
             if v.get("balance",0) > 1000 or v.get("balance",0) < 0:
                 print(f"BALANCE TRUCHO DETECTADO {v.get('balance')} -> RESET $200")
@@ -165,9 +177,16 @@ cargar_datos()
 def get_user_data(user_id):
     user_id = int(user_id); es_admin_id = user_id in ADMINS_IDS
     if user_id not in USUARIOS:
-        USUARIOS[user_id] = {"user_id": user_id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "ultimo_reset": ahora_art().strftime('%d/%m/%Y'), "historial_diario": [], "modo": "LOBO" if es_admin_id else "CACHORRO", "mercado": "BASE SOLIDA BTC+BNB" if es_admin_id else "CACHORRO GRATIS 7 DIAS (20%)", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA" if es_admin_id else "SOCIO", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
+        USUARIOS[user_id] = {
+            "user_id": user_id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL,
+            "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL,
+            "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL,
+            "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0,
+            "ops_hoy_btc": 0, "ops_hoy_bnb": 0,
+            "ganadas_btc": 0, "ganadas_bnb": 0,
+            "perdidas_btc": 0, "perdidas_bnb": 0,
+            "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "ultimo_reset": ahora_art().strftime('%d/%m/%Y'), "historial_diario": [], "modo": "LOBO" if es_admin_id else "CACHORRO", "mercado": "BASE SOLIDA BTC+BNB" if es_admin_id else "CACHORRO GRATIS 7 DIAS (20%)", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA" if es_admin_id else "SOCIO", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
         guardar_datos()
-    # FIX RAM: si quedó trucho en memoria, reset
     if USUARIOS[user_id].get("balance",0) > 1000:
         USUARIOS[user_id]["balance"]=BALANCE_INICIAL
         USUARIOS[user_id]["capital_inicial"]=BALANCE_INICIAL
@@ -179,6 +198,18 @@ def get_user_data(user_id):
         USUARIOS[user_id]["api_key"]=None
         USUARIOS[user_id]["api_secret"]=None
         USUARIOS[user_id]["api_cargada"]=False
+        USUARIOS[user_id]["balance_btc"]=BALANCE_BTC_INICIAL
+        USUARIOS[user_id]["balance_bnb"]=BALANCE_BNB_INICIAL
+        USUARIOS[user_id]["capital_btc"]=BALANCE_BTC_INICIAL
+        USUARIOS[user_id]["capital_bnb"]=BALANCE_BNB_INICIAL
+        USUARIOS[user_id]["neto_hoy_btc"]=0.0
+        USUARIOS[user_id]["neto_hoy_bnb"]=0.0
+        USUARIOS[user_id]["ops_hoy_btc"]=0
+        USUARIOS[user_id]["ops_hoy_bnb"]=0
+        USUARIOS[user_id]["ganadas_btc"]=0
+        USUARIOS[user_id]["ganadas_bnb"]=0
+        USUARIOS[user_id]["perdidas_btc"]=0
+        USUARIOS[user_id]["perdidas_bnb"]=0
         guardar_datos()
     USUARIOS[user_id]["estrategias"].pop("ORCA", None); USUARIOS[user_id]["estrategias"].pop("MEGALODON", None)
     for k in ["RATA","LOBO","TIBURON"]:
@@ -190,6 +221,21 @@ def get_user_data(user_id):
     if "ultimo_reset" not in USUARIOS[user_id]: USUARIOS[user_id]["ultimo_reset"] = ahora_art().strftime('%d/%m/%Y')
     if "historial_diario" not in USUARIOS[user_id]: USUARIOS[user_id]["historial_diario"] = []
     if "user_id" not in USUARIOS[user_id]: USUARIOS[user_id]["user_id"] = user_id
+    if "balance_btc" not in USUARIOS[user_id]:
+        bal = USUARIOS[user_id].get("balance", BALANCE_INICIAL)
+        mitad = round(bal/2,2)
+        USUARIOS[user_id]["balance_btc"] = mitad
+        USUARIOS[user_id]["balance_bnb"] = bal - mitad
+        USUARIOS[user_id]["capital_btc"] = BALANCE_BTC_INICIAL
+        USUARIOS[user_id]["capital_bnb"] = BALANCE_BNB_INICIAL
+        USUARIOS[user_id]["neto_hoy_btc"] = 0.0
+        USUARIOS[user_id]["neto_hoy_bnb"] = 0.0
+        USUARIOS[user_id]["ops_hoy_btc"] = 0
+        USUARIOS[user_id]["ops_hoy_bnb"] = 0
+        USUARIOS[user_id]["ganadas_btc"] = 0
+        USUARIOS[user_id]["ganadas_bnb"] = 0
+        USUARIOS[user_id]["perdidas_btc"] = 0
+        USUARIOS[user_id]["perdidas_bnb"] = 0
     USUARIOS[user_id] = reset_diario_si_corresponde(USUARIOS[user_id])
     return USUARIOS[user_id]
 
@@ -248,14 +294,23 @@ def motor_demo():
             monto = gan if es_ganada else -perd
             linea = f"{ahora.strftime('%d/%m/%Y %H:%M:%S')} - {activo_base} - {modo_log} - {tipo} = ${monto:+.2f}"
             user_data["historial"].append(linea)
-            if es_ganada: user_data["ganadas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]+gan,2); user_data["balance"]=round(user_data["balance"]+gan,2)
-            else: user_data["perdidas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]-perd,2); user_data["balance"]=round(user_data["balance"]-perd,2)
+            if es_ganada:
+                user_data["ganadas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]+gan,2); user_data["balance"]=round(user_data["balance"]+gan,2)
+                if activo_base == "BTC":
+                    user_data["ganadas_btc"]+=1; user_data["ops_hoy_btc"]+=1; user_data["neto_hoy_btc"]=round(user_data["neto_hoy_btc"]+gan,2); user_data["balance_btc"]=round(user_data["balance_btc"]+gan,2)
+                else:
+                    user_data["ganadas_bnb"]+=1; user_data["ops_hoy_bnb"]+=1; user_data["neto_hoy_bnb"]=round(user_data["neto_hoy_bnb"]+gan,2); user_data["balance_bnb"]=round(user_data["balance_bnb"]+gan,2)
+            else:
+                user_data["perdidas"]+=1; user_data["ops_hoy"]+=1; user_data["neto_hoy"]=round(user_data["neto_hoy"]-perd,2); user_data["balance"]=round(user_data["balance"]-perd,2)
+                if activo_base == "BTC":
+                    user_data["perdidas_btc"]+=1; user_data["ops_hoy_btc"]+=1; user_data["neto_hoy_btc"]=round(user_data["neto_hoy_btc"]-perd,2); user_data["balance_btc"]=round(user_data["balance_btc"]-perd,2)
+                else:
+                    user_data["perdidas_bnb"]+=1; user_data["ops_hoy_bnb"]+=1; user_data["neto_hoy_bnb"]=round(user_data["neto_hoy_bnb"]-perd,2); user_data["balance_bnb"]=round(user_data["balance_bnb"]-perd,2)
             if not es_admin_id and not es_ganada: user_data["pausa_hasta"]=datetime.now()+timedelta(minutes=10)
             if len(user_data["historial"])>200: user_data["historial"]=user_data["historial"][-200:]
         contador+=1
         if contador>=10: guardar_datos(); contador=0
 
-# === COMANDOS NUEVOS FIX ===
 @bot.message_handler(commands=['clearapi','delapi','resetdemo','reset','borrar'])
 def comandos_limpieza(message):
     if not es_admin(message.chat.id):
@@ -263,30 +318,36 @@ def comandos_limpieza(message):
     txt = message.text.lower()
     if 'clearapi' in txt or 'delapi' in txt or 'borrar' in txt:
         ud=get_user_data(message.chat.id); ud["api_key"]=None; ud["api_secret"]=None; ud["api_cargada"]=False; guardar_datos()
-        bot.reply_to(message, f"🧹 API BORRADA OK - Ahora DEMO ❌\nBalance ${ud['balance']:.2f}", reply_markup=get_menu_botones(True))
+        bot.reply_to(message, f"🧹 API BORRADA OK - Ahora DEMO ❌\nBalance ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f})", reply_markup=get_menu_botones(True))
     if 'resetdemo' in txt or txt.startswith('/reset'):
-        USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "ultimo_reset": ahora_art().strftime('%d/%m/%Y'), "historial_diario": [], "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
+        USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL,
+            "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL,
+            "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0,
+            "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "ultimo_reset": ahora_art().strftime('%d/%m/%Y'), "historial_diario": [], "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
         try:
             if os.path.exists(DATA_FILE): os.remove(DATA_FILE)
         except: pass
         guardar_datos()
-        bot.reply_to(message, f"🔄 RESET DEMO TOTAL OK - $200.00 LIMPIO\nOps 0 - API ❌ DEMO", reply_markup=get_menu_botones(True))
+        bot.reply_to(message, f"🔄 RESET DEMO TOTAL OK - $200.00 LIMPIO ($100 BTC + $100 BNB)\nOps 0 - API ❌ DEMO", reply_markup=get_menu_botones(True))
 
 @bot.message_handler(func=lambda m: m.text in ["🔄 RESET DEMO"])
 def btn_reset(m):
     if not es_admin(m.chat.id): return
-    USUARIOS[m.chat.id] = {"user_id": m.chat.id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "ultimo_reset": ahora_art().strftime('%d/%m/%Y'), "historial_diario": [], "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
+    USUARIOS[m.chat.id] = {"user_id": m.chat.id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL,
+            "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL,
+            "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0,
+            "ops_hoy": 0, "neto_hoy": 0.0, "ganadas": 0, "perdidas": 0, "ultimo_reset": ahora_art().strftime('%d/%m/%Y'), "historial_diario": [], "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "historial": [], "caja": "ADMIN BASE SOLIDA", "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "api_key": None, "api_secret": None, "api_cargada": False}
     try:
         if os.path.exists(DATA_FILE): os.remove(DATA_FILE)
     except: pass
     guardar_datos()
-    bot.send_message(m.chat.id, f"✅ DEMO $200 LIMPIO", reply_markup=get_menu_botones(True))
+    bot.send_message(m.chat.id, f"✅ DEMO $200 LIMPIO ($100 BTC + $100 BNB)", reply_markup=get_menu_botones(True))
 
 @bot.message_handler(func=lambda m: m.text in ["🧹 CLEAR API"])
 def btn_clear(m):
     if not es_admin(m.chat.id): return
     ud=get_user_data(m.chat.id); ud["api_key"]=None; ud["api_secret"]=None; ud["api_cargada"]=False; guardar_datos()
-    bot.send_message(m.chat.id, "🧹 API LIMPIA - DEMO $200", reply_markup=get_menu_botones(True))
+    bot.send_message(m.chat.id, "🧹 API LIMPIA - DEMO $200 ($100 BTC + $100 BNB)", reply_markup=get_menu_botones(True))
 
 @bot.message_handler(commands=['setapi'])
 def setapi_cmd(message):
@@ -309,7 +370,7 @@ def get_id(message):
     acceso,dias = tiene_acceso(message.chat.id); ud = get_user_data(message.chat.id)
     api_status = "✅ ADMIN VINCULADA" if ud.get("api_cargada") and es_admin(message.chat.id) else ("✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA /setapi - DEMO $200")
     plan = ESTADO["socios"].get(message.chat.id, {}).get("plan","CACHORRO") if not es_admin(message.chat.id) else "ADMIN"
-    bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ Quedan {dias} dias\n🔑 API: {api_status}\n💰 $200 DEMO\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ Quedan {dias} dias\n🔑 API: {api_status}\n💰 $200 DEMO ($100 BTC + $100 BNB)\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["🆔 ID"])
 def btn_id(message): return get_id(message)
@@ -317,16 +378,16 @@ def btn_id(message): return get_id(message)
 @bot.message_handler(func=lambda m: m.text in ["📈 ESTRATEGIAS", "/estrategias"])
 def estrategias(message):
     ud=get_user_data(message.chat.id); est=ud["estrategias"]
-    txt=f"📈 V26.8.3 B-200 DEMO - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
+    txt=f"📈 V26.8.4 B-200 BNB SEPARADO - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\n💰 BTC: ${ud['balance_btc']:.2f} (Neto {ud['neto_hoy_btc']:+.2f})\n💰 BNB: ${ud['balance_bnb']:.2f} (Neto {ud['neto_hoy_bnb']:+.2f})\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
-    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.3 B-200 DEMO LIMPIO 🐺\nBalance ${ud['balance']:.2f} - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
+    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.4 B-200 BNB SEPARADO 🐺\nBalance ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
         if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nTocá 🐺 QUIERO LOBO", reply_markup=get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.3 B-200\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.4 B-200\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -335,7 +396,7 @@ def prender(message):
     user_data = get_user_data(message.chat.id)
     user_data["prendido"]=True; user_data["pausa_hasta"]=None
     analizar_mercado_y_elegir_modo(user_data); guardar_datos()
-    bot.send_message(message.chat.id,f"🚀 {user_data['caja']} ACTIVADA - ${user_data['balance']}\nModo {user_data['modo']} - {user_data['mercado']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    bot.send_message(message.chat.id,f"🚀 {user_data['caja']} ACTIVADA - ${user_data['balance']} (BTC ${user_data['balance_btc']:.2f} + BNB ${user_data['balance_bnb']:.2f})\nModo {user_data['modo']} - {user_data['mercado']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance", "/miplan"])
 def balance(message):
@@ -345,19 +406,31 @@ def balance(message):
     ud = get_user_data(message.chat.id); win=calcular_winrate(ud)
     capital_inicial = ud.get("capital_inicial", BALANCE_INICIAL)
     ganancia_hoy = ud["neto_hoy"]; balance_total = ud["balance"]; ganancia_total = balance_total - capital_inicial
+    capital_btc = ud.get("capital_btc", BALANCE_BTC_INICIAL)
+    capital_bnb = ud.get("capital_bnb", BALANCE_BNB_INICIAL)
+    balance_btc = ud.get("balance_btc", BALANCE_BTC_INICIAL)
+    balance_bnb = ud.get("balance_bnb", BALANCE_BNB_INICIAL)
+    neto_btc = ud.get("neto_hoy_btc", 0.0)
+    neto_bnb = ud.get("neto_hoy_bnb", 0.0)
+    ganancia_btc_total = balance_btc - capital_btc
+    ganancia_bnb_total = balance_bnb - capital_bnb
     plan_actual = ESTADO["socios"].get(message.chat.id, {}).get("plan","ADMIN BASE SOLIDA - DEMO $200") if not es_admin(message.chat.id) else "ADMIN BASE SOLIDA - DEMO $200"
     vence_txt = ESTADO["socios"].get(message.chat.id, {}).get("vence"); vence_str = vence_txt.strftime("%d/%m/%Y") if vence_txt else "Ilimitado"
     api_status = "✅ ADMIN" if ud.get("api_cargada") and es_admin(message.chat.id) else ("✅" if ud.get("api_cargada") else "❌ DEMO $200")
-    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO V26.8.3 B-200
+    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO V26.8.4 B-200 BNB SEPARADO
 
-💵 Capital Inicial: ${capital_inicial:.2f}
+💵 Capital Inicial: ${capital_inicial:.2f} ($100 BTC + $100 BNB)
 📈 Ganancia Hoy: ${ganancia_hoy:+.2f}
 💼 Ganancia Total: ${ganancia_total:+.2f}
 💰 Balance Total Actual: ${balance_total:.2f}
 
-✅ Ops Ganadas Hoy: {ud['ganadas']}
-❌ Ops Perdidas Hoy: {ud['perdidas']}
-🔄 Total Ops Hoy: {ud['ops_hoy']}
+--- 🔶 DETALLE BNB SEPARADO ---
+₿ BTC Capital: ${capital_btc:.2f} | Balance: ${balance_btc:.2f} | Hoy: ${neto_btc:+.2f} | Total: ${ganancia_btc_total:+.2f}
+🔶 BNB Capital: ${capital_bnb:.2f} | Balance: ${balance_bnb:.2f} | Hoy: ${neto_bnb:+.2f} | Total: ${ganancia_bnb_total:+.2f}
+
+✅ Ops Ganadas Hoy: {ud['ganadas']} (BTC {ud.get('ganadas_btc',0)} / BNB {ud.get('ganadas_bnb',0)})
+❌ Ops Perdidas Hoy: {ud['perdidas']} (BTC {ud.get('perdidas_btc',0)} / BNB {ud.get('perdidas_bnb',0)})
+🔄 Total Ops Hoy: {ud['ops_hoy']} (BTC {ud.get('ops_hoy_btc',0)} + BNB {ud.get('ops_hoy_bnb',0)})
 🎯 Winrate Hoy: {win}%
 
 ⚙️ Modo: {ud['modo']}
@@ -369,7 +442,7 @@ def balance(message):
 ₿ BTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}
 💵 Dolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['actualizado']})
 🕒 Actualizado: {ahora_art().strftime('%d/%m/%Y %H:%M:%S')} ART
-V26.8.3 B-200 DEMO LIMPIO"""
+V26.8.4 B-200 BNB SEPARADO"""
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
@@ -383,7 +456,7 @@ def historial(message):
         return g, len(lista)-g, neto
     hist_hoy = [h for h in ud["historial"] if hoy.strftime('%d/%m/%Y') in h]
     gan_hoy, per_hoy, neto_hoy = contar(hist_hoy)
-    txt = f"📜 {ud['caja']} - HISTORIAL\n\n📅 HOY {hoy.strftime('%d/%m/%Y')} - {len(hist_hoy)} ops\n"
+    txt = f"📜 {ud['caja']} - HISTORIAL\n\n📅 HOY {hoy.strftime('%d/%m/%Y')} - {len(hist_hoy)} ops\nBTC {ud.get('ops_hoy_btc',0)} ops / BNB {ud.get('ops_hoy_bnb',0)} ops\n"
     txt += "\n".join(hist_hoy[-15:]) if hist_hoy else "Sin ops hoy"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
@@ -391,10 +464,10 @@ def historial(message):
 def pagar(message):
     dolar = DOLAR_CRIPTO['valor']; ud = get_user_data(message.chat.id)
     api_status = "✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA - DEMO $200"
-    txt = f"""💰 PAGAR V26.8.3 B-200 DEMO
+    txt = f"""💰 PAGAR V26.8.4 B-200 BNB SEPARADO
 Dolar: ${dolar} - API: {api_status}
 Alias MP: {ALIAS_MP_DEMO}
-DEMO $200 limpio - Tocá PRENDER para probar"""
+DEMO $200 limpio ($100 BTC + $100 BNB) - Tocá PRENDER para probar"""
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["🐺 QUIERO LOBO", "/quierolobo", "/planes"])
@@ -402,7 +475,7 @@ def quiero_lobo(message):
     dolar = DOLAR_CRIPTO['valor']
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton(f"🐀 RATA $20/mes", callback_data="plan_RATA"), types.InlineKeyboardButton(f"🐺 LOBO $40/mes", callback_data="plan_LOBO"), types.InlineKeyboardButton(f"🦈 TIBURON $60/mes", callback_data="plan_TIBURON"))
-    bot.send_message(message.chat.id, f"🐺 ELEGÍ TU MODO - DEMO $200\nDolar ${dolar}\nAlias {ALIAS_MP_DEMO}", reply_markup=markup)
+    bot.send_message(message.chat.id, f"🐺 ELEGÍ TU MODO - DEMO $200 ($100 BTC + $100 BNB)\nDolar ${dolar}\nAlias {ALIAS_MP_DEMO}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_"))
 def callback_plan(call):
@@ -415,9 +488,7 @@ def enviar_lista_socios(chat_id):
     bot.send_message(chat_id, f"👥 SOCIOS - {len(ESTADO['socios'])} activos", reply_markup=get_menu_botones(True))
     for cid,d in list(ESTADO["socios"].items()):
         dias=(d["vence"]-datetime.now()).days; u = USUARIOS.get(cid, {"balance":200,"ops_hoy":0,"neto_hoy":0,"ganadas":0,"perdidas":0}); win = calcular_winrate(u)
-        markup = types.InlineKeyboardMarkup(row_width=3)
-        markup.add(types.KeyboardButton("👁️ VER CAJA"), types.KeyboardButton("➕ +30D"), types.KeyboardButton("❌ BAJA"))
-        txt = f"👤 {cid}\n📦 {d['plan']} - ⏳ {dias}d\n💰 ${u['balance']} | 📈 ${u['neto_hoy']}"
+        txt = f"👤 {cid}\n📦 {d['plan']} - ⏳ {dias}d\n💰 ${u['balance']} | 📈 ${u['neto_hoy']} (BTC ${u.get('balance_btc',100):.2f} + BNB ${u.get('balance_bnb',100):.2f})"
         bot.send_message(chat_id, txt)
 
 @bot.message_handler(commands=['alta','socios'])
@@ -427,8 +498,8 @@ def admin_cmds(message):
         try:
             parts=message.text.split(); id_cliente=int(parts[1]); dias=int(parts[2]); plan=parts[3].upper() if len(parts)>3 else "CACHORRO"
             vence=datetime.now()+timedelta(days=dias); ESTADO["socios"][id_cliente]={"alta":datetime.now(),"vence":vence,"plan":plan}
-            ud = get_user_data(id_cliente); ud["balance"]=200.0; ud["capital_inicial"]=200.0; ud["neto_hoy"]=0; ud["ops_hoy"]=0; ud["ganadas"]=0; ud["perdidas"]=0; ud["historial"]=[]; ud["prendido"]=False
-            guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d")
+            ud = get_user_data(id_cliente); ud["balance"]=200.0; ud["capital_inicial"]=200.0; ud["balance_btc"]=100.0; ud["balance_bnb"]=100.0; ud["capital_btc"]=100.0; ud["capital_bnb"]=100.0; ud["neto_hoy"]=0; ud["neto_hoy_btc"]=0; ud["neto_hoy_bnb"]=0; ud["ops_hoy"]=0; ud["ops_hoy_btc"]=0; ud["ops_hoy_bnb"]=0; ud["ganadas"]=0; ud["ganadas_btc"]=0; ud["ganadas_bnb"]=0; ud["perdidas"]=0; ud["perdidas_btc"]=0; ud["perdidas_bnb"]=0; ud["historial"]=[]; ud["prendido"]=False
+            guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d ($100 BTC + $100 BNB)")
         except Exception as e: bot.send_message(message.chat.id,f"Error: {e}")
     elif message.text.startswith('/socios'):
         enviar_lista_socios(message.chat.id)
@@ -438,20 +509,20 @@ def btn_socios(message):
     if not es_admin(message.chat.id): bot.send_message(message.chat.id,"⛔ Solo admin", reply_markup=get_menu_botones(False)); return
     enviar_lista_socios(message.chat.id)
 
-HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.3 B-200 DEMO FULL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.7}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.kpi{display:inline-block;background:#1e222d;padding:7px 10px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}#chart_btc{height:50vh}#chart_bnb{height:30vh}</style></head><body><div class="header"><b>V26.8.3 B-200 DEMO FULL - $200 LIMPIO</b><div id="admin" class="box admin">Cargando...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"1","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"1","theme":"dark","container_id":"chart_bnb"});async function r(){let a=await (await fetch('/api/data')).json();document.getElementById('admin').innerHTML=`🔵 ADMIN DEMO $200<br><span class="kpi">💰 $${a.balance}</span><span class="kpi">📈 $${a.neto_hoy}</span><span class="kpi">🔄 ${a.ops_hoy} ops</span><span class="kpi">🎯 ${a.winrate}%</span><br><span class="kpi">₿ BTC $${a.btc}</span><span class="kpi">🔶 BNB $${a.bnb}</span>`;}setInterval(r,3000);r();</script></body></html>"""
+HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.4 B-200 BNB SEPARADO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.7}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.kpi{display:inline-block;background:#1e222d;padding:7px 10px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}#chart_btc{height:50vh}#chart_bnb{height:30vh}</style></head><body><div class="header"><b>V26.8.4 B-200 BNB SEPARADO - $100 BTC + $100 BNB</b><div id="admin" class="box admin">Cargando...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"1","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"1","theme":"dark","container_id":"chart_bnb"});async function r(){let a=await (await fetch('/api/data')).json();document.getElementById('admin').innerHTML=`🔵 ADMIN DEMO $200 (BTC $${a.balance_btc} + BNB $${a.balance_bnb})<br><span class="kpi">💰 $${a.balance}</span><span class="kpi">📈 $${a.neto_hoy} (BTC $${a.neto_hoy_btc} + BNB $${a.neto_hoy_bnb})</span><span class="kpi">🔄 ${a.ops_hoy} ops (BTC ${a.ops_hoy_btc}+BNB ${a.ops_hoy_bnb})</span><span class="kpi">🎯 ${a.winrate}%</span><br><span class="kpi">₿ BTC $${a.btc}</span><span class="kpi">🔶 BNB $${a.bnb}</span>`;}setInterval(r,3000);r();</script></body></html>"""
 
 @app.route('/')
 def home(): return render_template_string(HTML)
 @app.route('/api/data')
 def api_data():
     a=get_user_data(ADMINS_IDS[0]); est_out={k:{"ops":v["ops"],"winrate":calcular_winrate_estrategia(v),"neto":v["neto"]} for k,v in a["estrategias"].items()}
-    return jsonify({"balance":a["balance"],"neto_hoy":a["neto_hoy"],"ops_hoy":a["ops_hoy"],"winrate":calcular_winrate(a),"modo":a["modo"],"mercado":a["mercado"],"btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estrategias":est_out,"dolar":DOLAR_CRIPTO})
+    return jsonify({"balance":a["balance"],"balance_btc":a.get("balance_btc",100),"balance_bnb":a.get("balance_bnb",100),"neto_hoy":a["neto_hoy"],"neto_hoy_btc":a.get("neto_hoy_btc",0),"neto_hoy_bnb":a.get("neto_hoy_bnb",0),"ops_hoy":a["ops_hoy"],"ops_hoy_btc":a.get("ops_hoy_btc",0),"ops_hoy_bnb":a.get("ops_hoy_bnb",0),"winrate":calcular_winrate(a),"modo":a["modo"],"mercado":a["mercado"],"btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estrategias":est_out,"dolar":DOLAR_CRIPTO})
 @app.route('/api/socios')
 def api_socios():
     out={}
     for cid,d in ESTADO["socios"].items():
         u=USUARIOS.get(cid,{"balance":200,"ops_hoy":0,"neto_hoy":0,"ganadas":0,"perdidas":0,"modo":"CACHORRO","mercado":"CACHORRO"})
-        out[cid]={"balance":u["balance"],"ops":u["ops_hoy"],"plan":d["plan"],"neto_hoy":u["neto_hoy"],"winrate":calcular_winrate(u),"modo":u["modo"],"mercado":u["mercado"],"vence_dias":(d["vence"]-datetime.now()).days if (d["vence"]-datetime.now()).total_seconds()>0 else 0}
+        out[cid]={"balance":u["balance"],"balance_btc":u.get("balance_btc",100),"balance_bnb":u.get("balance_bnb",100),"ops":u["ops_hoy"],"plan":d["plan"],"neto_hoy":u["neto_hoy"],"winrate":calcular_winrate(u),"modo":u["modo"],"mercado":u["mercado"],"vence_dias":(d["vence"]-datetime.now()).days if (d["vence"]-datetime.now()).total_seconds()>0 else 0}
     return jsonify({"socios":out})
 
 def run_bot(): bot.infinity_polling(skip_pending=True)
