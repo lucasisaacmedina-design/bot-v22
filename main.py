@@ -25,9 +25,9 @@ os.makedirs("/data", exist_ok=True)
 
 ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
-PLANES = {"RATA":20,"LOBO":40,"TIBURON":60} # CORREGIDO $20 / $40 / $60
+PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
 
-print(f"### V22.9 FINAL LIMPIO - SIN ESTADO - SIN CUADRO ESTRATEGIA - PLANES 20/40/60 ###")
+print(f"### V23 FINAL - OPCION 2 DIAS + OPCION 3 QUIERO LOBO ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
@@ -155,39 +155,55 @@ def motor_demo():
         contador+=1
         if contador>=10: guardar_datos(); contador=0
 
+# --- COMANDOS TELEGRAM ---
 @bot.message_handler(commands=['id'])
-def get_id(message): bot.send_message(message.chat.id,f"Tu ID es: {message.chat.id}\nLink: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+def get_id(message):
+    acceso,dias = tiene_acceso(message.chat.id)
+    ud = get_user_data(message.chat.id)
+    plan = ESTADO["socios"].get(message.chat.id, {}).get("plan","CACHORRO") if not es_admin(message.chat.id) else "ADMIN"
+    bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ Quedan {dias} dias\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
 @bot.message_handler(func=lambda m: m.text in ["📈 ESTRATEGIAS", "/estrategias"])
 def estrategias(message):
     ud=get_user_data(message.chat.id); est=ud["estrategias"]
     txt=f"📈 V22.9 BASE SOLIDA - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
     if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V22.9 ADMIN BASE SOLIDA 🐺\nBalance ${ud['balance']} - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
-        if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}", reply_markup=get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V22.9\nPlan: {ESTADO['socios'][message.chat.id]['plan']} - {dias_rest} dias\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+        if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nTocá 🐺 QUIERO LOBO para elegir plan $20/$40/$60", reply_markup=get_menu_botones(False))
+        else: bot.send_message(message.chat.id,f"👋 MANADA V23\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias restantes\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
     acceso,_=tiene_acceso(message.chat.id)
-    if not acceso: bot.send_message(message.chat.id,"⛔ Vencido", reply_markup=get_menu_botones(False)); return
+    if not acceso: bot.send_message(message.chat.id,"⛔ Vencido - Tocá 💰 PAGAR", reply_markup=get_menu_botones(False)); return
     user_data = get_user_data(message.chat.id); user_data["prendido"]=True; user_data["pausa_hasta"]=None
     if es_admin(message.chat.id): analizar_mercado_y_elegir_modo(user_data)
     else: user_data["modo"]="CACHORRO"; user_data["mercado"]="CACHORRO GRATIS 7 DIAS (20%)"
     guardar_datos(); bot.send_message(message.chat.id,f"🚀 {user_data['caja']} ACTIVADA - ${user_data['balance']}\nModo {user_data['modo']} - {user_data['mercado']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
-@bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
+
+@bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance", "/miplan"])
 def balance(message):
-    if not tiene_acceso(message.chat.id)[0]: return
+    acceso,dias = tiene_acceso(message.chat.id)
+    if not acceso and not es_admin(message.chat.id):
+        bot.send_message(message.chat.id,"⛔ Plan vencido. Tocá 💰 PAGAR o 🐺 QUIERO LOBO", reply_markup=get_menu_botones(False)); return
     ud = get_user_data(message.chat.id); win=calcular_winrate(ud)
-    bot.send_message(message.chat.id,f"💰 {ud['caja']}\nBalance: ${ud['balance']}\nNeto Hoy: ${ud['neto_hoy']}\nOps Hoy: {ud['ops_hoy']} - Winrate: {win}%\nModo: {ud['modo']}\nMercado: {ud['mercado']}\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    plan_actual = ESTADO["socios"].get(message.chat.id, {}).get("plan","ADMIN BASE SOLIDA") if not es_admin(message.chat.id) else "ADMIN BASE SOLIDA"
+    vence_txt = ESTADO["socios"].get(message.chat.id, {}).get("vence")
+    vence_str = vence_txt.strftime("%d/%m/%Y") if vence_txt else "Ilimitado"
+    bot.send_message(message.chat.id,f"💰 {ud['caja']}\nBalance: ${ud['balance']}\nNeto Hoy: ${ud['neto_hoy']}\nOps Hoy: {ud['ops_hoy']} - Winrate: {win}%\n\n⚙️ Modo: {ud['modo']}\n📊 Mercado: {ud['mercado']}\n📦 Plan: {plan_actual}\n⏳ Te quedan: {dias} dias - Vence {vence_str}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}\nDolar: ${DOLAR_CRIPTO['valor']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
 def historial(message): ud = get_user_data(message.chat.id); hist="\n".join(ud["historial"][-15:]) or "Sin ops"; bot.send_message(message.chat.id,f"📜 {ud['caja']}\n{hist}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
 @bot.message_handler(func=lambda m: m.text in ["💰 PAGAR", "/pagar"])
 def pagar(message):
     dolar = DOLAR_CRIPTO['valor']
-    txt = f"""💰 PAGAR V22.9 BASE SOLIDA
+    txt = f"""💰 PAGAR V23 BASE SOLIDA
 Dolar Cripto: ${dolar} ({DOLAR_CRIPTO['actualizado']})
 
 🐀 RATA: $20 USD/mes = ${20*dolar} ARS
@@ -197,8 +213,49 @@ Dolar Cripto: ${dolar} ({DOLAR_CRIPTO['actualizado']})
 Alias: {ALIAS_MP_DEMO}
 
 CACHORRO 20% es gratis 7 dias.
-Cuando pagas se te activa RATA/LOBO/TIBURON"""
+Tocá 🐺 QUIERO LOBO para elegir."""
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
+# === OPCION 3 - QUIERO LOBO CON 3 PLANES ===
+@bot.message_handler(func=lambda m: m.text in ["🐺 QUIERO LOBO", "/quierolobo", "/planes"])
+def quiero_lobo(message):
+    dolar = DOLAR_CRIPTO['valor']
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(f"🐀 RATA $20/mes (${20*dolar} ARS)", callback_data="plan_RATA"),
+        types.InlineKeyboardButton(f"🐺 LOBO $40/mes (${40*dolar} ARS)", callback_data="plan_LOBO"),
+        types.InlineKeyboardButton(f"🦈 TIBURON $60/mes (${60*dolar} ARS)", callback_data="plan_TIBURON")
+    )
+    txt = f"""🐺 ELEGÍ TU MODO LOBO V23
+
+🐀 RATA $20 USD/mes = ${20*dolar} ARS
+Ideal LATERAL - Win 72% - TP chico
+
+🐺 LOBO $40 USD/mes = ${40*dolar} ARS
+Ideal NORMAL - Win 68% - TP medio
+
+🦈 TIBURON $60 USD/mes = ${60*dolar} ARS
+Ideal VOLATIL - Win 60% - TP grande
+
+Dolar: ${dolar}
+Alias: {ALIAS_MP_DEMO}
+
+Tocá el modo que querés:"""
+    bot.send_message(message.chat.id, txt, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("plan_"))
+def callback_plan(call):
+    plan = call.data.split("_")[1]
+    dolar = DOLAR_CRIPTO['valor']
+    precio_usd = PLANES[plan]
+    bot.answer_callback_query(call.id, f"Elegiste {plan}")
+    bot.send_message(call.message.chat.id, f"""✅ Elegiste {plan}
+
+💰 A pagar: ${precio_usd} USD = ${precio_usd*dolar} ARS
+Alias: {ALIAS_MP_DEMO}
+
+Enviá comprobante a este bot con tu ID: {call.message.chat.id}
+Yo te activo con /alta {call.message.chat.id} 30 {plan}""", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(commands=['alta','socios'])
 def admin_cmds(message):
@@ -208,11 +265,13 @@ def admin_cmds(message):
             parts=message.text.split(); id_cliente=int(parts[1]); dias=int(parts[2]); plan=parts[3].upper() if len(parts)>3 else "CACHORRO"
             vence=datetime.now()+timedelta(days=dias); ESTADO["socios"][id_cliente]={"alta":datetime.now(),"vence":vence,"plan":plan}
             ud = get_user_data(id_cliente); ud["balance"]=200.0; ud["neto_hoy"]=0; ud["ops_hoy"]=0; ud["ganadas"]=0; ud["perdidas"]=0; ud["historial"]=[]; ud["prendido"]=False; ud["estrategias"]={"RATA":{"ops":0,"ganadas":0,"neto":0.0},"LOBO":{"ops":0,"ganadas":0,"neto":0.0},"TIBURON":{"ops":0,"ganadas":0,"neto":0.0}}
-            guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d -> {WEB_URL}/?id={id_cliente}")
+            guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d - ⏳ Quedan {dias} dias -> {WEB_URL}/?id={id_cliente}")
         except Exception as e: bot.send_message(message.chat.id,f"Error: {e}")
     elif message.text.startswith('/socios'):
-        txt=f"👥 SOCIOS\n"
-        for cid,d in ESTADO["socios"].items(): txt+=f"{cid} {d['plan']} - {WEB_URL}/?id={cid}\n"
+        txt=f"👥 SOCIOS - Dias restantes\n"
+        for cid,d in ESTADO["socios"].items():
+            dias=(d["vence"]-datetime.now()).days
+            txt+=f"{cid} {d['plan']} - {dias}d restantes - {WEB_URL}/?id={cid}\n"
         bot.send_message(message.chat.id, txt)
 
 # === HTML FINAL V22.9 - SIN ESTADO - SIN CUADRO VERDE ===
@@ -236,6 +295,7 @@ async function r(){
        <span class="kpi">🎯 Winrate: ${d.winrate}%</span><br>
        <span class="kpi">⚙️ Modo: ${d.modo}</span>
        <span class="kpi">📊 Mercado: ${d.mercado}</span><br>
+       <span class="kpi">📦 Plan: ${d.plan} - ⏳ ${d.vence_dias}d restantes</span><br>
        <span class="kpi">₿ BTC: $${d.btc}</span>
        <span class="kpi">🔶 BNB: $${d.bnb}</span>
      `;
@@ -256,7 +316,7 @@ async function r(){
      <span class="kpi">💵 Dolar: $${a.dolar.valor}</span>
    `;
    let s=await (await fetch('/api/socios')).json();let h='🟠 CAJAS SOCIOS CACHORRO 20%:<br>';
-   for(let k in s.socios){let u=s.socios[k];h+=`<div style="margin:8px 0;padding:8px;background:#1e222d;border-radius:8px">👤 ${k} - ${u.plan} | 💰 $${u.balance} | 📈 Neto $${u.neto_hoy} | 🔄 ${u.ops} ops | 🎯 Win ${u.winrate}%<br>⚙️ ${u.modo} | 📊 ${u.mercado}<br><a class="btn" href="/?id=${k}">VER CAJA?id=${k}</a></div>`;}
+   for(let k in s.socios){let u=s.socios[k];h+=`<div style="margin:8px 0;padding:8px;background:#1e222d;border-radius:8px">👤 ${k} - ${u.plan} | 💰 $${u.balance} | 📈 Neto $${u.neto_hoy} | 🔄 ${u.ops} ops | 🎯 Win ${u.winrate}% - ⏳ ${u.vence_dias}d restantes<br>⚙️ ${u.modo} | 📊 ${u.mercado}<br><a class="btn" href="/?id=${k}">VER CAJA?id=${k}</a></div>`;}
    if(Object.keys(s.socios).length==0)h+='Sin socios aun';document.getElementById('socios').innerHTML=h;
  }
 }
