@@ -5,7 +5,7 @@ import random
 import time
 import requests
 from datetime import datetime, timedelta
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 import telebot
 from telebot import types
 try:
@@ -35,7 +35,7 @@ ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
 
-print(f"### V26.8.5 B-200 FULL - BNB $100+$100 + WEB DETALLADA + SOCIOS ###")
+print(f"### V26.8.6 B-200 SIN TABLA - ADMIN VE SOCIOS / SOCIO VE INVERSION + TOTAL DIA ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
@@ -100,13 +100,13 @@ def actualizar_dolar():
             DOLAR_CRIPTO["actualizado"] = ahora_art().strftime("%H:%M")
         time.sleep(1800)
 
-BIENVENIDA = """👋 MANADA V26.8.5 B-200 FULL BNB - MP PURO + API SEGURA 🐺
+BIENVENIDA = """👋 MANADA V26.8.6 B-200 SIN TABLA - MP PURO + API SEGURA 🐺
 
 Hola Lobo, bienvenido a la manada.
 
-V26.8.5 B-200 arranca en $200 DEMO limpio.
-$100 BTC + $100 BNB SEPARADOS + WEB FULL.
-Para probar tocá BALANCE y PRENDER.
+V26.8.6 B-200 arranca en $200 DEMO limpio.
+$100 BTC + $100 BNB SEPARADOS.
+Tocá BALANCE y PRENDER para probar.
 
 Si querés cargar API real: /setapi TU_API_KEY TU_SECRET_KEY
 Para borrar API: /clearapi
@@ -377,16 +377,16 @@ def btn_id(message): return get_id(message)
 @bot.message_handler(func=lambda m: m.text in ["📈 ESTRATEGIAS", "/estrategias"])
 def estrategias(message):
     ud=get_user_data(message.chat.id); est=ud["estrategias"]
-    txt=f"📈 V26.8.5 B-200 FULL BNB - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\n💰 BTC: ${ud['balance_btc']:.2f} (Neto {ud['neto_hoy_btc']:+.2f} Ops {ud['ops_hoy_btc']})\n💰 BNB: ${ud['balance_bnb']:.2f} (Neto {ud['neto_hoy_bnb']:+.2f} Ops {ud['ops_hoy_bnb']})\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
+    txt=f"📈 V26.8.6 B-200 - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\n💰 BTC: ${ud['balance_btc']:.2f} (Neto {ud['neto_hoy_btc']:+.2f} Ops {ud['ops_hoy_btc']})\n💰 BNB: ${ud['balance_bnb']:.2f} (Neto {ud['neto_hoy_bnb']:+.2f} Ops {ud['ops_hoy_bnb']})\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
-    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.5 B-200 FULL BNB 🐺\nBalance ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
+    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.6 B-200 SIN TABLA 🐺\nBalance ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
         if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nTocá 🐺 QUIERO LOBO", reply_markup=get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.5 B-200\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.6 B-200\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -416,7 +416,7 @@ def balance(message):
     plan_actual = ESTADO["socios"].get(message.chat.id, {}).get("plan","ADMIN BASE SOLIDA - DEMO $200") if not es_admin(message.chat.id) else "ADMIN BASE SOLIDA - DEMO $200"
     vence_txt = ESTADO["socios"].get(message.chat.id, {}).get("vence"); vence_str = vence_txt.strftime("%d/%m/%Y") if vence_txt else "Ilimitado"
     api_status = "✅ ADMIN" if ud.get("api_cargada") and es_admin(message.chat.id) else ("✅" if ud.get("api_cargada") else "❌ DEMO $200")
-    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO V26.8.5 FULL BNB
+    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO V26.8.6
 
 💵 Capital Inicial: ${capital_inicial:.2f} ($100 BTC + $100 BNB)
 📈 Ganancia Hoy: ${ganancia_hoy:+.2f}
@@ -441,18 +441,12 @@ def balance(message):
 ₿ BTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}
 💵 Dolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['actualizado']})
 🕒 Actualizado: {ahora_art().strftime('%d/%m/%Y %H:%M:%S')} ART
-V26.8.5 FULL BNB SEPARADO"""
+V26.8.6 SIN TABLA"""
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
 def historial(message):
     ud = get_user_data(message.chat.id); ahora = ahora_art(); hoy = ahora.date()
-    def contar(lista):
-        g = sum(1 for x in lista if "= $+" in x); neto = 0.0
-        for x in lista:
-            try: neto += float(x.split("= $")[-1])
-            except: pass
-        return g, len(lista)-g, neto
     hist_hoy = [h for h in ud["historial"] if hoy.strftime('%d/%m/%Y') in h]
     txt = f"📜 {ud['caja']} - HISTORIAL\n\n📅 HOY {hoy.strftime('%d/%m/%Y')} - {len(hist_hoy)} ops\nBTC {ud.get('ops_hoy_btc',0)} ops / BNB {ud.get('ops_hoy_bnb',0)} ops\n"
     txt += "\n".join(hist_hoy[-15:]) if hist_hoy else "Sin ops hoy"
@@ -462,10 +456,7 @@ def historial(message):
 def pagar(message):
     dolar = DOLAR_CRIPTO['valor']; ud = get_user_data(message.chat.id)
     api_status = "✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA - DEMO $200"
-    txt = f"""💰 PAGAR V26.8.5 FULL BNB
-Dolar: ${dolar} - API: {api_status}
-Alias MP: {ALIAS_MP_DEMO}
-DEMO $200 limpio ($100 BTC + $100 BNB) - Tocá PRENDER para probar"""
+    txt = f"""💰 PAGAR V26.8.6\nDolar: ${dolar} - API: {api_status}\nAlias MP: {ALIAS_MP_DEMO}\nDEMO $200 limpio ($100 BTC + $100 BNB) - Tocá PRENDER para probar"""
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["🐺 QUIERO LOBO", "/quierolobo", "/planes"])
@@ -507,72 +498,91 @@ def btn_socios(message):
     if not es_admin(message.chat.id): bot.send_message(message.chat.id,"⛔ Solo admin", reply_markup=get_menu_botones(False)); return
     enviar_lista_socios(message.chat.id)
 
-HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.5 B-200 FULL BNB</title><script src="https://s3.tradingview.com/tv.js"></script><style>
+# --- HTML FINAL SIN TABLA + ADMIN VE SOCIOS / SOCIO VE INVERSION+TOTAL DIA ---
+HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.6 B-200 SIN TABLA</title><script src="https://s3.tradingview.com/tv.js"></script><style>
 body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
 .header{background:#1e222d;padding:15px;border-bottom:2px solid #00ffea}
-.box{padding:14px;margin:10px;border-radius:12px;font-size:13px;line-height:1.8}
+.box{padding:14px;margin:10px;border-radius:12px;font-size:13px;line-height:1.9}
 .admin{background:#0d2a4a;border-left:5px solid #00ffea}
-.kpi{display:inline-block;background:#1e222d;padding:8px 12px;border-radius:8px;margin:4px;font-size:12px;border:1px solid #2a2e39;min-width:110px}
-.kpi.btc{background:#1a2f1a;border-color:#26a69a}
-.kpi.bnb{background:#2f2a1a;border-color:#f3ba2f}
-.kpi.win{background:#1a1a3a;border-color:#7c4dff}
-.kpi.modo{background:#3a1a1a;border-color:#ff5252}
-.est-table{width:100%;border-collapse:collapse;margin-top:10px}
-.est-table th,.est-table td{border:1px solid #2a2e39;padding:6px;text-align:center;font-size:12px}
-.est-table th{background:#1e222d}
+.kpi{display:inline-block;background:#1e222d;padding:10px 14px;border-radius:10px;margin:5px;font-size:13px;border:1px solid #2a2e39;min-width:120px;text-align:center}
+.kpi.btc{border-color:#26a69a}.kpi.bnb{border-color:#f3ba2f}.kpi.total{border-color:#00ffea;font-weight:bold;min-width:170px;font-size:14px}.kpi.modo{border-color:#ff5252}
 #chart_btc{height:45vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}
 #chart_bnb{height:35vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}
 .socios{margin:10px;background:#1e222d;padding:12px;border-radius:12px}
-.socio-card{background:#131722;padding:10px;margin:6px 0;border-radius:8px;border-left:3px solid #00ffea}
+.socio-card{background:#131722;padding:10px;margin:6px 0;border-radius:8px;border-left:3px solid #00ffea;display:flex;justify-content:space-between;flex-wrap:wrap}
 h3{margin:15px 10px 5px 10px;color:#00ffea}
 </style></head><body>
-<div class="header"><b>V26.8.5 B-200 FULL - $100 BTC + $100 BNB + ESTRATEGIAS + SOCIOS</b>
-<div id="admin" class="box admin">Cargando admin...</div>
-<div id="estrategias"></div>
-</div>
+<div class="header"><b id="titulo">V26.8.6 B-200</b><div id="admin" class="box admin">Cargando...</div></div>
 <div id="chart_btc"></div><div id="chart_bnb"></div>
-<h3>👥 Socios Activos</h3><div id="socios" class="socios">Cargando...</div>
+<div id="bloqueSocios"><h3>👥 Socios - Cómo les va (Solo Admin)</h3><div id="socios" class="socios">Cargando socios...</div></div>
 <script>
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"1","theme":"dark","container_id":"chart_btc"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"1","theme":"dark","container_id":"chart_bnb"});
-async function loadData(){
-  let a=await (await fetch('/api/data')).json();
-  document.getElementById('admin').innerHTML=`
-      <b>🔵 ADMIN $200 (BTC $100 + BNB $100) - ${a.modo}</b><br>
-      <span class="kpi">💰 Total $${a.balance.toFixed(2)}</span>
-      <span class="kpi btc">₿ BTC $${a.balance_btc.toFixed(2)}<br>Hoy ${a.neto_hoy_btc.toFixed(2)} | Ops ${a.ops_hoy_btc}</span>
-      <span class="kpi bnb">🔶 BNB $${a.balance_bnb.toFixed(2)}<br>Hoy ${a.neto_hoy_bnb.toFixed(2)} | Ops ${a.ops_hoy_bnb}</span>
-      <span class="kpi">📈 Hoy $${a.neto_hoy.toFixed(2)}</span>
-      <span class="kpi win">🎯 ${a.winrate}%<br>🔄 ${a.ops_hoy} ops (BTC ${a.ops_hoy_btc}+BNB ${a.ops_hoy_bnb})</span>
-      <span class="kpi modo">${a.modo}<br>${a.mercado}</span><br>
-      <span class="kpi">₿ BTC $${a.btc}</span><span class="kpi">🔶 BNB $${a.bnb}</span>
-      <span class="kpi">Gan ${a.ganadas} (BTC ${a.ganadas_btc}+BNB ${a.ganadas_bnb}) | Per ${a.perdidas}</span>
+function getId(){return new URLSearchParams(window.location.search).get('id');}
+async function load(){
+  let idParam=getId();
+  let url=idParam?`/api/data?id=${idParam}`:'/api/data';
+  let a=await (await fetch(url)).json();
+  if(idParam){
+    document.getElementById('titulo').innerText=`💼 TU PLATA CRECIENDO - ${a.modo}`;
+    document.getElementById('admin').innerHTML=`
+      <span class="kpi total">💵 Inversión<br>$${a.capital_inicial.toFixed(2)}<br><small>$100 BTC + $100 BNB</small></span>
+      <span class="kpi total">📈 Total del Día<br>$${a.neto_hoy>=0?'+':''}${a.neto_hoy.toFixed(2)}<br><small>${a.ops_hoy} ops | ${a.winrate}%</small></span>
+      <span class="kpi total">💰 Balance<br>$${a.balance.toFixed(2)}</span><br>
+      <span class="kpi btc">₿ BTC $${a.balance_btc.toFixed(2)}<br><small>Hoy ${a.neto_hoy_btc>=0?'+':''}${a.neto_hoy_btc.toFixed(2)}</small></span>
+      <span class="kpi bnb">🔶 BNB $${a.balance_bnb.toFixed(2)}<br><small>Hoy ${a.neto_hoy_bnb.toFixed(2)}</small></span>
+      <span class="kpi modo">🐺 ${a.modo}<br><small>${a.mercado}</small></span>
     `;
-  let estHtml=`<table class="est-table"><tr><th>Estrategia</th><th>Ops</th><th>Win%</th><th>Neto</th><th>Estado</th></tr>`;
-  for(let k in a.estrategias){let e=a.estrategias[k];let act=a.modo.includes(k)?'✅ ACTIVA':'⏸️';estHtml+=`<tr><td>${k}</td><td>${e.ops}</td><td>${e.winrate}%</td><td>$${e.neto.toFixed(2)}</td><td>${act}</td></tr>`;}
-  estHtml+=`</table>`;document.getElementById('estrategias').innerHTML=estHtml;
-  let s=await (await fetch('/api/socios')).json();let h='';
-  if(Object.keys(s.socios).length==0)h='Sin socios - usa /alta ID DIAS PLAN';
-  else{for(let id in s.socios){let u=s.socios[id];h+=`<div class="socio-card"><b>👤 ${id}</b> 📦 ${u.plan} ⏳ ${u.vence_dias}d<br>💰 $${u.balance.toFixed(2)} (BTC $${u.balance_btc.toFixed(2)} + BNB $${u.balance_bnb.toFixed(2)}) | 📈 $${u.neto_hoy.toFixed(2)} | 🎯 ${u.winrate}% | ${u.modo}<br><small>${u.mercado}</small></div>`;}}
-  document.getElementById('socios').innerHTML=h;
+    document.getElementById('bloqueSocios').style.display='none';
+  } else {
+    document.getElementById('titulo').innerText=`V26.8.6 ADMIN - $100 BTC + $100 BNB + SOCIOS`;
+    document.getElementById('admin').innerHTML=`
+      <b>🔵 ADMIN $200 (BTC $${a.balance_btc.toFixed(2)} + BNB $${a.balance_bnb.toFixed(2)}) - ${a.modo}</b><br>
+      <span class="kpi total">Total $${a.balance.toFixed(2)} | Hoy $${a.neto_hoy>=0?'+':''}${a.neto_hoy.toFixed(2)}</span>
+      <span class="kpi btc">BTC $${a.balance_btc.toFixed(2)} Hoy ${a.neto_hoy_btc.toFixed(2)} Ops ${a.ops_hoy_btc}</span>
+      <span class="kpi bnb">BNB $${a.balance_bnb.toFixed(2)} Hoy ${a.neto_hoy_bnb.toFixed(2)} Ops ${a.ops_hoy_bnb}</span>
+      <span class="kpi">🎯 ${a.winrate}% | ${a.ops_hoy} ops</span>
+      <span class="kpi modo">${a.modo}<br>${a.mercado}</span><br>
+      <span class="kpi">₿ BTC $${a.btc} | 🔶 BNB $${a.bnb} | Gan ${a.ganadas} Per ${a.perdidas}</span>
+    `;
+    document.getElementById('bloqueSocios').style.display='block';
+    try{
+      let s=await (await fetch('/api/socios')).json();let h='';
+      if(Object.keys(s.socios).length==0)h='Sin socios - usa /alta ID DIAS PLAN';
+      else{for(let id in s.socios){let u=s.socios[id];h+=`<div class="socio-card"><div><b>👤 ${id}</b> 📦 ${u.plan} ⏳ ${u.vence_dias}d<br>💰 Total $${u.balance.toFixed(2)} (BTC $${u.balance_btc.toFixed(2)} + BNB $${u.balance_bnb.toFixed(2)}) | 📈 Día $${u.neto_hoy.toFixed(2)} | 🎯 ${u.winrate}% | ${u.modo}<br><small>${u.mercado}</small></div><div><a href="/?id=${id}" style="color:#00ffea">Ver</a></div></div>`;}}
+      document.getElementById('socios').innerHTML=h;
+    }catch(e){document.getElementById('socios').innerHTML='Error cargando socios';}
+  }
 }
-setInterval(loadData,2000);loadData();
+setInterval(load,2500);load();
 </script></body></html>"""
 
 @app.route('/')
 def home(): return render_template_string(HTML)
+
 @app.route('/api/data')
 def api_data():
-    a=get_user_data(ADMINS_IDS[0]); est_out={k:{"ops":v["ops"],"winrate":calcular_winrate_estrategia(v),"neto":v["neto"]} for k,v in a["estrategias"].items()}
+    id_q = request.args.get('id', None)
+    if id_q and id_q.isdigit():
+        target_id = int(id_q)
+        a = get_user_data(target_id)
+        es_admin_req = target_id in ADMINS_IDS
+    else:
+        target_id = ADMINS_IDS[0]
+        a = get_user_data(target_id)
+        es_admin_req = True
+    est_out={k:{"ops":v["ops"],"winrate":calcular_winrate_estrategia(v),"neto":v["neto"]} for k,v in a["estrategias"].items()}
     return jsonify({
         "balance":a["balance"],"balance_btc":a.get("balance_btc",100),"balance_bnb":a.get("balance_bnb",100),
+        "capital_inicial":a.get("capital_inicial",200),
         "neto_hoy":a["neto_hoy"],"neto_hoy_btc":a.get("neto_hoy_btc",0),"neto_hoy_bnb":a.get("neto_hoy_bnb",0),
         "ops_hoy":a["ops_hoy"],"ops_hoy_btc":a.get("ops_hoy_btc",0),"ops_hoy_bnb":a.get("ops_hoy_bnb",0),
         "ganadas":a.get("ganadas",0),"ganadas_btc":a.get("ganadas_btc",0),"ganadas_bnb":a.get("ganadas_bnb",0),
         "perdidas":a.get("perdidas",0),"perdidas_btc":a.get("perdidas_btc",0),"perdidas_bnb":a.get("perdidas_bnb",0),
         "winrate":calcular_winrate(a),"modo":a["modo"],"mercado":a["mercado"],
-        "btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estrategias":est_out,"dolar":DOLAR_CRIPTO
+        "btc":ESTADO["btc"],"bnb":ESTADO["bnb"],"estrategias":est_out,"dolar":DOLAR_CRIPTO,"es_admin":es_admin_req
     })
+
 @app.route('/api/socios')
 def api_socios():
     out={}
