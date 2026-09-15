@@ -27,11 +27,19 @@ ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
 
-print(f"### V26.7 FINAL - MP PURO + API SEGURA + 100 BTC + 100 BNB ###")
+print(f"### V26.8.1 FINAL - SOCIOS FIX + API ADMIN + HISTORIAL + SIN 3 LINEAS ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
 LOCK = threading.Lock()
+
+# === FIX 1: SACAR LAS 3 LINEAS DEL MENU DE TELEGRAM ===
+try:
+    bot.delete_my_commands()
+    bot.set_my_commands([])
+    print("Menu 3 lineas borrado OK")
+except Exception as e:
+    print(f"No se pudo borrar menu: {e}")
 
 def actualizar_dolar():
     while True:
@@ -44,7 +52,7 @@ def actualizar_dolar():
         time.sleep(1800)
 
 # ========= V26.7 BIENVENIDA LARGA SIN REPETIR Y SIN REFERIDO =========
-BIENVENIDA = """👋 MANADA V26.7 ADMIN FULL - MP PURO + API SEGURA 🐺
+BIENVENIDA = """👋 MANADA V26.8.1 ADMIN FULL - MP PURO + API SEGURA 🐺
 
 Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
 
@@ -115,6 +123,7 @@ def get_menu_botones(admin=False):
     if admin:
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("🚀 PRENDER"))
         markup.add(types.KeyboardButton("👥 SOCIOS"), types.KeyboardButton("📈 ESTRATEGIAS"))
+        markup.add(types.KeyboardButton("📜 HISTORIAL"), types.KeyboardButton("🆔 ID"))
     else:
         markup.add(types.KeyboardButton("💰 PAGAR"), types.KeyboardButton("🐺 QUIERO LOBO"))
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("🚀 PRENDER"))
@@ -238,7 +247,10 @@ def setapi_cmd(message):
         ud["api_secret"] = api_secret
         ud["api_cargada"] = True
         guardar_datos()
-        bot.send_message(message.chat.id, f"✅ API CARGADA Y ENCRIPTADA Lobo 🐺\nAPI: {api_key[:6]}...{api_key[-4:]}\nYa esta conectada a tu caja separada.\nAhora hace /pagar para activar tu bestia.\n\nPor seguridad borre tu mensaje con la SECRET.")
+        if es_admin(message.chat.id):
+            bot.send_message(message.chat.id, f"✅ API ADMIN CARGADA Y ENCRIPTADA 🐺\nAPI: {api_key[:6]}...{api_key[-4:]}\nTu caja ADMIN ya está vinculada a Binance.\nAhora en BALANCE te va a aparecer ✅ ADMIN", reply_markup=get_menu_botones(True))
+        else:
+            bot.send_message(message.chat.id, f"✅ API CARGADA Y ENCRIPTADA Lobo 🐺\nAPI: {api_key[:6]}...{api_key[-4:]}\nYa esta conectada a tu caja separada.\nAhora hace /pagar para activar tu bestia.\n\nPor seguridad borre tu mensaje con la SECRET.", reply_markup=get_menu_botones(False))
         try:
             bot.delete_message(message.chat.id, message.message_id)
         except:
@@ -251,22 +263,28 @@ def get_id(message):
     acceso,dias = tiene_acceso(message.chat.id)
     ud = get_user_data(message.chat.id)
     api_status = "✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA /setapi"
+    if es_admin(message.chat.id) and ud.get("api_cargada"):
+        api_status = "✅ ADMIN VINCULADA"
     plan = ESTADO["socios"].get(message.chat.id, {}).get("plan","CACHORRO") if not es_admin(message.chat.id) else "ADMIN"
     bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ Quedan {dias} dias\n🔑 API: {api_status}\n💰 Requisito: $100 BTC + $100 BNB en tu Binance\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
+@bot.message_handler(func=lambda m: m.text in ["🆔 ID"])
+def btn_id(message):
+    return get_id(message)
 
 @bot.message_handler(func=lambda m: m.text in ["📈 ESTRATEGIAS", "/estrategias"])
 def estrategias(message):
     ud=get_user_data(message.chat.id); est=ud["estrategias"]
-    txt=f"📈 V26.7 BASE SOLIDA - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
+    txt=f"📈 V26.8.1 BASE SOLIDA - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
-    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.7 ADMIN BASE SOLIDA 🐺\nBalance ${ud['balance']} - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
+    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.1 ADMIN BASE SOLIDA 🐺\nBalance ${ud['balance']} - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
         if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nTocá 🐺 QUIERO LOBO para elegir plan $20/$40/$60", reply_markup=get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V26.7\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias restantes\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.1\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias restantes\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -290,7 +308,10 @@ def balance(message):
     plan_actual = ESTADO["socios"].get(message.chat.id, {}).get("plan","ADMIN BASE SOLIDA") if not es_admin(message.chat.id) else "ADMIN BASE SOLIDA"
     vence_txt = ESTADO["socios"].get(message.chat.id, {}).get("vence")
     vence_str = vence_txt.strftime("%d/%m/%Y") if vence_txt else "Ilimitado"
-    api_status = "✅" if ud.get("api_cargada") else "❌"
+    if es_admin(message.chat.id):
+        api_status = "✅ ADMIN" if ud.get("api_cargada") else "❌ FALTA /setapi APIKEY SECRET"
+    else:
+        api_status = "✅" if ud.get("api_cargada") else "❌"
     bot.send_message(message.chat.id,f"💰 {ud['caja']}\nBalance: ${ud['balance']}\nNeto Hoy: ${ud['neto_hoy']}\nOps Hoy: {ud['ops_hoy']} - Winrate: {win}%\n\n⚙️ Modo: {ud['modo']}\n📊 Mercado: {ud['mercado']}\n📦 Plan: {plan_actual}\n⏳ Te quedan: {dias} dias - Vence {vence_str}\n🔑 API: {api_status} - Requisito $100 BTC + $100 BNB\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}\nDolar: ${DOLAR_CRIPTO['valor']}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
@@ -301,7 +322,7 @@ def pagar(message):
     dolar = DOLAR_CRIPTO['valor']
     ud = get_user_data(message.chat.id)
     api_status = "✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA - Hace /setapi TU_API_KEY TU_SECRET_KEY"
-    txt = f"""💰 PAGAR V26.7 - MP PURO + API SEGURA
+    txt = f"""💰 PAGAR V26.8.1 - MP PURO + API SEGURA
 Dolar Cripto: ${dolar} ({DOLAR_CRIPTO['actualizado']})
 
 ⚠️ REQUISITO OBLIGATORIO:
@@ -331,7 +352,7 @@ def quiero_lobo(message):
         types.InlineKeyboardButton(f"🐺 LOBO $40/mes (${40*dolar} ARS)", callback_data="plan_LOBO"),
         types.InlineKeyboardButton(f"🦈 TIBURON $60/mes (${60*dolar} ARS)", callback_data="plan_TIBURON")
     )
-    txt = f"""🐺 ELEGÍ TU MODO LOBO V26.7 - API OK ✅
+    txt = f"""🐺 ELEGÍ TU MODO LOBO V26.8.1 - API OK ✅
 
 Requisito ya cumplido: $100 BTC + $100 BNB + API
 
@@ -366,6 +387,26 @@ Requisito: $100 BTC + $100 BNB + API ya cargada ✅
 Enviá comprobante a este bot con /comprobante + foto
 Yo te activo con /alta {call.message.chat.id} 30 {plan}""", reply_markup=get_menu_botones(False))
 
+def enviar_lista_socios(chat_id):
+    if not ESTADO["socios"]:
+        bot.send_message(chat_id, "👥 Sin socios aun", reply_markup=get_menu_botones(True))
+        return
+    bot.send_message(chat_id, f"👥 SOCIOS - {len(ESTADO['socios'])} activos - Tocá para gestionar:", reply_markup=get_menu_botones(True))
+    for cid,d in list(ESTADO["socios"].items()):
+        dias=(d["vence"]-datetime.now()).days
+        horas=int((d["vence"]-datetime.now()).total_seconds()//3600)%24
+        if dias < 0: dias = 0
+        u = USUARIOS.get(cid, {"balance":200,"ops_hoy":0,"neto_hoy":0,"ganadas":0,"perdidas":0})
+        win = calcular_winrate(u)
+        markup = types.InlineKeyboardMarkup(row_width=3)
+        markup.add(
+            types.InlineKeyboardButton("👁️ VER CAJA", callback_data=f"ver_{cid}"),
+            types.InlineKeyboardButton("➕ +30D", callback_data=f"add30_{cid}"),
+            types.InlineKeyboardButton("❌ BAJA", callback_data=f"baja_{cid}")
+        )
+        txt = f"👤 {cid}\n📦 {d['plan']} - ⏳ {dias}d {horas}h restantes\n💰 ${u['balance']} | 📈 ${u['neto_hoy']} | 🎯 {win}%\n🔗 {WEB_URL}/?id={cid}"
+        bot.send_message(chat_id, txt, reply_markup=markup)
+
 @bot.message_handler(commands=['alta','socios'])
 def admin_cmds(message):
     if not es_admin(message.chat.id): return
@@ -377,14 +418,62 @@ def admin_cmds(message):
             guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d - ⏳ Quedan {dias} dias -> {WEB_URL}/?id={id_cliente}")
         except Exception as e: bot.send_message(message.chat.id,f"Error: {e}")
     elif message.text.startswith('/socios'):
-        txt=f"👥 SOCIOS - Dias restantes\n"
-        for cid,d in ESTADO["socios"].items():
-            dias=(d["vence"]-datetime.now()).days
-            txt+=f"{cid} {d['plan']} - {dias}d restantes - {WEB_URL}/?id={cid}\n"
-        bot.send_message(message.chat.id, txt)
+        enviar_lista_socios(message.chat.id)
 
-# === HTML FINAL V22.9 - SIN ESTADO - SIN CUADRO VERDE ===
-HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.7 FINAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.7}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.socio{background:#2a2218;border-left:5px solid #ff9800}.kpi{display:inline-block;background:#1e222d;padding:7px 10px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}#chart_btc{height:50vh}#chart_bnb{height:30vh}.btn{display:inline-block;margin-top:8px;padding:8px 14px;background:#00ffea;color:#000;border-radius:6px;text-decoration:none;font-weight:bold}</style></head><body><div class="header"><b id="titulo">V26.7 - MP PURO + API SEGURA</b><div id="admin" class="box admin">Cargando detalle...</div><div id="socios" class="box socio">Cargando socios...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
+@bot.message_handler(func=lambda m: m.text in ["👥 SOCIOS"])
+def btn_socios(message):
+    if not es_admin(message.chat.id):
+        bot.send_message(message.chat.id,"⛔ Solo admin", reply_markup=get_menu_botones(False))
+        return
+    enviar_lista_socios(message.chat.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("ver_") or call.data.startswith("add30_") or call.data.startswith("baja_") or call.data.startswith("confirm_baja_"))
+def callback_gestion_socios(call):
+    if not es_admin(call.message.chat.id):
+        bot.answer_callback_query(call.id, "Solo admin")
+        return
+    try:
+        if call.data.startswith("ver_"):
+            cid = int(call.data.split("_")[1])
+            bot.answer_callback_query(call.id, f"Viendo caja {cid}")
+            bot.send_message(call.message.chat.id, f"🔗 Caja {cid}:\n{WEB_URL}/?id={cid}\n\nPara ver balance en bot: /balance de ese usuario")
+        elif call.data.startswith("add30_"):
+            cid = int(call.data.split("_")[1])
+            if cid in ESTADO["socios"]:
+                ESTADO["socios"][cid]["vence"] += timedelta(days=30)
+                guardar_datos()
+                dias = (ESTADO["socios"][cid]["vence"] - datetime.now()).days
+                bot.answer_callback_query(call.id, f"+30 dias OK - {dias}d")
+                bot.send_message(call.message.chat.id, f"✅ {cid} +30D -> Ahora le quedan {dias} dias - Vence {ESTADO['socios'][cid]['vence'].strftime('%d/%m/%Y')}")
+            else:
+                bot.answer_callback_query(call.id, "No existe")
+        elif call.data.startswith("baja_"):
+            cid = int(call.data.split("_")[1])
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("✅ SI, BAJA", callback_data=f"confirm_baja_{cid}"),
+                types.InlineKeyboardButton("❌ CANCELAR", callback_data="cancel_baja")
+            )
+            bot.send_message(call.message.chat.id, f"⚠️ Confirmar baja de {cid}?\nSe borra acceso pero no su balance.", reply_markup=markup)
+            bot.answer_callback_query(call.id, "Confirma baja")
+        elif call.data.startswith("confirm_baja_"):
+            cid = int(call.data.split("_")[2])
+            if cid in ESTADO["socios"]:
+                del ESTADO["socios"][cid]
+                guardar_datos()
+                bot.answer_callback_query(call.id, f"Baja OK")
+                bot.send_message(call.message.chat.id, f"❌ Baja {cid} ejecutada - Acceso eliminado")
+            else:
+                bot.answer_callback_query(call.id, "Ya no existe")
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"Error gestion: {e}")
+
+@bot.callback_query_handler(func=lambda call: call.data == "cancel_baja")
+def cancel_baja(call):
+    bot.answer_callback_query(call.id, "Cancelado")
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+
+HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.1 FINAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#131722;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:10px}.box{padding:12px;margin:6px;border-radius:10px;font-size:13px;line-height:1.7}.admin{background:#0d2a4a;border-left:5px solid #00ffea}.socio{background:#2a2218;border-left:5px solid #ff9800}.kpi{display:inline-block;background:#1e222d;padding:7px 10px;border-radius:6px;margin:3px;font-size:12px;border:1px solid #2a2e39}#chart_btc{height:50vh}#chart_bnb{height:30vh}.btn{display:inline-block;margin-top:8px;padding:8px 14px;background:#00ffea;color:#000;border-radius:6px;text-decoration:none;font-weight:bold}</style></head><body><div class="header"><b id="titulo">V26.8.1 - MP PURO + API SEGURA</b><div id="admin" class="box admin">Cargando detalle...</div><div id="socios" class="box socio">Cargando socios...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div>
 <script>
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"1","theme":"dark","container_id":"chart_btc"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"1","theme":"dark","container_id":"chart_bnb"});
