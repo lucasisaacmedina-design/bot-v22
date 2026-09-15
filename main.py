@@ -35,7 +35,7 @@ ALIAS_MP_DEMO = "manada.lobo.demo.mp"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "DEMO"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
 
-print(f"### V26.8.6 B-200 SIN TABLA - ADMIN VE SOCIOS / SOCIO VE INVERSION + TOTAL DIA ###")
+print(f"### V26.8.7 B-200 + BIENVENIDA LARGA + PAGAR LARGO + FLEX $50 ###")
 
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
@@ -100,17 +100,91 @@ def actualizar_dolar():
             DOLAR_CRIPTO["actualizado"] = ahora_art().strftime("%H:%M")
         time.sleep(1800)
 
-BIENVENIDA = """👋 MANADA V26.8.6 B-200 SIN TABLA - MP PURO + API SEGURA 🐺
+BIENVENIDA = """👋 MANADA V26.7 ADMIN FULL - MP PURO + API SEGURA 🐺
 
-Hola Lobo, bienvenido a la manada.
+Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
 
-V26.8.6 B-200 arranca en $200 DEMO limpio.
-$100 BTC + $100 BNB SEPARADOS.
-Tocá BALANCE y PRENDER para probar.
+Aca valoramos cada pequeno esfuerzo y apoyamos el crecimiento personal, profesional y economico de cada socio.
 
-Si querés cargar API real: /setapi TU_API_KEY TU_SECRET_KEY
-Para borrar API: /clearapi
-Para reset total a $200: /resetdemo
+Te vas a hacer millonario con nosotros? No.
+Pero lo que si te prometemos es luchar, atacar y jamas rendirnos para mejorar dia a dia y brindar siempre lo mejor de cada uno de nosotros.
+
+ATACAMOS!!!
+
+⚠️ REQUISITO UNICO OBLIGATORIO ANTES DE ENTRAR - LEE BIEN UNA SOLA VEZ:
+Para que pueda operarte aunque sea en modo CACHORRO GRATIS de 7 dias, necesitas tener estas 3 cosas en tu Binance, sin esto no hay alta:
+
+1- $100 USD en BTC (tu capital de trabajo, con esto el bot compra y vende)
+2- $100 USD en BNB (para pagar comisiones baratas, ahorras 25%)
+3- Tu API KEY + SECRET KEY con permiso de solo Trading (sin retiros) para que el bot opere tu caja automatica 24hs. Tu plata siempre queda en TU Binance, nosotros nunca la tocamos.
+
+QUE SIGNIFICA CADA COSA? Te lo explico simple:
+
+BTC: Es el oro digital, es tu capital de trabajo. El bot lo compra y vende para sacarte ganancia.
+BNB: Es la moneda de Binance para pagar menos comisiones. Obligatoria.
+BROKER (Binance): Es tu banco, tu caja fuerte. Ahi esta tu plata, la ves en vivo.
+BOT: Soy yo. Un robot automatico que opera 24hs sin emociones.
+CAJA SEPARADA: Tu plata no se mezcla con la de nadie. Cada lobo tiene su link privado para ver su balance en vivo. Nada de pozo comun.
+NETO: Lo que te quedo limpio hoy despues de comisiones.
+WINRATE: Porcentaje de ganadas. 70% = de 10 operaciones, 7 ganadas.
+
+COMO INSTALAR BINANCE Y CARGAR TU PLATA? EN 3 PASOS:
+
+1- INSTALA BINANCE:
+Baja la app "Binance" de Play Store / App Store, registrate con tu mail, hace el KYC (foto DNI + selfie) y activa el 2FA.
+
+2- COMO CARGAR PESOS ARGENTINOS?
+Opcion P2P (recomendada y mas barata): En Binance anda a Billetera -> Agregar fondos -> P2P -> Comprar USDT -> Elegi vendedor que acepte Mercado Pago y pagale en pesos. Te libera USDT al toque.
+Opcion Tarjeta: Billetera -> Depositar -> Comprar cripto con tarjeta.
+
+3- COMPRA TUS $100 BTC + $100 BNB:
+Con esos USDT anda a Trading -> Convertir -> Converti $100 USDT a BTC y $100 USDT a BNB. Listo.
+
+COMO SACAR Y CARGAR TU API KEY Y SECRET KEY DE FORMA SEGURA? (EL BOT LO HACE SOLO):
+
+1- En Binance anda a Perfil -> Gestion de API -> Crear API -> API generada por el sistema -> Nombre: MANADA_BOT
+2- Permisos: Tilda SOLO Enable Trading y Enable Futures. JAMAS tildes Enable Withdrawals (retiros) por seguridad.
+3- Te da tu API KEY y SECRET KEY. La SECRET solo se muestra una vez, copiala.
+4- Ahora cargala vos mismo de forma segura al bot con el comando: /setapi TU_API_KEY TU_SECRET_KEY
+El bot la toma, la encripta y la guarda automatico en tu caja separada. Nosotros nunca vemos tu SECRET, la guarda el sistema.
+
+NUESTRAS BESTIAS ACTIVAS HOY:
+
+CACHORRO - GRATIS 7 DIAS - Requiere $100 BTC + $100 BNB + API cargada con /setapi. Opera 1 a la vez, ideal para probar.
+RATA LATERAL - $20 USD/mes - Sigilosa y segura, winrate 70%+ ideal cajas chicas.
+LOBO NORMAL - $40 USD/mes - LA MAS ELEGIDA POR LA MANADA. 3 a 5 ops por dia.
+TIBURON VOLATIL - $60 USD/mes - Agresiva, solo cajas +$500.
+
+COMO ENTRAR? EN 4 PASOS:
+
+1- Carga $100 BTC + $100 BNB en Binance (mira tutorial arriba)
+2- Saca tu API y cargala con /setapi TU_API_KEY TU_SECRET_KEY
+3- /id para ver tu link privado
+4- /pagar para activar tu bestia por Mercado Pago
+
+Tu web: https://bot-v22-1.onrender.com
+/socios /balance /debug /pagar /setapi
+
+💡 NOTA FLEXIBLE NUEVA: Si no llegas a $200, podes arrancar con MINIMO $50 BTC + $50 BNB = $100 total y despues agregar. Ideal sigue siendo $100+$100 para mejor rendimiento y menos comision.
+"""
+
+TEXTO_PAGAR = """💰 COMO PAGAR? MERCADO PAGO PURO - 3 PASOS:
+
+Recorda que ya tenes que tener cargado en tu Binance $100 BTC + $100 BNB (o MINIMO $50+$50 para arrancar) y tu API cargada con /setapi. Si no, hacelo primero viendo /start.
+
+PASO 1: Elegi tu bestia
+/quiero CACHORRO = Gratis 7 dias
+/quiero RATA = $20
+/quiero LOBO = $40
+/quiero TIBURON = $60
+
+PASO 2: Paga por Mercado Pago
+Alias: manada.lobo.demo.mp
+Abri MP -> Transferir -> Alias -> pega el alias
+
+PASO 3: Manda /comprobante + foto del pago
+
+Listo, en 5 min te activo con tu caja separada y tu contador 30->0 dias. Usamos solo Mercado Pago, nada de dolar cripto.
 """
 
 def get_menu_botones(admin=False):
@@ -369,7 +443,7 @@ def get_id(message):
     acceso,dias = tiene_acceso(message.chat.id); ud = get_user_data(message.chat.id)
     api_status = "✅ ADMIN VINCULADA" if ud.get("api_cargada") and es_admin(message.chat.id) else ("✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA /setapi - DEMO $200")
     plan = ESTADO["socios"].get(message.chat.id, {}).get("plan","CACHORRO") if not es_admin(message.chat.id) else "ADMIN"
-    bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ Quedan {dias} dias\n🔑 API: {api_status}\n💰 $200 DEMO ($100 BTC + $100 BNB)\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ Quedan {dias} dias\n🔑 API: {api_status}\n💰 $200 DEMO ($100 BTC + $100 BNB) - Min $50+$50 para arrancar\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["🆔 ID"])
 def btn_id(message): return get_id(message)
@@ -377,16 +451,31 @@ def btn_id(message): return get_id(message)
 @bot.message_handler(func=lambda m: m.text in ["📈 ESTRATEGIAS", "/estrategias"])
 def estrategias(message):
     ud=get_user_data(message.chat.id); est=ud["estrategias"]
-    txt=f"📈 V26.8.6 B-200 - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\n💰 BTC: ${ud['balance_btc']:.2f} (Neto {ud['neto_hoy_btc']:+.2f} Ops {ud['ops_hoy_btc']})\n💰 BNB: ${ud['balance_bnb']:.2f} (Neto {ud['neto_hoy_bnb']:+.2f} Ops {ud['ops_hoy_bnb']})\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
+    txt=f"📈 V26.8.7 B-200 - {ud['caja']}\nModo: {ud['modo']}\nMercado: {ud['mercado']}\n\nRATA: {est['RATA']['ops']} ops Win {calcular_winrate_estrategia(est['RATA'])}% Neto ${est['RATA']['neto']}\nLOBO: {est['LOBO']['ops']} ops Win {calcular_winrate_estrategia(est['LOBO'])}% Neto ${est['LOBO']['neto']}\nTIBURON: {est['TIBURON']['ops']} ops Win {calcular_winrate_estrategia(est['TIBURON'])}% Neto ${est['TIBURON']['neto']}\n\n💰 BTC: ${ud['balance_btc']:.2f} (Neto {ud['neto_hoy_btc']:+.2f} Ops {ud['ops_hoy_btc']})\n💰 BNB: ${ud['balance_bnb']:.2f} (Neto {ud['neto_hoy_bnb']:+.2f} Ops {ud['ops_hoy_bnb']})\n\nBTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
+
+def enviar_bienvenida_completa(chat_id, markup):
+    # Telegram corta a 4096, tu bienvenida es mas larga, la mandamos en 2 partes
+    limite = 3500
+    if len(BIENVENIDA) > limite:
+        parte1 = BIENVENIDA[:limite]
+        parte2 = BIENVENIDA[limite:]
+        bot.send_message(chat_id, parte1)
+        time.sleep(0.8)
+        bot.send_message(chat_id, parte2 + f"\n\nTu ID: {chat_id}\nTocá 🐺 QUIERO LOBO", reply_markup=markup)
+    else:
+        bot.send_message(chat_id, BIENVENIDA + f"\n\nTu ID: {chat_id}\nTocá 🐺 QUIERO LOBO", reply_markup=markup)
 
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
-    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V26.8.6 B-200 SIN TABLA 🐺\nBalance ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
+    if es_admin(message.chat.id):
+        bot.send_message(message.chat.id,f"👋 V26.8.7 B-200 SIN TABLA 🐺\nBalance ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nTu web: {WEB_URL}", reply_markup=get_menu_botones(True))
     else:
-        if not acceso: bot.send_message(message.chat.id, BIENVENIDA + f"\n\nTu ID: {message.chat.id}\nTocá 🐺 QUIERO LOBO", reply_markup=get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V26.8.6 B-200\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
+        if not acceso:
+            enviar_bienvenida_completa(message.chat.id, get_menu_botones(False))
+        else:
+            bot.send_message(message.chat.id,f"👋 MANADA V26.8.7 B-200\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nWeb: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -416,7 +505,7 @@ def balance(message):
     plan_actual = ESTADO["socios"].get(message.chat.id, {}).get("plan","ADMIN BASE SOLIDA - DEMO $200") if not es_admin(message.chat.id) else "ADMIN BASE SOLIDA - DEMO $200"
     vence_txt = ESTADO["socios"].get(message.chat.id, {}).get("vence"); vence_str = vence_txt.strftime("%d/%m/%Y") if vence_txt else "Ilimitado"
     api_status = "✅ ADMIN" if ud.get("api_cargada") and es_admin(message.chat.id) else ("✅" if ud.get("api_cargada") else "❌ DEMO $200")
-    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO V26.8.6
+    texto = f"""💰 {ud['caja']} - BALANCE DETALLADO V26.8.7
 
 💵 Capital Inicial: ${capital_inicial:.2f} ($100 BTC + $100 BNB)
 📈 Ganancia Hoy: ${ganancia_hoy:+.2f}
@@ -436,12 +525,12 @@ def balance(message):
 📊 Mercado: {ud['mercado']}
 📦 Plan: {plan_actual}
 ⏳ Te quedan: {dias} dias - Vence {vence_str}
-🔑 API: {api_status} - Requisito $100 BTC + $100 BNB
+🔑 API: {api_status} - Ideal $100 BTC + $100 BNB - Min $50+$50 para arrancar
 
 ₿ BTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}
 💵 Dolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['actualizado']})
 🕒 Actualizado: {ahora_art().strftime('%d/%m/%Y %H:%M:%S')} ART
-V26.8.6 SIN TABLA"""
+V26.8.7 SIN TABLA"""
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
@@ -454,22 +543,19 @@ def historial(message):
 
 @bot.message_handler(func=lambda m: m.text in ["💰 PAGAR", "/pagar"])
 def pagar(message):
-    dolar = DOLAR_CRIPTO['valor']; ud = get_user_data(message.chat.id)
-    api_status = "✅ CARGADA" if ud.get("api_cargada") else "❌ FALTA - DEMO $200"
-    txt = f"""💰 PAGAR V26.8.6\nDolar: ${dolar} - API: {api_status}\nAlias MP: {ALIAS_MP_DEMO}\nDEMO $200 limpio ($100 BTC + $100 BNB) - Tocá PRENDER para probar"""
-    bot.send_message(message.chat.id, txt, reply_markup=get_menu_botones(es_admin(message.chat.id)))
+    bot.send_message(message.chat.id, TEXTO_PAGAR, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
 @bot.message_handler(func=lambda m: m.text in ["🐺 QUIERO LOBO", "/quierolobo", "/planes"])
 def quiero_lobo(message):
     dolar = DOLAR_CRIPTO['valor']
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton(f"🐀 RATA $20/mes", callback_data="plan_RATA"), types.InlineKeyboardButton(f"🐺 LOBO $40/mes", callback_data="plan_LOBO"), types.InlineKeyboardButton(f"🦈 TIBURON $60/mes", callback_data="plan_TIBURON"))
-    bot.send_message(message.chat.id, f"🐺 ELEGÍ TU MODO - DEMO $200 ($100 BTC + $100 BNB)\nDolar ${dolar}\nAlias {ALIAS_MP_DEMO}", reply_markup=markup)
+    bot.send_message(message.chat.id, f"🐺 ELEGÍ TU MODO - DEMO $200 ($100 BTC + $100 BNB) - Min $50+$50 para arrancar\nDolar ${dolar}\nAlias {ALIAS_MP_DEMO}\n\n{TEXTO_PAGAR}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_"))
 def callback_plan(call):
     plan = call.data.split("_")[1]; bot.answer_callback_query(call.id, f"Elegiste {plan}")
-    bot.send_message(call.message.chat.id, f"✅ Elegiste {plan}\nAlias MP: {ALIAS_MP_DEMO}", reply_markup=get_menu_botones(False))
+    bot.send_message(call.message.chat.id, f"✅ Elegiste {plan}\nAlias MP: {ALIAS_MP_DEMO}\n\n{TEXTO_PAGAR}", reply_markup=get_menu_botones(False))
 
 def enviar_lista_socios(chat_id):
     if not ESTADO["socios"]:
@@ -488,7 +574,7 @@ def admin_cmds(message):
             parts=message.text.split(); id_cliente=int(parts[1]); dias=int(parts[2]); plan=parts[3].upper() if len(parts)>3 else "CACHORRO"
             vence=datetime.now()+timedelta(days=dias); ESTADO["socios"][id_cliente]={"alta":datetime.now(),"vence":vence,"plan":plan}
             ud = get_user_data(id_cliente); ud["balance"]=200.0; ud["capital_inicial"]=200.0; ud["balance_btc"]=100.0; ud["balance_bnb"]=100.0; ud["capital_btc"]=100.0; ud["capital_bnb"]=100.0; ud["neto_hoy"]=0; ud["neto_hoy_btc"]=0; ud["neto_hoy_bnb"]=0; ud["ops_hoy"]=0; ud["ops_hoy_btc"]=0; ud["ops_hoy_bnb"]=0; ud["ganadas"]=0; ud["ganadas_btc"]=0; ud["ganadas_bnb"]=0; ud["perdidas"]=0; ud["perdidas_btc"]=0; ud["perdidas_bnb"]=0; ud["historial"]=[]; ud["prendido"]=False
-            guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d ($100 BTC + $100 BNB)")
+            guardar_datos(); bot.send_message(message.chat.id,f"✅ Alta {id_cliente} {plan} {dias}d ($100 BTC + $100 BNB - Min $50+$50)")
         except Exception as e: bot.send_message(message.chat.id,f"Error: {e}")
     elif message.text.startswith('/socios'):
         enviar_lista_socios(message.chat.id)
@@ -498,8 +584,7 @@ def btn_socios(message):
     if not es_admin(message.chat.id): bot.send_message(message.chat.id,"⛔ Solo admin", reply_markup=get_menu_botones(False)); return
     enviar_lista_socios(message.chat.id)
 
-# --- HTML FINAL SIN TABLA + ADMIN VE SOCIOS / SOCIO VE INVERSION+TOTAL DIA ---
-HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.6 B-200 SIN TABLA</title><script src="https://s3.tradingview.com/tv.js"></script><style>
+HTML="""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V26.8.7 B-200 SIN TABLA</title><script src="https://s3.tradingview.com/tv.js"></script><style>
 body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
 .header{background:#1e222d;padding:15px;border-bottom:2px solid #00ffea}
 .box{padding:14px;margin:10px;border-radius:12px;font-size:13px;line-height:1.9}
@@ -512,7 +597,7 @@ body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
 .socio-card{background:#131722;padding:10px;margin:6px 0;border-radius:8px;border-left:3px solid #00ffea;display:flex;justify-content:space-between;flex-wrap:wrap}
 h3{margin:15px 10px 5px 10px;color:#00ffea}
 </style></head><body>
-<div class="header"><b id="titulo">V26.8.6 B-200</b><div id="admin" class="box admin">Cargando...</div></div>
+<div class="header"><b id="titulo">V26.8.7 B-200</b><div id="admin" class="box admin">Cargando...</div></div>
 <div id="chart_btc"></div><div id="chart_bnb"></div>
 <div id="bloqueSocios"><h3>👥 Socios - Cómo les va (Solo Admin)</h3><div id="socios" class="socios">Cargando socios...</div></div>
 <script>
@@ -526,7 +611,7 @@ async function load(){
   if(idParam){
     document.getElementById('titulo').innerText=`💼 TU PLATA CRECIENDO - ${a.modo}`;
     document.getElementById('admin').innerHTML=`
-      <span class="kpi total">💵 Inversión<br>$${a.capital_inicial.toFixed(2)}<br><small>$100 BTC + $100 BNB</small></span>
+      <span class="kpi total">💵 Inversión<br>$${a.capital_inicial.toFixed(2)}<br><small>$100 BTC + $100 BNB (Min $50+$50)</small></span>
       <span class="kpi total">📈 Total del Día<br>$${a.neto_hoy>=0?'+':''}${a.neto_hoy.toFixed(2)}<br><small>${a.ops_hoy} ops | ${a.winrate}%</small></span>
       <span class="kpi total">💰 Balance<br>$${a.balance.toFixed(2)}</span><br>
       <span class="kpi btc">₿ BTC $${a.balance_btc.toFixed(2)}<br><small>Hoy ${a.neto_hoy_btc>=0?'+':''}${a.neto_hoy_btc.toFixed(2)}</small></span>
@@ -535,7 +620,7 @@ async function load(){
     `;
     document.getElementById('bloqueSocios').style.display='none';
   } else {
-    document.getElementById('titulo').innerText=`V26.8.6 ADMIN - $100 BTC + $100 BNB + SOCIOS`;
+    document.getElementById('titulo').innerText=`V26.8.7 ADMIN - $100 BTC + $100 BNB + SOCIOS - Min $50+$50`;
     document.getElementById('admin').innerHTML=`
       <b>🔵 ADMIN $200 (BTC $${a.balance_btc.toFixed(2)} + BNB $${a.balance_bnb.toFixed(2)}) - ${a.modo}</b><br>
       <span class="kpi total">Total $${a.balance.toFixed(2)} | Hoy $${a.neto_hoy>=0?'+':''}${a.neto_hoy.toFixed(2)}</span>
