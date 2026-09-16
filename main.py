@@ -176,12 +176,19 @@ def tiene_acceso(chat_id):
     if not socio: return False, 0
     if datetime.now() > socio["vence"]: return False, 0
     return True, (socio["vence"]-datetime.now()).days+1
-def calcular_winrate(u): total=u["ganadas"]+u["perdidas"]; return round((u["ganadas"]/total)*100) if total else 0)
-def calcular_winrate_estrategia(e): return round((e["ganadas"]/e["ops"])*100) if e["ops"] else 0
+
+def calcular_winrate(u):
+    total = u["ganadas"] + u["perdidas"]
+    return round((u["ganadas"]/total)*100) if total else 0
+
+def calcular_winrate_estrategia(e):
+    return round((e["ganadas"]/e["ops"])*100) if e["ops"] else 0
+
 def get_estado_texto(u):
     if not u["prendido"]: return "🔴 APAGADO"
     if u["pausa_hasta"] and isinstance(u["pausa_hasta"], datetime) and datetime.now() < u["pausa_hasta"]: return f"⏸️ Pausa"
     return "🟢 PRENDIDO"
+
 def analizar_mercado_y_elegir_modo(u):
     try: ultimos=ESTADO["btc_history"][-10:]; atr=round((max(ultimos)-min(ultimos))/ESTADO["btc"]*100,2)
     except: atr=0.40
@@ -336,7 +343,6 @@ def start(message):
         if not acceso: enviar_bienvenida_completa(message.chat.id, get_menu_botones(False))
         else: bot.send_message(message.chat.id,f"👋 MANADA V28\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nTU BOT: ${ud['balance']:.2f}\nWeb: {WEB_URL}/?id={message.chat.id}\nAlias pago: {ALIAS_BRUBANK}", reply_markup=get_menu_botones(False))
 
-# === FIX ALQUILER: CADA UNO PRENDE SOLO SU BOT CON SU PLATA ===
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
     user_id = int(message.chat.id)
