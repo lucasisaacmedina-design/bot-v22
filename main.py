@@ -62,7 +62,7 @@ os.makedirs("/data", exist_ok=True)
 ALIAS_BRUBANK = "manada.lobo.bru"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "BRUBANK"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
-print(f"### V28 ALQUILER FINAL - ADMIN 6 / SOCIO 7 ###")
+print(f"### V28 ALQUILER FINAL - SIN BOTON ID - AUTOMATICO ###")
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
 LOCK = threading.Lock()
@@ -82,6 +82,7 @@ def reset_diario_si_corresponde(user_data):
         user_data['ganadas_btc']=0; user_data['ganadas_bnb']=0; user_data['perdidas_btc']=0; user_data['perdidas_bnb']=0
         user_data['ultimo_reset']=hoy_str
     return user_data
+
 def actualizar_dolar():
     while True:
         try:
@@ -110,15 +111,15 @@ CACHORRO = TIBURON completo al 20% x 7 dias GRATIS
 def get_menu_botones(admin=False):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     if admin:
-        # ADMIN TIBURON - 6 COMANDOS FINALES
-        markup.add(types.KeyboardButton("🔑 CARGAR API"), types.KeyboardButton("🆔 ID"))
+        # ADMIN - SIN ID - 5 LOGICOS
+        markup.add(types.KeyboardButton("🔑 CARGAR API"))
         markup.add(types.KeyboardButton("🚀 PRENDER"))
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("📜 HISTORIAL"))
         markup.add(types.KeyboardButton("💸 RETIRAR"))
         markup.add(types.KeyboardButton("👥 SOCIOS"))
     else:
-        # SOCIO - 7 COMANDOS FINALES
-        markup.add(types.KeyboardButton("🔑 CARGAR API"), types.KeyboardButton("🆔 ID"))
+        # SOCIO - SIN ID - 6 LOGICOS
+        markup.add(types.KeyboardButton("🔑 CARGAR API"))
         markup.add(types.KeyboardButton("🚀 PRENDER"))
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("📜 HISTORIAL"))
         markup.add(types.KeyboardButton("💸 RETIRAR"))
@@ -262,7 +263,6 @@ def motor_demo():
         contador+=1
         if contador>=10: guardar_datos(); contador=0
 
-# COMANDOS OCULTOS ADMIN (por si necesitas)
 @bot.message_handler(commands=['clearapi','delapi','resetdemo','reset','borrar'])
 def comandos_limpieza(message):
     if not es_admin(message.chat.id): bot.reply_to(message, "⛔ Solo admin"); return
@@ -297,16 +297,16 @@ def setapi_cmd(message):
 
 @bot.message_handler(func=lambda m: m.text in ["🔑 CARGAR API"])
 def btn_cargar_api(m): bot.send_message(m.chat.id, "🔑 CARGAR API SEGURA - V28 ALQUILER\nMandame:\n/setapi TU_API_KEY TU_SECRET_KEY\nLa encripto automatico - Opera TU plata en TU Binance", reply_markup=get_menu_botones(es_admin(m.chat.id)))
+
 @bot.message_handler(func=lambda m: m.text in ["💸 RETIRAR"])
 def btn_retirar(m): bot.send_message(m.chat.id, "💸 Tu plata esta en TU Binance, no en el bot. Binance -> Billetera -> Retirar.", reply_markup=get_menu_botones(es_admin(m.chat.id)))
+
 @bot.message_handler(commands=['id'])
 def get_id(message):
     acceso,dias = tiene_acceso(message.chat.id); ud = get_user_data(message.chat.id)
     api_status = "✅ ENCRIPTADA - TU BOT" if ud.get("api_cargada") else "❌ FALTA /setapi"
     plan = ESTADO["socios"].get(message.chat.id, {}).get("plan","-")
     bot.send_message(message.chat.id,f"🆔 Tu ID es: {message.chat.id}\n📦 Plan: {plan} - ⏳ {dias} dias\n🔑 API: {api_status}\n🔗 Link: {WEB_URL}/?id={message.chat.id}", reply_markup=get_menu_botones(es_admin(message.chat.id)))
-@bot.message_handler(func=lambda m: m.text in ["🆔 ID"])
-def btn_id(message): return get_id(message)
 
 def enviar_bienvenida_completa(chat_id, markup):
     limite = 3500
@@ -319,10 +319,10 @@ def enviar_bienvenida_completa(chat_id, markup):
 @bot.message_handler(commands=['start'])
 def start(message):
     acceso,dias_rest=tiene_acceso(message.chat.id); ud=get_user_data(message.chat.id)
-    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V28 ADMIN ALQUILER FULL 🐺\nTU BOT: ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nOperás solo TU plata. Socios operan la suya.\nTu web: {WEB_URL}\nAlias: {ALIAS_BRUBANK}", reply_markup=get_menu_botones(True))
+    if es_admin(message.chat.id): bot.send_message(message.chat.id,f"👋 V28 ADMIN ALQUILER FULL 🐺\nTU BOT: ${ud['balance']:.2f} (BTC ${ud['balance_btc']:.2f} + BNB ${ud['balance_bnb']:.2f}) - {ud['modo']}\n{ud['mercado']}\nOperás solo TU plata. Socios operan la suya.\nTu web: {WEB_URL}\nAlias: {ALIAS_BRUBANK}\nTu ID: {message.chat.id} (auto)", reply_markup=get_menu_botones(True))
     else:
         if not acceso: enviar_bienvenida_completa(message.chat.id, get_menu_botones(False))
-        else: bot.send_message(message.chat.id,f"👋 MANADA V28\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nTU BOT: ${ud['balance']:.2f}\nWeb: {WEB_URL}/?id={message.chat.id}\nAlias pago: {ALIAS_BRUBANK}", reply_markup=get_menu_botones(False))
+        else: bot.send_message(message.chat.id,f"👋 MANADA V28\n📦 Plan: {ESTADO['socios'][message.chat.id]['plan']} - ⏳ {dias_rest} dias\n⚙️ Modo: {ud['modo']}\nTU BOT: ${ud['balance']:.2f}\nWeb: {WEB_URL}/?id={message.chat.id}\nAlias pago: {ALIAS_BRUBANK}\nTu ID: {message.chat.id} (auto)", reply_markup=get_menu_botones(False))
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -369,6 +369,7 @@ def balance(message):
 ₿ BTC ${ESTADO['btc']} BNB ${ESTADO['bnb']}
 💵 Dolar: ${DOLAR_CRIPTO['valor']} ({DOLAR_CRIPTO['actualizado']})
 V28 ALQUILER - CADA UNO SU BOT
+ID auto: {message.chat.id}
 """
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_botones(es_admin(message.chat.id)))
 
