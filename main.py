@@ -62,7 +62,7 @@ os.makedirs("/data", exist_ok=True)
 ALIAS_BRUBANK = "manada.lobo.bru"
 DOLAR_CRIPTO = {"valor": 1480, "actualizado": "inicio", "fuente": "BRUBANK"}
 PLANES = {"RATA":20,"LOBO":40,"TIBURON":60}
-print(f"### V28 ALQUILER FINAL - SIN BOTON ID - AUTOMATICO ###")
+print(f"### V28 ALQUILER FINAL - BIENVENIDA V26.8.9 - SIN BOTON ID ###")
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(30)], "socios": {}, "admins": ADMINS_IDS}
 USUARIOS = {}
 LOCK = threading.Lock()
@@ -92,13 +92,77 @@ def actualizar_dolar():
         except: DOLAR_CRIPTO["valor"]+=random.randint(-5,5); DOLAR_CRIPTO["actualizado"]=ahora_art().strftime("%H:%M")
         time.sleep(1800)
 
-BIENVENIDA = """👋 MANADA V28 - BRUBANK + API SEGURA + ALQUILER 🐺
-Hola Lobo, bienvenido a la manada mas unica y exclusiva.
-REQUISITO UNICO: $50 BTC + $50 BNB en TU Binance + API Trading (sin retiros)
-Tu plata siempre en TU Binance, cada uno opera SU bot con SU plata.
-Cargá API con 🔑 CARGAR API (encriptada) y pedí ALTA CACHORRO 20% x 7 dias
-PACKS: RATA $20/mes 40% = solo RATA - LOBO $40/mes 60% = RATA+LOBO - TIBURON $60/mes 100% = RATA+LOBO+TIBURON completo
-Alias: manada.lobo.bru (Brubank)
+BIENVENIDA = """👋 MANADA V26.8.9 ADMIN FULL - BRUBANK + API SEGURA 🐺
+
+Hola Lobo, bienvenido a la manada mas unica y exclusiva de todas.
+
+Aca valoramos cada pequeno esfuerzo y apoyamos el crecimiento personal, profesional y economico de cada socio.
+
+Te vas a hacer millonario con nosotros? No.
+Pero lo que si te prometemos es luchar, atacar y jamas rendirnos para mejorar dia a dia y brindar siempre lo mejor de cada uno de nosotros.
+
+ATACAMOS!!!
+
+⚠️ REQUISITO UNICO OBLIGATORIO ANTES DE ENTRAR - LEE BIEN UNA SOLA VEZ:
+Para que pueda operarte aunque sea en modo CACHORRO GRATIS de 7 dias, necesitas tener estas 3 cosas en tu Binance, sin esto no hay alta:
+
+1- Desde $50 USD en BTC (tu capital de trabajo, con esto el bot compra y vende) - Lo recomendable es $100 USD en BTC para mejor rendimiento.
+2- Desde $50 USD en BNB (para pagar comisiones baratas, ahorras 25%) - Lo recomendable es $100 USD en BNB para pagar menos comisiones.
+3- Tu API KEY + SECRET KEY con permiso de solo Trading (sin retiros) para que el bot opere tu caja automatica 24hs. Tu plata siempre queda en TU Binance, nosotros nunca la tocamos.
+
+🚨 ALERTA DE SEGURIDAD - LEELA BIEN POR FAVOR:
+JAMAS pero JAMAS compartas tu API KEY y tu SECRET KEY con nadie por privado, por grupo, por soporte o por mail.
+Tu API KEY y SECRET KEY son como la llave de tu caja fuerte. Solo vos la tenes que cargar en el bot con el boton 🔑 CARGAR API y el sistema la encripta automatico.
+Nosotros NUNCA te vamos a pedir tu SECRET KEY por privado. Si alguien te la pide, es estafa. Bloquealo.
+
+QUE SIGNIFICA CADA COSA? Te lo explico simple:
+
+BTC: Es el oro digital, es tu capital de trabajo. El bot lo compra y vende para sacarte ganancia.
+BNB: Es la moneda de Binance para pagar menos comisiones. Obligatoria.
+BROKER (Binance): Es tu banco, tu caja fuerte. Ahi esta tu plata, la ves en vivo.
+BOT: Soy yo. Un robot automatico que opera 24hs sin emociones.
+CAJA SEPARADA: Tu plata no se mezcla con la de nadie. Cada lobo tiene su link privado para ver su balance en vivo. Nada de pozo comun.
+NETO: Lo que te quedo limpio hoy despues de comisiones.
+WINRATE: Porcentaje de ganadas. 70% = de 10 operaciones, 7 ganadas.
+
+COMO INSTALAR BINANCE Y CARGAR TU PLATA? EN 3 PASOS:
+
+1- INSTALA BINANCE:
+Baja la app "Binance" de Play Store / App Store, registrate con tu mail, hace el KYC (foto DNI + selfie) y activa el 2FA.
+
+2- COMO CARGAR PESOS ARGENTINOS?
+Opcion P2P (recomendada y mas barata): En Binance anda a Billetera -> Agregar fondos -> P2P -> Comprar USDT -> Elegi vendedor que acepte Mercado Pago y pagale en pesos. Te libera USDT al toque.
+Opcion Tarjeta: Billetera -> Depositar -> Comprar cripto con tarjeta.
+
+3- COMPRA TUS BTC + BNB:
+Con esos USDT anda a Trading -> Convertir -> Converti desde $50 USDT a BTC y desde $50 USDT a BNB. Listo. Lo recomendable es $100 USDT a BTC y $100 USDT a BNB para que rinda mejor.
+
+COMO SACAR Y CARGAR TU API KEY Y SECRET KEY DE FORMA SEGURA? (EL BOT LO HACE SOLO):
+
+1- En Binance anda a Perfil -> Gestion de API -> Crear API -> API generada por el sistema -> Nombre: MANADA_BOT
+2- Permisos: Tilda SOLO Enable Trading y Enable Futures. JAMAS tildes Enable Withdrawals (retiros) por seguridad.
+3- Te da tu API KEY y SECRET KEY. La SECRET solo se muestra una vez, copiala.
+4- Ahora toca el boton 🔑 CARGAR API y cargala vos mismo de forma segura. El sistema la encripta automatico.
+
+COMO FUNCIONA LA ENTRADA? MUY SIMPLE:
+
+1- Cargas desde $50 BTC + $50 BNB en tu Binance (recomendable $100+$100)
+2- Cargas tu API con el boton 🔑 CARGAR API
+3- Automaticamente entras en MODO CACHORRO GRATIS x 7 dias. Opera solo, 1 a la vez, para que pruebes sin pagar nada.
+4- Si te gusta como caza, despues elegis tu pack pago con el boton 🐺 QUIERO LOBO
+
+TE COMENTO NUESTROS PACKS PAGOS (PARA DESPUES DE TU PRUEBA GRATIS):
+
+RATA LATERAL - $20 USD/mes - Sigilosa y segura, winrate 70%+ ideal cajas chicas.
+LOBO NORMAL - $40 USD/mes - LA MAS ELEGIDA POR LA MANADA. 3 a 5 ops por dia.
+TIBURON VOLATIL - $60 USD/mes - Agresiva, solo cajas +$500.
+
+COMO ACTIVAR TU PACK PAGO? CUANDO QUIERAS:
+
+1- Toca 🐺 QUIERO LOBO
+2- Elegi tu bestia
+3- Transferi a alias manada.lobo.bru (Brubank)
+4- Toca ✅ YA PAGUE y manda comprobante. Alta en minutos.
 """
 TEXTO_PAGAR = """💰 COMO PAGAR? BRUBANK - V28 ACUMULATIVO
 Alias: manada.lobo.bru
@@ -111,14 +175,12 @@ CACHORRO = TIBURON completo al 20% x 7 dias GRATIS
 def get_menu_botones(admin=False):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     if admin:
-        # ADMIN - SIN ID - 5 LOGICOS
         markup.add(types.KeyboardButton("🔑 CARGAR API"))
         markup.add(types.KeyboardButton("🚀 PRENDER"))
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("📜 HISTORIAL"))
         markup.add(types.KeyboardButton("💸 RETIRAR"))
         markup.add(types.KeyboardButton("👥 SOCIOS"))
     else:
-        # SOCIO - SIN ID - 6 LOGICOS
         markup.add(types.KeyboardButton("🔑 CARGAR API"))
         markup.add(types.KeyboardButton("🚀 PRENDER"))
         markup.add(types.KeyboardButton("📊 BALANCE"), types.KeyboardButton("📜 HISTORIAL"))
