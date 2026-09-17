@@ -28,18 +28,25 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- FIX 1: LEE TUS KEYS DE TESTNET ---
-BINANCE_API_KEY = os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_TESTNET_API_KEY")
-BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET")
-IS_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() == "true"
+# --- FIX LOBO: LIMPIA ENTERS Y ESPACIOS DE RENDER ---
+def clean_key(v):
+    if not v:
+        return v
+    return v.replace("\n","").replace("\r","").replace(" ","").strip()
 
-# --- FIX 2: PROXY UK ---
+BINANCE_API_KEY = clean_key(os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_TESTNET_API_KEY"))
+BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET"))
+IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() == "true"
+
+# --- FIX PROXY: LIMPIA ESPACIOS ---
 PROXY_URL = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
-PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 if PROXY_URL:
-    print(f"### PROXY CONFIGURADO: {PROXY_URL[:35]}... ###")
+    PROXY_URL = PROXY_URL.replace(" ","").strip()
+    print(f"### PROXY CONFIGURADO: {PROXY_URL[:45]}... ###")
 else:
     print("### SIN PROXY ###")
+
+PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 
 client = None
 if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
@@ -51,6 +58,12 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
         print(f"### PRECIO BTC TEST: {client.get_symbol_ticker(symbol='BTCUSDT')['price']} ###")
     except Exception as e:
         print(f"!!! Error Binance: {e}!!!")
+        # Si falla el ping pero el cliente se creo, lo dejamos para que no quede en DEMO
+        if client is None:
+            try:
+                client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET, requests_params=req_params)
+            except:
+                client = None
 else:
     print("Binance sin configurar, usando modo DEMO precios random")
 
@@ -59,7 +72,6 @@ BALANCE_BTC_INICIAL = 100.0
 BALANCE_BNB_INICIAL = 100.0
 ADMINS_IDS = [6530209116]
 
-# --- FIX 3: FIX ERROR PERMISSION /data EN RENDER ---
 DATA_DIR = "./data"
 DATA_FILE = os.path.join(DATA_DIR, "manada_v30.json")
 os.makedirs(DATA_DIR, exist_ok=True)
