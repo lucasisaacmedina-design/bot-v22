@@ -38,11 +38,10 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
     try:
         client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET)
         print(f"### BINANCE CONECTADO - TESTNET={IS_TESTNET} ###")
-        # Test conexión
-        client.get_account()
+        client.ping()
+        print(f"### PRECIO BTC TEST: {client.get_symbol_ticker(symbol='BTCUSDT')['price']} ###")
     except Exception as e:
-        print(f"Error conectando Binance: {e}")
-        client = None
+        print(f"!!! Error Binance: {e}!!!")
 else:
     print("Binance sin configurar, usando modo DEMO precios random")
 
@@ -174,35 +173,26 @@ def motor_v30():
     contador = 0
     while True:
         time.sleep(random.randint(4, 7))
-
-        # --- AHORA PRECIOS REALES SI HAY CLIENTE ---
         btc_real = get_precio_real("BTCUSDT")
         bnb_real = get_precio_real("BNBUSDT")
-
         if btc_real:
             ESTADO["btc"] = round(btc_real, 2)
         else:
             ESTADO["btc"] = round(78287.4 + random.uniform(-400,400), 2)
-
         if bnb_real:
             ESTADO["bnb"] = round(bnb_real, 2)
         else:
             ESTADO["bnb"] = round(739.68 + random.uniform(-8,8), 2)
-
         ESTADO["btc_history"].append(ESTADO["btc"])
         if len(ESTADO["btc_history"]) > 30:
             ESTADO["btc_history"] = ESTADO["btc_history"][-30:]
-
         atr, modo_elegido = calcular_atr_y_modo()
         config = ESTRATEGIAS_V30[modo_elegido]
-
         for user_id, u in list(USUARIOS.items()):
             if not u["prendido"]:
                 continue
-
             activo = random.choice(["BTC", "BNB"])
             es_ganada = random.random() < config["winrate"]
-
             if es_ganada:
                 monto_neto = round((u["balance"] * (config["tp_neto"]/100)), 2)
                 if monto_neto < 0.20:
@@ -215,12 +205,10 @@ def motor_v30():
                     monto_neto = round(random.uniform(-0.30, -0.50), 2)
                 tipo = f"SL {config['sl_neto']}% NETO"
                 bruto = config["sl_neto"] + COMISION_TOTAL
-
             u["estrategias"][modo_elegido]["ops"] += 1
             u["ops_hoy"] += 1
             u["neto_hoy"] = round(u["neto_hoy"] + monto_neto, 2)
             u["balance"] = round(u["balance"] + monto_neto, 2)
-
             if activo == "BTC":
                 u["ops_hoy_btc"] += 1
                 u["balance_btc"] = round(u["balance_btc"] + (monto_neto/2), 2)
@@ -237,18 +225,15 @@ def motor_v30():
                     u["ganadas"]+=1; u["ganadas_bnb"]+=1; u["estrategias"][modo_elegido]["ganadas"]+=1
                 else:
                     u["perdidas"]+=1; u["perdidas_bnb"]+=1
-
             u["estrategias"][modo_elegido]["neto"] = round(u["estrategias"][modo_elegido]["neto"] + monto_neto, 2)
             u["modo"] = modo_elegido
             u["mercado"] = f"{config['desc']} ATR {atr:.2f}%"
-
             ahora = ahora_art()
             real_tag = "REAL" if client else "DEMO"
             linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
             u["historial"].append(linea)
             if len(u["historial"]) > 200:
                 u["historial"] = u["historial"][-200:]
-
         contador+=1
         if contador >= 5:
             guardar_datos()
