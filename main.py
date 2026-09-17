@@ -35,8 +35,9 @@ BINANCE_API_KEY = clean_key(os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_T
 BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET"))
 IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() == "true"
 
-# --- NUEVO: LINK WEB PARA TELEGRAM TRADINGVIEW ---
-WEB_URL = os.getenv("WEB_URL", "https://tu-web.onrender.com") # Pone tu url de Render acá
+# --- CORREGIDO: SOLO BOT-V22, SIN TU-WEB ---
+WEB_URL_RAW = os.getenv("WEB_URL", "https://bot-v22.onrender.com")
+WEB_URL = WEB_URL_RAW.strip().replace("tu-web.onrender.com", "bot-v22.onrender.com").rstrip("/")
 
 PROXY_URL = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
 if PROXY_URL:
@@ -52,7 +53,6 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
     except:
         client = None
 
-# --- MODIFICADO: BASE 150 COMO DIJIMOS ---
 BALANCE_INICIAL = 150.0
 BALANCE_BTC_INICIAL = 75.0
 BALANCE_BNB_INICIAL = 75.0
@@ -61,9 +61,8 @@ DATA_DIR = "./data"
 DATA_FILE = os.path.join(DATA_DIR, "manada_v32.json")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-COMISION_TOTAL = 0.10 # 0.10% con BNB
+COMISION_TOTAL = 0.10
 
-# --- NUEVO: V32 MULTI-HORIZONTE ---
 ESTRATEGIAS_V32 = {
     "RATA": {"tf": "5M", "alloc": 0.50, "tp_neto": 0.45, "sl_neto": -0.50, "winrate": 0.72, "max_dia": 30, "cooldown_min": 4, "desc": "RATA 5M - Bollinger+RSI7+Vol"},
     "LOBO": {"tf": "1H", "alloc": 0.35, "tp_neto": 2.35, "sl_neto": -1.35, "winrate": 0.55, "max_dia": 6, "cooldown_min": 15, "desc": "LOBO 1H - EMA20+ADX+MACD"},
@@ -75,7 +74,7 @@ ESTADO = {
     "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(60)],
     "bnb_history": [739.68 + random.uniform(-5,5) for _ in range(60)],
     "atr_actual": 0.40, "atr_1h": 0.40,
-    "en_trade": {"RATA": 0.0, "LOBO": 0.0, "TIBURON": 0.0} # Para boton retirar
+    "en_trade": {"RATA": 0.0, "LOBO": 0.0, "TIBURON": 0.0}
 }
 USUARIOS = {}
 LOCK = threading.Lock()
@@ -214,17 +213,15 @@ def motor_v32():
             u["mercado"] = f"{config['desc']} ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%"
             ahora = ahora_art()
             real_tag = "REAL" if client else "DEMO"
-            # --- NUEVO: MENSAJE TELEGRAM CON LINK TRADINGVIEW ---
-            tv_link = f"https://www.tradingview.com/chart/?symbol=BINANCE:{activo}USDT"
+            # --- SOLO DASHBOARD ---
             web_link = f"{WEB_URL}/?symbol={activo}"
             linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
             u["historial"].append(linea)
             if len(u["historial"]) > 200: u["historial"] = u["historial"][-200:]
-            # Envio telegram con preview si es ganada o cada 5 ops
             if es_ganada or u["ops_hoy"] % 5 == 0:
                 try:
-                    msg = f"🐺 V32 {modo_elegido} {activo} {tipo}\n💰 {monto_neto:+.2f}$ Neto | Balance ${u['balance']:.2f}\n📊 {config['desc']}\n\n📈 Ver gráfico: {tv_link}\n🌐 Dashboard: {web_link}"
-                    bot.send_message(user_id, msg)
+                    msg = f"🐺 V32 {modo_elegido} {activo} {tipo}\n💰 {monto_neto:+.2f}$ Neto | Balance ${u['balance']:.2f}\n📊 {config['desc']}\n🌐 Dashboard: {web_link}"
+                    bot.send_message(user_id, msg, disable_web_page_preview=True)
                 except: pass
         contador+=1
         if contador >= 2:
@@ -236,7 +233,7 @@ def start(message):
     u = get_user_data(message.chat.id)
     modo_conexion = "🟢 TESTNET REAL" if (client and IS_TESTNET) else "🔴 REAL" if client else "🟡 DEMO"
     texto = f"🐺 V32 MULTI-HORIZONTE - $150 BASE\n{modo_conexion} | Comision 0.10% con BNB\n\n💰 Capital: $150 ($75 BTC + $75 BNB)\n🤖 RATA 5M / LOBO 1H / TIBURON 1D\n\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\n\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
-    bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
 def prender(message):
@@ -245,7 +242,7 @@ def prender(message):
     guardar_datos()
     atr_15, atr_1h, modo = calcular_atr_y_modo()
     modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else "DEMO"
-    bot.send_message(message.chat.id, f"🚀 V32 PRENDIDO $150 - {modo_conexion}\n\n💰 Balance: ${u['balance']:.2f} ($75 BTC + $75 BNB)\n📊 ATR 15M: {atr_15:.2f}% | 1H: {atr_1h:.2f}% -> {modo}\n🎯 {ESTRATEGIAS_V32[modo]['desc']}\nTP Neto: +{ESTRATEGIAS_V32[modo]['tp_neto']}% | SL Neto: {ESTRATEGIAS_V32[modo]['sl_neto']}%\nLink TV: https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT\nWeb: {WEB_URL}", reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, f"🚀 V32 PRENDIDO $150 - {modo_conexion}\n\n💰 Balance: ${u['balance']:.2f} ($75 BTC + $75 BNB)\n📊 ATR 15M: {atr_15:.2f}% | 1H: {atr_1h:.2f}% -> {modo}\n🎯 {ESTRATEGIAS_V32[modo]['desc']}\nTP Neto: +{ESTRATEGIAS_V32[modo]['tp_neto']}% | SL Neto: {ESTRATEGIAS_V32[modo]['sl_neto']}%\n🌐 Web: {WEB_URL}", reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
 def balance(message):
@@ -254,28 +251,25 @@ def balance(message):
     gan_total = u["balance"] - u["capital_inicial"]
     modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else "DEMO"
     texto = f"💰 V32 $150 - {modo_conexion}\n\n💵 Inicial: ${u['capital_inicial']:.2f}\n💰 Actual: ${u['balance']:.2f}\n📈 Total NETO: ${gan_total:+.2f}\n📈 Hoy NETO: ${u['neto_hoy']:+.2f}\n\n₿ BTC: ${u['balance_btc']:.2f} | Hoy {u['neto_hoy_btc']:+.2f}\n🔶 BNB: ${u['balance_bnb']:.2f} | Hoy {u['neto_hoy_bnb']:+.2f}\n\n🎯 Winrate: {win}%\n⚙️ {u['modo']} - {u['mercado']}\n\n🤖 V32 Hoy:\n🐀 RATA 50% (${u['capital_inicial']*0.5:.0f}): {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}\n🐺 LOBO 35% (${u['capital_inicial']*0.35:.0f}): {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}\n🦈 TIBURON 15% (${u['capital_inicial']*0.15:.0f}): {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}\n\n🌐 {WEB_URL}\n"
-    bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
 def historial(message):
     u = get_user_data(message.chat.id)
     ultimos = u["historial"][-20:] if u["historial"] else ["Sin ops aun"]
     txt = f"📜 V32 HISTORIAL NETO 0.10%\n\n" + "\n".join(ultimos) + f"\n\n🌐 {WEB_URL}"
-    bot.send_message(message.chat.id, txt, reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, txt, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
-# --- NUEVO: BOTON RETIRAR V2 ---
 @bot.message_handler(func=lambda m: m.text in ["💸 RETIRAR", "/retirar"])
 def retirar(message):
     u = get_user_data(message.chat.id)
     gan = u["balance"] - u["capital_inicial"]
-    en_trades = ESTADO["en_trade"]["LOBO"] + ESTADO["en_trade"]["TIBURON"]
-    # Calculo disponible (50% RATA siempre liquido + ganancia)
     disponible = round(u["balance"] * 0.50 + max(0, gan), 2)
     bloqueado = round(u["balance"] - disponible, 2)
     fee = round(disponible * 0.001, 2)
     neto_recibir = round(disponible - fee, 2)
     texto = f"💸 RETIRAR V32 - $150 BASE\n\n💰 Balance: ${u['balance']:.2f}\n📈 Ganancia: ${gan:+.2f}\n\n✅ Disponible: ${disponible:.2f}\n🔒 En trades LOBO/TIBURON: ${bloqueado:.2f}\n- RATA: $0 (rotando siempre)\n- LOBO: ${ESTADO['en_trade']['LOBO']:.2f}\n- TIBURON: ${ESTADO['en_trade']['TIBURON']:.2f}\n\nFee Binance 0.10%: -${fee:.2f}\nRecibís: ${neto_recibir:.2f}\n\n🌐 Ver en web: {WEB_URL}"
-    bot.send_message(message.chat.id, texto, reply_markup=get_menu_retiro())
+    bot.send_message(message.chat.id, texto, reply_markup=get_menu_retiro(), disable_web_page_preview=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("retirar_"))
 def callback_retiro(call):
@@ -286,13 +280,13 @@ def callback_retiro(call):
         fee = round(disponible * 0.001, 2)
         neto = round(disponible - fee, 2)
         bot.answer_callback_query(call.id, f"Retiro de ${neto} solicitado")
-        bot.send_message(call.message.chat.id, f"✅ Solicitaste retirar ${disponible:.2f}\nFee 0.10%: -${fee:.2f}\nNeto a billetera: ${neto:.2f}\n\nEn testnet es simulado. En real va a tu Binance -> Retirar. RATA sigue operando.", reply_markup=get_menu_v32())
+        bot.send_message(call.message.chat.id, f"✅ Solicitaste retirar ${disponible:.2f}\nFee 0.10%: -${fee:.2f}\nNeto a billetera: ${neto:.2f}\n\nEn testnet es simulado. En real va a tu Binance -> Retirar. RATA sigue operando.", reply_markup=get_menu_v32(), disable_web_page_preview=True)
     elif call.data == "retirar_ganancia":
         solo_gan = max(0, gan)
         fee = round(solo_gan * 0.001, 2)
         neto = round(solo_gan - fee, 2)
         bot.answer_callback_query(call.id, f"Retiro ganancia ${neto}")
-        bot.send_message(call.message.chat.id, f"📈 Retiro solo ganancia: ${solo_gan:.2f}\nFee: -${fee:.2f}\nNeto: ${neto:.2f}\nCapital $150 intacto.", reply_markup=get_menu_v32())
+        bot.send_message(call.message.chat.id, f"📈 Retiro solo ganancia: ${solo_gan:.2f}\nFee: -${fee:.2f}\nNeto: ${neto:.2f}\nCapital $150 intacto.", reply_markup=get_menu_v32(), disable_web_page_preview=True)
     else:
         bot.answer_callback_query(call.id, "Cancelado")
         bot.send_message(call.message.chat.id, "❌ Retiro cancelado", reply_markup=get_menu_v32())
