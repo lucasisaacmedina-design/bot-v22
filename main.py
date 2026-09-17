@@ -4,8 +4,6 @@ import threading
 import random
 import time
 import requests
-import base64
-import hashlib
 from datetime import datetime
 from flask import Flask, render_template_string, jsonify, request
 import telebot
@@ -17,11 +15,36 @@ except:
     import pytz
     TZ = pytz.timezone('America/Argentina/Buenos_Aires')
 
+# --- NUEVO: CONEXION BINANCE ---
+try:
+    from binance.client import Client
+    BINANCE_LIB = True
+except:
+    BINANCE_LIB = False
+    print("Falta python-binance en requirements.txt")
+
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise Exception("Falta BOT_TOKEN en Render")
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
+
+# --- NUEVO: LEER TUS CLAVES DE TESTNET DE RENDER ---
+BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
+BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
+IS_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() == "true"
+client = None
+if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
+    try:
+        client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET)
+        print(f"### BINANCE CONECTADO - TESTNET={IS_TESTNET} ###")
+        # Test conexión
+        client.get_account()
+    except Exception as e:
+        print(f"Error conectando Binance: {e}")
+        client = None
+else:
+    print("Binance sin configurar, usando modo DEMO precios random")
 
 BALANCE_INICIAL = 200.0
 BALANCE_BTC_INICIAL = 100.0
@@ -30,7 +53,7 @@ ADMINS_IDS = [6530209116]
 DATA_FILE = "/data/manada_v30.json"
 os.makedirs("/data", exist_ok=True)
 
-COMISION_TOTAL = 0.15 # % ida y vuelta con BNB
+COMISION_TOTAL = 0.15
 COMISION_POR_LADO = 0.075
 
 ESTRATEGIAS_V30 = {
@@ -50,6 +73,17 @@ LOCK = threading.Lock()
 
 def ahora_art():
     return datetime.now(TZ)
+
+def get_precio_real(symbol):
+    global client
+    if client:
+        try:
+            ticker = client.get_symbol_ticker(symbol=symbol)
+            return float(ticker['price'])
+        except Exception as e:
+            print(f"Error precio {symbol}: {e}")
+            return None
+    return None
 
 def get_user_data(user_id):
     user_id = int(user_id)
@@ -140,8 +174,21 @@ def motor_v30():
     contador = 0
     while True:
         time.sleep(random.randint(4, 7))
-        ESTADO["btc"] = round(78287.4 + random.uniform(-400,400), 2)
-        ESTADO["bnb"] = round(739.68 + random.uniform(-8,8), 2)
+
+        # --- AHORA PRECIOS REALES SI HAY CLIENTE ---
+        btc_real = get_precio_real("BTCUSDT")
+        bnb_real = get_precio_real("BNBUSDT")
+
+        if btc_real:
+            ESTADO["btc"] = round(btc_real, 2)
+        else:
+            ESTADO["btc"] = round(78287.4 + random.uniform(-400,400), 2)
+
+        if bnb_real:
+            ESTADO["bnb"] = round(bnb_real, 2)
+        else:
+            ESTADO["bnb"] = round(739.68 + random.uniform(-8,8), 2)
+
         ESTADO["btc_history"].append(ESTADO["btc"])
         if len(ESTADO["btc_history"]) > 30:
             ESTADO["btc_history"] = ESTADO["btc_history"][-30:]
@@ -196,7 +243,8 @@ def motor_v30():
             u["mercado"] = f"{config['desc']} ATR {atr:.2f}%"
 
             ahora = ahora_art()
-            linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
+            real_tag = "REAL" if client else "DEMO"
+            linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
             u["historial"].append(linea)
             if len(u["historial"]) > 200:
                 u["historial"] = u["historial"][-200:]
@@ -209,23 +257,19 @@ def motor_v30():
 @bot.message_handler(commands=['start'])
 def start(message):
     u = get_user_data(message.chat.id)
+    modo_conexion = "🟢 TESTNET REAL" if (client and IS_TESTNET) else "🔴 REAL" if client else "🟡 DEMO"
     texto = f"""🐺 V30 PERSONAL - SOLO PARA VOS
+{modo_conexion} | Comisión 0.15% con BNB
 
 💰 Capital: $200 ($100 BTC + $100 BNB)
-💸 Comision: 0.15% con BNB (NETO REAL)
 🤖 Estrategias: RATA / LOBO / TIBURON x ATR
 
 ATR actual: {ESTADO['atr_actual']:.2f}%
 Modo: {u['modo']} - {u['mercado']}
 Balance: ${u['balance']:.2f}
+BTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}
 
-4 Botones:
-🚀 PRENDER - Prende tu bot
-📊 BALANCE - Tu balance neto real
-📜 HISTORIAL - Tus trades con neto
-💸 RETIRAR - Como sacar profit
-
-Todo lo que ves es NETO, ya limpio de comision.
+Todo lo que ves es NETO, ya limpio de comisión.
 Tu ID: {message.chat.id}"""
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v30())
 
@@ -235,21 +279,24 @@ def prender(message):
     u["prendido"] = True
     guardar_datos()
     atr, modo = calcular_atr_y_modo()
-    bot.send_message(message.chat.id, f"""🚀 V30 PRENDIDO - NETO REAL 0.15%
+    modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else "DEMO"
+    bot.send_message(message.chat.id, f"""🚀 V30 PRENDIDO - {modo_conexion}
 
 💰 Balance: ${u['balance']:.2f}
 📊 ATR: {atr:.2f}% -> Modo {modo}
 🎯 {ESTRATEGIAS_V30[modo]['desc']}
 TP Neto: +{ESTRATEGIAS_V30[modo]['tp_neto']}% | SL Neto: {ESTRATEGIAS_V30[modo]['sl_neto']}%
+Precio BTC REAL: ${ESTADO['btc']} | BNB REAL: ${ESTADO['bnb']}
 
-El bot ya esta cazando en BTC y BNB.""", reply_markup=get_menu_v30())
+El bot ya está cazando en BTC y BNB con precios de Binance.""", reply_markup=get_menu_v30())
 
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
 def balance(message):
     u = get_user_data(message.chat.id)
     win = calcular_winrate(u)
     gan_total = u["balance"] - u["capital_inicial"]
-    texto = f"""💰 V30 PERSONAL - BALANCE NETO REAL
+    modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else "DEMO"
+    texto = f"""💰 V30 PERSONAL - {modo_conexion}
 
 💵 Inicial: ${u['capital_inicial']:.2f}
 💰 Actual: ${u['balance']:.2f}
@@ -262,14 +309,14 @@ def balance(message):
 🎯 Winrate: {win}% | {u['ganadas']}G / {u['perdidas']}P
 ⚙️ Modo: {u['modo']} - {u['mercado']}
 📊 ATR: {ESTADO['atr_actual']:.2f}%
+₿ BTC ${ESTADO['btc']} | BNB ${ESTADO['bnb']} (PRECIO REAL)
 
 🤖 Estrategias Hoy NETO:
 🐀 RATA: {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}
 🐺 LOBO: {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}
 🦈 TIBURON: {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}
 
-💸 Comision: 0.15% con BNB ya descontada
-₿ BTC ${ESTADO['btc']} | BNB ${ESTADO['bnb']}
+💸 Comisión: 0.15% con BNB ya descontada
 ID: {message.chat.id}
 """
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v30())
@@ -277,7 +324,7 @@ ID: {message.chat.id}
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
 def historial(message):
     u = get_user_data(message.chat.id)
-    ultimos = u["historial"][-20:] if u["historial"] else ["Sin ops aun, prende el bot"]
+    ultimos = u["historial"][-20:] if u["historial"] else ["Sin ops aún, prende el bot"]
     txt = f"📜 V30 - HISTORIAL NETO REAL (0.15% desc)\n\n" + "\n".join(ultimos)
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_v30())
 
@@ -285,13 +332,14 @@ def historial(message):
 def retirar(message):
     u = get_user_data(message.chat.id)
     gan = u["balance"] - u["capital_inicial"]
-    bot.send_message(message.chat.id, f"""💸 RETIRAR - V30 PERSONAL
+    modo_conexion = "TESTNET" if IS_TESTNET else "REAL"
+    bot.send_message(message.chat.id, f"""💸 RETIRAR - V30 PERSONAL ({modo_conexion})
 
 Tu balance NETO: ${u['balance']:.2f}
 Ganancia NETO: ${gan:+.2f} (ya descontado 0.15%)
 
 En testnet es simulado.
-En real: Tu plata esta en TU Binance -> Billetera -> Retirar.
+En real: Tu plata está en TU Binance -> Billetera -> Retirar.
 """, reply_markup=get_menu_v30())
 
 @bot.message_handler(commands=['apagar','stop'])
