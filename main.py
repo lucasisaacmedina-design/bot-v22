@@ -74,15 +74,19 @@ def ahora_art():
     return datetime.now(TZ)
 
 def get_precio_real(symbol):
-    global client
-    if client:
+    try:
+        url = f"https://data-api.binance.vision/api/v3/ticker/price?symbol={symbol}"
+        r = requests.get(url, timeout=5)
+        return float(r.json()['price'])
+    except Exception as e:
+        print(f"Error precio {symbol} vision: {e}")
         try:
-            ticker = client.get_symbol_ticker(symbol=symbol)
-            return float(ticker['price'])
-        except Exception as e:
-            print(f"Error precio {symbol}: {e}")
+            url2 = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
+            r2 = requests.get(url2, timeout=5)
+            return float(r2.json()['price'])
+        except Exception as e2:
+            print(f"Error precio fallback {symbol}: {e2}")
             return None
-    return None
 
 def get_user_data(user_id):
     user_id = int(user_id)
