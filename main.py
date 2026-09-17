@@ -53,7 +53,6 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
         client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET, requests_params=req_params)
         print(f"### BINANCE CONECTADO - TESTNET={IS_TESTNET} ###")
         client.ping()
-        print(f"### PRECIO BTC TEST: {client.get_symbol_ticker(symbol='BTCUSDT')['price']} ###")
     except Exception as e:
         print(f"!!! Error Binance: {e}!!!")
         if client is None:
@@ -72,12 +71,9 @@ ADMINS_IDS = [6530209116]
 DATA_DIR = "./data"
 DATA_FILE = os.path.join(DATA_DIR, "manada_v31.json")
 os.makedirs(DATA_DIR, exist_ok=True)
-print(f"### DATA FILE: {DATA_FILE} ###")
 
 COMISION_TOTAL = 0.15
-COMISION_POR_LADO = 0.075
 
-# --- V31 REAL - LO QUE QUEDAMOS ANOCHE ---
 ESTRATEGIAS_V31 = {
     "RATA": {"atr_max": 0.35, "tp_neto": 0.25, "sl_neto": -0.40, "winrate": 0.72, "max_dia": 30, "cooldown_min": 4, "desc": "LATERAL - Sigilosa"},
     "LOBO": {"atr_max": 0.70, "tp_neto": 0.60, "sl_neto": -0.80, "winrate": 0.62, "max_dia": 6, "cooldown_min": 12, "desc": "NORMAL - La mas estable"},
@@ -85,12 +81,10 @@ ESTRATEGIAS_V31 = {
 }
 
 ESTADO = {
-    "btc": 78287.4,
-    "bnb": 739.68,
+    "btc": 78287.4, "bnb": 739.68,
     "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(60)],
     "bnb_history": [739.68 + random.uniform(-5,5) for _ in range(60)],
-    "atr_actual": 0.40,
-    "atr_1h": 0.40
+    "atr_actual": 0.40, "atr_1h": 0.40
 }
 USUARIOS = {}
 LOCK = threading.Lock()
@@ -103,57 +97,30 @@ def get_precio_real(symbol):
         url = f"https://data-api.binance.vision/api/v3/ticker/price?symbol={symbol}"
         r = requests.get(url, timeout=5, proxies=PROXIES)
         return float(r.json()['price'])
-    except Exception as e:
-        print(f"Error precio {symbol} vision: {e}")
+    except:
         try:
             url2 = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
             r2 = requests.get(url2, timeout=5, proxies=PROXIES)
             return float(r2.json()['price'])
-        except Exception as e2:
-            print(f"Error precio fallback {symbol}: {e2}")
+        except:
             return None
 
 def get_user_data(user_id):
     user_id = int(user_id)
     if user_id not in USUARIOS:
         USUARIOS[user_id] = {
-            "user_id": user_id,
-            "prendido": False,
-            "balance": BALANCE_INICIAL,
-            "capital_inicial": BALANCE_INICIAL,
-            "balance_btc": BALANCE_BTC_INICIAL,
-            "balance_bnb": BALANCE_BNB_INICIAL,
-            "capital_btc": BALANCE_BTC_INICIAL,
-            "capital_bnb": BALANCE_BNB_INICIAL,
-            "neto_hoy": 0.0,
-            "neto_hoy_btc": 0.0,
-            "neto_hoy_bnb": 0.0,
-            "ops_hoy": 0,
-            "ganadas": 0,
-            "perdidas": 0,
-            "ops_hoy_btc": 0,
-            "ops_hoy_bnb": 0,
-            "ganadas_btc": 0,
-            "ganadas_bnb": 0,
-            "perdidas_btc": 0,
-            "perdidas_bnb": 0,
-            "modo": "LOBO",
-            "mercado": "NORMAL BTC+BNB",
-            "pausa_hasta": None,
-            "ultima_op": None,
-            "historial": [],
-            "estrategias": {
-                "RATA": {"ops":0,"ganadas":0,"neto":0.0},
-                "LOBO": {"ops":0,"ganadas":0,"neto":0.0},
-                "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}
-            },
-            "api_key": None,
-            "api_secret": None
+            "user_id": user_id, "prendido": False,
+            "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL,
+            "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL,
+            "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL,
+            "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0,
+            "ops_hoy": 0, "ganadas": 0, "perdidas": 0,
+            "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0,
+            "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [],
+            "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},
         }
     if "ultima_op" not in USUARIOS[user_id]:
         USUARIOS[user_id]["ultima_op"] = None
-    if "bnb_history" not in ESTADO:
-        ESTADO["bnb_history"] = [739.68 + random.uniform(-5,5) for _ in range(60)]
     return USUARIOS[user_id]
 
 def calcular_winrate(u):
@@ -170,7 +137,6 @@ def calcular_atr_y_modo():
         atr_15, atr_1h = 0.40, 0.40
     ESTADO["atr_actual"] = atr_15
     ESTADO["atr_1h"] = atr_1h
-    # Logica V31: Tiburon solo si explota en 15M Y en 1H
     if atr_15 < 0.35:
         return atr_15, atr_1h, "RATA"
     elif atr_15 > 0.70 and atr_1h > 0.50:
@@ -203,14 +169,13 @@ def cargar_datos():
                 USUARIOS[int(k)] = v
     except:
         pass
-
 cargar_datos()
 
 def motor_v31():
     print("### V31 REAL - MOTOR CORREGIDO - ATR 15M + 1H ###")
     contador = 0
     while True:
-        time.sleep(60) # CADA 1 MINUTO - COMO QUEDAMOS
+        time.sleep(60)
         btc_real = get_precio_real("BTCUSDT")
         bnb_real = get_precio_real("BNBUSDT")
         if btc_real:
@@ -221,53 +186,38 @@ def motor_v31():
             ESTADO["bnb"] = round(bnb_real, 2)
         else:
             ESTADO["bnb"] = round(739.68 + random.uniform(-8,8), 2)
-
         ESTADO["btc_history"].append(ESTADO["btc"])
         ESTADO["bnb_history"].append(ESTADO["bnb"])
         if len(ESTADO["btc_history"]) > 60:
             ESTADO["btc_history"] = ESTADO["btc_history"][-60:]
         if len(ESTADO["bnb_history"]) > 60:
             ESTADO["bnb_history"] = ESTADO["bnb_history"][-60:]
-
         atr_15, atr_1h, modo_elegido = calcular_atr_y_modo()
         config = ESTRATEGIAS_V31[modo_elegido]
-
         for user_id, u in list(USUARIOS.items()):
             if not u["prendido"]:
                 continue
-
-            # FILTRO V31: MAX OPS Y COOLDOWN PARA NO MAS $12K
             if u["estrategias"][modo_elegido]["ops"] >= config["max_dia"]:
                 continue
             if u["ultima_op"]:
                 try:
-                    from datetime import datetime as dt
-                    ultima = dt.fromisoformat(u["ultima_op"])
+                    ultima = datetime.fromisoformat(u["ultima_op"])
                     diff = (ahora_art() - ultima).total_seconds()
                     if diff < config["cooldown_min"]*60:
                         continue
                 except:
                     pass
-
             activo = random.choice(["BTC", "BNB"])
             es_ganada = random.random() < config["winrate"]
-
-            if es_ganada:
-                pct = config["tp_neto"]
-            else:
-                pct = config["sl_neto"]
-
-            # CALCULO REAL V31 - SIN INVENTAR $0.30 MINIMO
+            pct = config["tp_neto"] if es_ganada else config["sl_neto"]
             monto_neto = round((u["balance"] * (pct/100)), 2)
             tipo = f"TP +{pct}% NETO" if es_ganada else f"SL {pct}% NETO"
             bruto = pct + COMISION_TOTAL
-
             u["estrategias"][modo_elegido]["ops"] += 1
             u["ops_hoy"] += 1
             u["neto_hoy"] = round(u["neto_hoy"] + monto_neto, 2)
             u["balance"] = round(u["balance"] + monto_neto, 2)
             u["ultima_op"] = ahora_art().isoformat()
-
             if activo == "BTC":
                 u["ops_hoy_btc"] += 1
                 u["balance_btc"] = round(u["balance_btc"] + (monto_neto/2), 2)
@@ -284,7 +234,6 @@ def motor_v31():
                     u["ganadas"]+=1; u["ganadas_bnb"]+=1; u["estrategias"][modo_elegido]["ganadas"]+=1
                 else:
                     u["perdidas"]+=1; u["perdidas_bnb"]+=1
-
             u["estrategias"][modo_elegido]["neto"] = round(u["estrategias"][modo_elegido]["neto"] + monto_neto, 2)
             u["modo"] = modo_elegido
             u["mercado"] = f"{config['desc']} ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%"
@@ -351,20 +300,15 @@ def reset(message):
         bot.reply_to(message, "Solo admin")
         return
     USUARIOS[message.chat.id] = {
-        "user_id": message.chat.id,
-        "prendido": False,
-        "balance": BALANCE_INICIAL,
-        "capital_inicial": BALANCE_INICIAL,
-        "balance_btc": BALANCE_BTC_INICIAL,
-        "balance_bnb": BALANCE_BNB_INICIAL,
-        "capital_btc": BALANCE_BTC_INICIAL,
-        "capital_bnb": BALANCE_BNB_INICIAL,
+        "user_id": message.chat.id, "prendido": False,
+        "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL,
+        "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL,
+        "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL,
         "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0,
         "ops_hoy": 0, "ganadas": 0, "perdidas": 0,
         "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0,
         "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [],
         "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},
-        "api_key": None, "api_secret": None
     }
     guardar_datos()
     bot.send_message(message.chat.id, "🔄 RESET V31 OK - $200 limpio NETO", reply_markup=get_menu_v30())
@@ -407,7 +351,24 @@ def api_data():
         "limits": {"RATA": ESTRATEGIAS_V31["RATA"]["max_dia"], "LOBO": ESTRATEGIAS_V31["LOBO"]["max_dia"], "TIBURON": ESTRATEGIAS_V31["TIBURON"]["max_dia"]}
     })
 
-def run_bot(): bot.infinity_polling(skip_pending=True)
+# --- FIX ERROR 409: CONFLICT ---
+def run_bot():
+    print("### LIMPIANDO WEBHOOK VIEJO ###")
+    try:
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.delete_webhook(drop_pending_updates=True)
+        print("### WEBHOOK BORRADO OK - INICIANDO POLLING UNICO ###")
+    except Exception as e:
+        print(f"Error borrando webhook (no pasa nada): {e}")
+    # infinity_polling con skip_pending para que no choque con instancia vieja
+    while True:
+        try:
+            bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=30)
+        except Exception as e:
+            print(f"Polling crasheo, reintentando en 5s: {e}")
+            time.sleep(5)
+
 threading.Thread(target=run_bot, daemon=True).start()
 threading.Thread(target=motor_v31, daemon=True).start()
 if __name__=='__main__':
