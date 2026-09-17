@@ -27,6 +27,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
+# --- CORREGIDO ANOCHE: CONEXION TESTNET CON PROXY Y LOG (NO TOCAR PROXYS) ---
 def clean_key(v):
     if not v: return v
     return v.replace("\n","").replace("\r","").replace(" ","").strip()
@@ -35,23 +36,32 @@ BINANCE_API_KEY = clean_key(os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_T
 BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET"))
 IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() == "true"
 
-# --- CORREGIDO: SOLO BOT-V22, SIN TU-WEB ---
 WEB_URL_RAW = os.getenv("WEB_URL", "https://bot-v22.onrender.com")
 WEB_URL = WEB_URL_RAW.strip().replace("tu-web.onrender.com", "bot-v22.onrender.com").rstrip("/")
 
 PROXY_URL = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
 if PROXY_URL:
-    PROXY_URL = PROXY_URL.replace(" ","").strip()
+    PROXY_URL = PROXY_URL.replace(" ","").replace("\n","").replace("\r","").strip()
 PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 
 client = None
+CLIENT_ERROR = "No iniciado"
+
 if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
     try:
-        req_params = {"proxies": PROXIES, "timeout": 15} if PROXIES else {"timeout": 15}
+        print(f">>> TESTNET INICIANDO: KEY {BINANCE_API_KEY[:6]}... LEN={len(BINANCE_API_KEY)} TESTNET={IS_TESTNET} PROXY={bool(PROXIES)} URL={PROXY_URL[:25] if PROXY_URL else 'NO'}")
+        req_params = {"proxies": PROXIES, "timeout": 20} if PROXIES else {"timeout": 15}
         client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET, requests_params=req_params)
         client.ping()
-    except:
+        print(">>> TESTNET PING OK - Conectado a REAL <<<")
+        CLIENT_ERROR = "OK"
+    except Exception as e:
+        print(f">>> TESTNET ERROR: {e} <<<")
+        CLIENT_ERROR = str(e)
         client = None
+else:
+    print(f">>> FALTAN KEYS: LIB={BINANCE_LIB} KEY={bool(BINANCE_API_KEY)} SECRET={bool(BINANCE_API_SECRET)}")
+    CLIENT_ERROR = "FALTAN KEYS"
 
 BALANCE_INICIAL = 150.0
 BALANCE_BTC_INICIAL = 75.0
@@ -230,7 +240,7 @@ def motor_v32():
 @bot.message_handler(commands=['start'])
 def start(message):
     u = get_user_data(message.chat.id)
-    modo_conexion = "🟢 TESTNET REAL" if (client and IS_TESTNET) else "🔴 REAL" if client else "🟡 DEMO"
+    modo_conexion = "🟢 TESTNET REAL" if (client and IS_TESTNET) else "🔴 REAL" if client else f"🟡 DEMO ({CLIENT_ERROR})"
     texto = f"🐺 V32 MULTI-HORIZONTE - $150 BASE\n{modo_conexion} | Comision 0.10% con BNB\n\n💰 Capital: $150 ($75 BTC + $75 BNB)\n🤖 RATA 5M / LOBO 1H / TIBURON 1D\n\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\n\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
@@ -240,7 +250,7 @@ def prender(message):
     u["prendido"] = True
     guardar_datos()
     atr_15, atr_1h, modo = calcular_atr_y_modo()
-    modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else "DEMO"
+    modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else f"DEMO ({CLIENT_ERROR})"
     bot.send_message(message.chat.id, f"🚀 V32 PRENDIDO $150 - {modo_conexion}\n\n💰 Balance: ${u['balance']:.2f} ($75 BTC + $75 BNB)\n📊 ATR 15M: {atr_15:.2f}% | 1H: {atr_1h:.2f}% -> {modo}\n🎯 {ESTRATEGIAS_V32[modo]['desc']}\nTP Neto: +{ESTRATEGIAS_V32[modo]['tp_neto']}% | SL Neto: {ESTRATEGIAS_V32[modo]['sl_neto']}%\n🌐 Web: {WEB_URL}", reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
@@ -248,7 +258,7 @@ def balance(message):
     u = get_user_data(message.chat.id)
     win = calcular_winrate(u)
     gan_total = u["balance"] - u["capital_inicial"]
-    modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else "DEMO"
+    modo_conexion = "TESTNET REAL" if (client and IS_TESTNET) else "REAL" if client else f"DEMO ({CLIENT_ERROR})"
     texto = f"💰 V32 $150 - {modo_conexion}\n\n💵 Inicial: ${u['capital_inicial']:.2f}\n💰 Actual: ${u['balance']:.2f}\n📈 Total NETO: ${gan_total:+.2f}\n📈 Hoy NETO: ${u['neto_hoy']:+.2f}\n\n₿ BTC: ${u['balance_btc']:.2f} | Hoy {u['neto_hoy_btc']:+.2f}\n🔶 BNB: ${u['balance_bnb']:.2f} | Hoy {u['neto_hoy_bnb']:+.2f}\n\n🎯 Winrate: {win}%\n⚙️ {u['modo']} - {u['mercado']}\n\n🤖 V32 Hoy:\n🐀 RATA 50% (${u['capital_inicial']*0.5:.0f}): {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}\n🐺 LOBO 35% (${u['capital_inicial']*0.35:.0f}): {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}\n🦈 TIBURON 15% (${u['capital_inicial']*0.15:.0f}): {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}\n\n🌐 {WEB_URL}\n"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
