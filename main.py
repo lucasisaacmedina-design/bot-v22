@@ -213,7 +213,6 @@ def motor_v32():
             u["mercado"] = f"{config['desc']} ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%"
             ahora = ahora_art()
             real_tag = "REAL" if client else "DEMO"
-            # --- SOLO DASHBOARD ---
             web_link = f"{WEB_URL}/?symbol={activo}"
             linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
             u["historial"].append(linea)
@@ -349,11 +348,22 @@ def run_bot():
         bot.remove_webhook()
         time.sleep(1)
         bot.delete_webhook(drop_pending_updates=True)
-    except: pass
+        print(">>> Webhook borrado OK")
+    except Exception as e:
+        print(f"Error borrando webhook: {e}")
+
     while True:
-        try: bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=30)
+        try:
+            print(">>> Polling iniciado")
+            bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=30)
         except Exception as e:
-            print(f"Polling crash: {e}"); time.sleep(5)
+            err = str(e)
+            if "409" in err:
+                print(f">>> 409 detectado, esperando 35s para que Render mate el contenedor viejo...")
+                time.sleep(35)
+            else:
+                print(f"Polling crash: {e}")
+                time.sleep(5)
 
 threading.Thread(target=run_bot, daemon=True).start()
 threading.Thread(target=motor_v32, daemon=True).start()
