@@ -27,10 +27,10 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- V35 CEREBRO - FIX REAL DEFINITIVO - NO BORRA NADA ---
+# --- V36 CEREBRO - FIX SALTO DE LINEA RENDER - UNICA CORRECCION ---
 def clean_key(v):
-    if not v: return v
-    return v.replace("\n","").replace("\r","").replace(" ","").strip()
+    if not v: return ""
+    return "".join(str(v).split())
 
 BINANCE_API_KEY = clean_key(os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_TESTNET_API_KEY"))
 BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET"))
