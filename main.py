@@ -364,18 +364,26 @@ def api_data():
 
 def run_bot():
     try:
+        print(">>> Limpiando webhook...")
         bot.remove_webhook()
-        time.sleep(1)
+        time.sleep(2)
         bot.delete_webhook(drop_pending_updates=True)
-    except: pass
+        time.sleep(3)
+        print(">>> Webhook limpio")
+    except Exception as e:
+        print(f">>> Error webhook: {e}")
     while True:
         try:
             bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=30)
         except Exception as e:
-            if "409" in str(e): time.sleep(35)
-            else: time.sleep(5)
+            if "409" in str(e):
+                print(">>> 409 detectado, espero 45s a que muera el bot viejo de Render")
+                time.sleep(45)
+            else:
+                print(f">>> Error polling: {e}")
+                time.sleep(5)
 
 threading.Thread(target=run_bot, daemon=True).start()
 threading.Thread(target=motor_v32, daemon=True).start()
 if __name__=='__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT",10000)))
+   app.run(host='0.0.0.0', port=int(os.environ.get("PORT",10000)), use_reloader=False)
