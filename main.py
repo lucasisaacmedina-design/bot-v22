@@ -37,34 +37,71 @@ IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() ==
 WEB_URL_RAW = os.getenv("WEB_URL", "https://bot-v22.onrender.com")
 WEB_URL = WEB_URL_RAW.strip().replace("tu-web.onrender.com", "bot-v22.onrender.com").rstrip("/")
 
-PROXY_URL_RAW = (
+# ====== NUEVO SISTEMA DE PROXY ROTATIVO ======
+PROXY_LIST_RAW = (
+    os.getenv("PROXY_LIST") or
     os.getenv("PROXY_URL") or
     os.getenv("HTTPS_PROXY") or
-    os.getenv("HTTP_PROXY") or
-    os.getenv("https_proxy") or
-    os.getenv("http_proxy") or ""
+    os.getenv("HTTP_PROXY") or ""
 )
-PROXY_URL = clean_key(PROXY_URL_RAW)
+RAW_SPLIT = []
+for chunk in PROXY_LIST_RAW.split(","):
+    c = clean_key(chunk)
+    if c:
+        RAW_SPLIT.append(c)
+
+if not RAW_SPLIT:
+    RAW_SPLIT = [
+        "http://ufssgczi:aus6m0vuweru@31.58.9.4:6077",
+        "http://ufssgczi:aus6m0vuweru@31.59.20.176:6754",
+        "http://ufssgczi:aus6m0vuweru@45.38.107.97:6011",
+        "http://ufssgczi:aus6m0vuweru@84.247.60.125:6095",
+    ]
+
+def probar_proxy(proxy_url):
+    try:
+        if not proxy_url.startswith("http"):
+            proxy_url = "http://" + proxy_url
+        proxies = {"http": proxy_url, "https": proxy_url}
+        ip_info = requests.get("https://ipinfo.io/json", proxies=proxies, timeout=12).json()
+        country = ip_info.get('country','?')
+        r = requests.get("https://testnet.binance.vision/api/v3/ping", proxies=proxies, timeout=12)
+        ok = r.status_code == 200
+        print(f">>> TEST PROXY {proxy_url[-20:]} -> {country} {ip_info.get('ip')} | ping {r.status_code}")
+        if country in ['US','USA']:
+            return False, ip_info, proxy_url
+        return ok, ip_info, proxy_url
+    except Exception as e:
+        print(f">>> FALLO PROXY {proxy_url}: {e}")
+        return False, {}, proxy_url
+
+PROXY_URL = ""
+PROXIES = None
+PROXY_INFO = {}
+for p in RAW_SPLIT:
+    ok, info, url = probar_proxy(p)
+    if ok:
+        PROXY_URL = url
+        PROXIES = {"http": url, "https": url}
+        PROXY_INFO = info
+        os.environ["HTTP_PROXY"] = url
+        os.environ["HTTPS_PROXY"] = url
+        break
 
 if PROXY_URL:
-    if not PROXY_URL.startswith("http"):
-        PROXY_URL = "http://" + PROXY_URL
-    os.environ["HTTP_PROXY"] = PROXY_URL
-    os.environ["HTTPS_PROXY"] = PROXY_URL
-    PROXIES = {"http": PROXY_URL, "https": PROXY_URL}
-    print(f">>> PROXY CARGADO OK: {PROXY_URL[:30]}...")
+    print(f">>> PROXY ELEGIDO FINAL: {PROXY_INFO} {PROXY_URL}")
     _orig_session_request = requests.Session.request
     def _patched_request(self, method, url, **kwargs):
         url_str = str(url).lower()
-        if "binance" in url_str or "vision" in url_str:
+        if "binance" in url_str or "vision" in url_str or "ipinfo" in url_str:
             kwargs["proxies"] = PROXIES
         kwargs.setdefault("timeout", 25)
         return _orig_session_request(self, method, url, **kwargs)
     requests.Session.request = _patched_request
 else:
+    print(">>> SIN PROXY VALIDO")
     PROXIES = None
     PROXY_URL = ""
-    print(">>> SIN PROXY - VA A DAR RESTRICTED LOCATION")
 
 client = None
 CLIENT_ERROR = "No iniciado"
@@ -95,20 +132,22 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
             print(f">>> CLIENT PROXY FORZADO: {client.session.proxies}")
         try:
             client.ping()
+            client.get_account()
             CLIENT_ERROR = "OK"
             get_real_balance_binance()
+            print(f">>> BINANCE OK - SALDO {REAL_BALANCE_USDT}")
         except Exception as ping_e:
             CLIENT_ERROR = f"PING FALLO: {ping_e}"
+            print(f">>> {CLIENT_ERROR}")
     except Exception as e:
         CLIENT_ERROR = str(e)
+        print(f">>> ERROR CREANDO CLIENT: {CLIENT_ERROR}")
+
 BALANCE_INICIAL = REAL_BALANCE_USDT
 BALANCE_BTC_INICIAL = REAL_BALANCE_USDT / 2
 BALANCE_BNB_INICIAL = REAL_BALANCE_USDT / 2
 ADMINS_IDS = [6530209116]
-if os.path.exists("/opt/render/project/src/data"):
-    DATA_DIR = "/opt/render/project/src/data"
-else:
-    DATA_DIR = "./data"
+DATA_DIR = "/opt/render/project/src/data" if os.path.exists("/opt/render/project/src/data") else "./data"
 DATA_FILE = os.path.join(DATA_DIR, "manada_v32.json")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -142,7 +181,7 @@ def get_user_data(user_id):
     user_id = int(user_id)
     with LOCK:
         if user_id not in USUARIOS:
-            USUARIOS[user_id] = {"user_id": user_id, "prendido": True, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_inicial": BALANCE_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
+            USUARIOS[user_id] = {"user_id": user_id, "prendido": True, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
         else:
             USUARIOS[user_id]["prendido"] = True
         return USUARIOS[user_id]
@@ -278,8 +317,9 @@ def motor_v32():
 @bot.message_handler(commands=['start'])
 def start(message):
     u = get_user_data(message.chat.id)
-    modo_conexion = "🟢 TESTNET REAL ESPANA" if (client and IS_TESTNET and CLIENT_ERROR=="OK") else "🔴 REAL" if client else f"🟡 DEMO ({CLIENT_ERROR[:80]})"
-    texto = f"🧠 V35 CEREBRO 24/7 - ${u['capital_inicial']:.2f} BASE REAL\n{modo_conexion} | Comision 0.10% con BNB\n\n💰 Capital: ${u['capital_inicial']:.2f}\n🤖 CEREBRO elige 1: TIBURON 1D / LOBO 1H / RATA 5M\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
+    modo_conexion = "🟢 TESTNET REAL ESPANA" if (client and IS_TESTNET and CLIENT_ERROR=="OK") else "🔴 REAL" if client else f"🟡 DEMO ({CLIENT_ERROR[:120]})"
+    extra = f"\n🌍 Proxy: {PROXY_INFO.get('country','?')} {PROXY_INFO.get('city','')} {PROXY_INFO.get('ip','')}" if PROXY_INFO else ""
+    texto = f"🧠 V35 CEREBRO 24/7 - ${u['capital_inicial']:.2f} BASE REAL\n{modo_conexion}{extra}\nComision 0.10% con BNB\n\n💰 Capital: ${u['capital_inicial']:.2f}\n🤖 CEREBRO elige 1: TIBURON 1D / LOBO 1H / RATA 5M\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
@@ -373,6 +413,10 @@ def api_data():
     win = round((a["ganadas"]/(a["ganadas"]+a["perdidas"])*100) if (a["ganadas"]+a["perdidas"]) else 0)
     return jsonify({"balance": a["balance"], "capital_inicial": a["capital_inicial"], "balance_btc": a["balance_btc"], "balance_bnb": a["balance_bnb"], "neto_hoy": a["neto_hoy"], "winrate": win, "modo": a["modo"], "mercado": a["mercado"], "btc": ESTADO["btc"], "bnb": ESTADO["bnb"], "atr": ESTADO["atr_actual"], "atr_1h": ESTADO["atr_1h"], "estrategias": a["estrategias"]})
 
+@app.route('/debug')
+def debug():
+    return jsonify({"proxy_url": PROXY_URL[:60], "proxy_info": PROXY_INFO, "client_error": CLIENT_ERROR, "has_client": bool(client), "is_testnet": IS_TESTNET})
+
 def run_bot():
     try:
         print(">>> Limpiando webhook...")
@@ -388,7 +432,7 @@ def run_bot():
             bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=30)
         except Exception as e:
             if "409" in str(e):
-                print(">>> 409 detectado, espero 45s a que muera el bot viejo de Render")
+                print(">>> 409 detectado, espero 45s")
                 time.sleep(45)
             else:
                 print(f">>> Error polling: {e}")
