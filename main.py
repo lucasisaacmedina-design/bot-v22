@@ -90,6 +90,9 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
     try:
         req_params = {"proxies": PROXIES, "timeout": 25} if PROXIES else {"timeout": 15}
         client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET, requests_params=req_params)
+        if PROXIES:
+            client.session.proxies.update(PROXIES)
+            print(f">>> CLIENT PROXY FORZADO: {client.session.proxies}")
         try:
             client.ping()
             CLIENT_ERROR = "OK"
@@ -98,7 +101,6 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
             CLIENT_ERROR = f"PING FALLO: {ping_e}"
     except Exception as e:
         CLIENT_ERROR = str(e)
-
 BALANCE_INICIAL = REAL_BALANCE_USDT
 BALANCE_BTC_INICIAL = REAL_BALANCE_USDT / 2
 BALANCE_BNB_INICIAL = REAL_BALANCE_USDT / 2
