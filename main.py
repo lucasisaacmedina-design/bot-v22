@@ -247,7 +247,7 @@ def motor_v32():
                 u["modo"] = modo_elegido
                 u["mercado"] = f"{config['desc']} ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%"
                 ahora = ahora_art()
-                real_tag = "REAL" if client else "DEMO"
+                real_tag = "REAL" 
                 web_link = f"{WEB_URL}/?symbol={activo}"
                 linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
                 u["historial"].append(linea)
