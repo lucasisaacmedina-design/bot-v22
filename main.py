@@ -27,7 +27,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- V36 CEREBRO - FIX SALTO DE LINEA RENDER - UNICA CORRECCION ---
+# --- V36.1 FIX PROXY REAL - UNICA CORRECCION COMPLETA ---
 def clean_key(v):
     if not v: return ""
     return "".join(str(v).split())
@@ -37,16 +37,38 @@ BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BIN
 IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() == "true"
 WEB_URL_RAW = os.getenv("WEB_URL", "https://bot-v22.onrender.com")
 WEB_URL = WEB_URL_RAW.strip().replace("tu-web.onrender.com", "bot-v22.onrender.com").rstrip("/")
-PROXY_URL = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
+
+PROXY_URL_RAW = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy") or ""
+PROXY_URL = "".join(PROXY_URL_RAW.split()).strip()
+
 if PROXY_URL:
-    PROXY_URL = PROXY_URL.replace(" ","").replace("\n","").replace("\r","").strip()
-PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
+    os.environ["HTTP_PROXY"] = PROXY_URL
+    os.environ["HTTPS_PROXY"] = PROXY_URL
+    os.environ["http_proxy"] = PROXY_URL
+    os.environ["https_proxy"] = PROXY_URL
+    PROXIES = {"http": PROXY_URL, "https": PROXY_URL}
+    _orig_session_request = requests.Session.request
+    def _patched_request(self, method, url, **kwargs):
+        if "proxies" not in kwargs or kwargs["proxies"] is None:
+            kwargs["proxies"] = PROXIES
+        kwargs.setdefault("timeout", 25)
+        return _orig_session_request(self, method, url, **kwargs)
+    requests.Session.request = _patched_request
+    _orig_get = requests.get
+    def _patched_get(*args, **kwargs):
+        if "proxies" not in kwargs:
+            kwargs["proxies"] = PROXIES
+        kwargs.setdefault("timeout", 20)
+        return _orig_get(*args, **kwargs)
+    requests.get = _patched_get
+else:
+    PROXIES = None
+    PROXY_URL = ""
 
 client = None
 CLIENT_ERROR = "No iniciado"
 REAL_BALANCE_USDT = 153.57
 
-### FIX V35 REAL - FUNCION PARA LEER SALDO REAL ###
 def get_real_balance_binance():
     global REAL_BALANCE_USDT
     if not client:
@@ -66,7 +88,7 @@ def get_real_balance_binance():
 
 if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
     try:
-        print(f">>> V35 CEREBRO INICIANDO: KEY {BINANCE_API_KEY[:6]}... TESTNET={IS_TESTNET} PROXY={bool(PROXIES)} URL={PROXY_URL[:20] if PROXY_URL else 'SIN PROXY'}")
+        print(f">>> V35 CEREBRO INICIANDO: KEY {BINANCE_API_KEY[:6]}... TESTNET={IS_TESTNET} PROXY={bool(PROXIES)} URL={PROXY_URL[:30] if PROXY_URL else 'SIN PROXY'}")
         req_params = {"proxies": PROXIES, "timeout": 25} if PROXIES else {"timeout": 15}
         client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET, requests_params=req_params)
         try:
@@ -81,7 +103,6 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
         print(f">>> TESTNET ERROR: {e}")
         CLIENT_ERROR = str(e)
 
-### FIX V35 - BALANCE INICIAL = SALDO REAL ###
 BALANCE_INICIAL = REAL_BALANCE_USDT
 BALANCE_BTC_INICIAL = REAL_BALANCE_USDT / 2
 BALANCE_BNB_INICIAL = REAL_BALANCE_USDT / 2
@@ -112,11 +133,12 @@ def get_precio_real(symbol):
         return float(r.json()['price'])
     except:
         try:
-            url2 = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
-            r2 = requests.get(url2, timeout=8, proxies=PROXIES)
-            return float(r2.json()['price'])
+            if client:
+                t = client.get_symbol_ticker(symbol=symbol)
+                return float(t['price'])
         except:
-            return None
+            pass
+        return None
 
 def get_user_data(user_id):
     user_id = int(user_id)
@@ -263,7 +285,6 @@ def motor_v32():
 @bot.message_handler(commands=['start'])
 def start(message):
     u = get_user_data(message.chat.id)
-    ### FIX MODO REAL ###
     modo_conexion = "🟢 TESTNET REAL ESPANA" if (client and IS_TESTNET and CLIENT_ERROR=="OK") else "🔴 REAL" if client else f"🟡 DEMO ({CLIENT_ERROR[:80]})"
     texto = f"🧠 V35 CEREBRO 24/7 - ${u['capital_inicial']:.2f} BASE REAL\n{modo_conexion} | Comision 0.10% con BNB\n\n💰 Capital: ${u['capital_inicial']:.2f} (${u['capital_inicial']/2:.2f} BTC + ${u['capital_inicial']/2:.2f} BNB)\n🤖 CEREBRO elige 1: TIBURON 1D / LOBO 1H / RATA 5M\n🔥 MODO 24/7 NUNCA SE APAGA\n\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\n\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
@@ -339,7 +360,6 @@ def apagar(message):
 def reset(message):
     if int(message.chat.id) not in ADMINS_IDS:
         bot.reply_to(message, "Solo admin"); return
-    ### FIX V35 - RESET CON SALDO REAL ###
     saldo_real = get_real_balance_binance() or REAL_BALANCE_USDT
     with LOCK:
         USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": True, "balance": saldo_real, "capital_inicial": saldo_real, "balance_btc": saldo_real/2, "balance_bnb": saldo_real/2, "capital_btc": saldo_real/2, "capital_bnb": saldo_real/2, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
