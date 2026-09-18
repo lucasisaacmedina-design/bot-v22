@@ -27,7 +27,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- V36.1 FIX PROXY REAL - UNICA CORRECCION COMPLETA ---
+# --- V36.2 FIX PROXY SOLO BINANCE - CORRECCION SELECTIVA ---
 def clean_key(v):
     if not v: return ""
     return "".join(str(v).split())
@@ -44,23 +44,16 @@ PROXY_URL = "".join(PROXY_URL_RAW.split()).strip()
 if PROXY_URL:
     os.environ["HTTP_PROXY"] = PROXY_URL
     os.environ["HTTPS_PROXY"] = PROXY_URL
-    os.environ["http_proxy"] = PROXY_URL
-    os.environ["https_proxy"] = PROXY_URL
     PROXIES = {"http": PROXY_URL, "https": PROXY_URL}
     _orig_session_request = requests.Session.request
     def _patched_request(self, method, url, **kwargs):
-        if "proxies" not in kwargs or kwargs["proxies"] is None:
-            kwargs["proxies"] = PROXIES
+        url_str = str(url).lower()
+        if "binance" in url_str or "vision" in url_str:
+            if "proxies" not in kwargs or kwargs["proxies"] is None:
+                kwargs["proxies"] = PROXIES
         kwargs.setdefault("timeout", 25)
         return _orig_session_request(self, method, url, **kwargs)
     requests.Session.request = _patched_request
-    _orig_get = requests.get
-    def _patched_get(*args, **kwargs):
-        if "proxies" not in kwargs:
-            kwargs["proxies"] = PROXIES
-        kwargs.setdefault("timeout", 20)
-        return _orig_get(*args, **kwargs)
-    requests.get = _patched_get
 else:
     PROXIES = None
     PROXY_URL = ""
@@ -225,7 +218,6 @@ def motor_v32():
         if len(ESTADO["bnb_history"]) > 60: ESTADO["bnb_history"] = ESTADO["bnb_history"][-60:]
         atr_15, atr_1h, modo_elegido = calcular_atr_y_modo()
         config = ESTRATEGIAS_V32[modo_elegido]
-
         for user_id in list(USUARIOS.keys()):
             with LOCK:
                 u = USUARIOS[user_id]
@@ -238,7 +230,6 @@ def motor_v32():
                         diff = (ahora_art() - ultima).total_seconds()
                         if diff < config["cooldown_min"]*60: continue
                     except: pass
-
                 activo = random.choice(["BTC", "BNB"])
                 es_ganada = random.random() < config["winrate"]
                 pct = config["tp_neto"] if es_ganada else config["sl_neto"]
@@ -271,7 +262,6 @@ def motor_v32():
                 linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
                 u["historial"].append(linea)
                 if len(u["historial"]) > 200: u["historial"] = u["historial"][-200:]
-
             if es_ganada or u["ops_hoy"] % 5 == 0:
                 try:
                     msg = f"🧠 V35 CEREBRO {modo_elegido} {activo} {tipo}\n💰 {monto_neto:+.2f}$ Neto | Balance ${u['balance']:.2f}\n📊 ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%\n🌐 {web_link}"
