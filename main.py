@@ -14,7 +14,6 @@ try:
 except:
     import pytz
     TZ = pytz.timezone('America/Argentina/Buenos_Aires')
-
 try:
     from binance.client import Client
     BINANCE_LIB = True
@@ -253,11 +252,9 @@ def motor_v32():
                 linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
                 u["historial"].append(linea)
                 if len(u["historial"]) > 200: u["historial"] = u["historial"][-200:]
-                # FIX VISUAL LOBO 18/09 - NO TOCA TRADING
                 balance_total_real_visual = round(u["balance_btc"] + u["balance_bnb"], 2)
             if es_ganada or u["ops_hoy"] % 5 == 0:
                 try:
-                    # FIX VISUAL LOBO - muestra suma de cajas
                     msg = f"🧠 V35 CEREBRO {modo_elegido} {activo} {tipo}\n💰 {monto_neto:+.2f}$ Neto | Balance ${balance_total_real_visual:.2f} REAL\n📊 ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%\n🌐 {web_link}"
                     bot.send_message(user_id, msg, disable_web_page_preview=True)
                 except: pass
@@ -285,16 +282,7 @@ def prender(message):
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
 def balance(message):
     u = get_user_data(message.chat.id)
-    # FIX VISUAL LOBO 18/09 - NO TOCA TRADING - Actual = BTC+BNB
-    real = get_real_balance_binance()
-    if real:
-        with LOCK:
-            total_boxes = u["balance_btc"] + u["balance_bnb"]
-            if total_boxes > 0:
-                factor = real / total_boxes
-                u["balance_btc"] = round(u["balance_btc"] * factor, 2)
-                u["balance_bnb"] = round(u["balance_bnb"] * factor, 2)
-            u["balance"] = round(u["balance_btc"] + u["balance_bnb"], 2)
+    # FIX FINAL IMPECABLE - NO PISA CON BINANCE TESTNET
     balance_real_total = round(u["balance_btc"] + u["balance_bnb"], 2)
     with LOCK:
         u["balance"] = balance_real_total
@@ -369,7 +357,6 @@ def api_data():
     with LOCK:
         a = USUARIOS[target].copy()
         a["estrategias"] = {k: v.copy() for k,v in USUARIOS[target]["estrategias"].items()}
-    # FIX VISUAL LOBO 18/09 - NO TOCA TRADING
     balance_real_total = round(a["balance_btc"] + a["balance_bnb"], 2)
     a["balance"] = balance_real_total
     win = round((a["ganadas"]/(a["ganadas"]+a["perdidas"])*100) if (a["ganadas"]+a["perdidas"]) else 0)
