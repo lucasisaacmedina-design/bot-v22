@@ -20,15 +20,16 @@ try:
 except:
     BINANCE_LIB = False
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise Exception("Falta BOT_TOKEN en Render")
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 def clean_key(v):
-    if not v: return ""
-    return "".join(str(v).split())
+    if not v:
+        return ""
+    return str(v).strip().replace('"','').replace("'","").replace("\n","").replace("\r","").strip()
 
 BINANCE_API_KEY = clean_key(os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_TESTNET_API_KEY"))
 BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET"))
@@ -36,25 +37,34 @@ IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() ==
 WEB_URL_RAW = os.getenv("WEB_URL", "https://bot-v22.onrender.com")
 WEB_URL = WEB_URL_RAW.strip().replace("tu-web.onrender.com", "bot-v22.onrender.com").rstrip("/")
 
-PROXY_URL_RAW = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy") or ""
-PROXY_URL = "".join(PROXY_URL_RAW.split()).strip()
+PROXY_URL_RAW = (
+    os.getenv("PROXY_URL") or
+    os.getenv("HTTPS_PROXY") or
+    os.getenv("HTTP_PROXY") or
+    os.getenv("https_proxy") or
+    os.getenv("http_proxy") or ""
+)
+PROXY_URL = clean_key(PROXY_URL_RAW)
 
 if PROXY_URL:
+    if not PROXY_URL.startswith("http"):
+        PROXY_URL = "http://" + PROXY_URL
     os.environ["HTTP_PROXY"] = PROXY_URL
     os.environ["HTTPS_PROXY"] = PROXY_URL
     PROXIES = {"http": PROXY_URL, "https": PROXY_URL}
+    print(f">>> PROXY CARGADO OK: {PROXY_URL[:30]}...")
     _orig_session_request = requests.Session.request
     def _patched_request(self, method, url, **kwargs):
         url_str = str(url).lower()
         if "binance" in url_str or "vision" in url_str:
-            if "proxies" not in kwargs or kwargs["proxies"] is None:
-                kwargs["proxies"] = PROXIES
+            kwargs["proxies"] = PROXIES
         kwargs.setdefault("timeout", 25)
         return _orig_session_request(self, method, url, **kwargs)
     requests.Session.request = _patched_request
 else:
     PROXIES = None
     PROXY_URL = ""
+    print(">>> SIN PROXY - VA A DAR RESTRICTED LOCATION")
 
 client = None
 CLIENT_ERROR = "No iniciado"
@@ -247,7 +257,7 @@ def motor_v32():
                 u["modo"] = modo_elegido
                 u["mercado"] = f"{config['desc']} ATR15 {atr_15:.2f}% 1H {atr_1h:.2f}%"
                 ahora = ahora_art()
-                real_tag = "REAL" 
+                real_tag = "REAL"
                 web_link = f"{WEB_URL}/?symbol={activo}"
                 linea = f"{ahora.strftime('%H:%M:%S')} {activo} {modo_elegido} {tipo} [{real_tag}] (Bruto {bruto:+.2f}% - Com {COMISION_TOTAL}% = Neto {monto_neto:+.2f}$)"
                 u["historial"].append(linea)
@@ -282,7 +292,6 @@ def prender(message):
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
 def balance(message):
     u = get_user_data(message.chat.id)
-    # FIX FINAL IMPECABLE - NO PISA CON BINANCE TESTNET
     balance_real_total = round(u["balance_btc"] + u["balance_bnb"], 2)
     with LOCK:
         u["balance"] = balance_real_total
