@@ -27,7 +27,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# --- V32 FINAL ESPANA 64.137.96.74 - NO TOCAR - BLINDADO ANTI-DEMO ---
+# --- V33 24/7 AUTO-ON - BINANCE TESTNET REAL - NO SE APAGA NUNCA ---
 def clean_key(v):
     if not v: return v
     return v.replace("\n","").replace("\r","").replace(" ","").strip()
@@ -100,11 +100,17 @@ def get_precio_real(symbol):
             return float(r2.json()['price'])
         except:
             return None
+
+# V33 - SIEMPRE PRENDIDO
 def get_user_data(user_id):
     user_id = int(user_id)
     if user_id not in USUARIOS:
-        USUARIOS[user_id] = {"user_id": user_id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
+        USUARIOS[user_id] = {"user_id": user_id, "prendido": True, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
+    else:
+        # V33 FIX: si ya existia, forzamos prendido 24/7
+        USUARIOS[user_id]["prendido"] = True
     return USUARIOS[user_id]
+
 def calcular_winrate(u):
     total = u["ganadas"] + u["perdidas"]
     return round((u["ganadas"]/total)*100) if total else 0
@@ -139,17 +145,28 @@ def guardar_datos():
             with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(USUARIOS, f)
     except: pass
+
 def cargar_datos():
     try:
         if not os.path.exists(DATA_FILE): return
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             for k,v in data.items():
+                v["prendido"] = True # V33 FORZADO 24/7
                 USUARIOS[int(k)] = v
-    except: pass
+        print(">>> V33 DATOS CARGADOS Y FORZADOS A PRENDIDO 24/7 <<<")
+    except Exception as e:
+        print(f"Error cargando datos: {e}")
+        pass
+
 cargar_datos()
+# V33 AUTO-PRENDIDO AL INICIAR - CLAVE PARA 24/7
+for uid in list(USUARIOS.keys()):
+    USUARIOS[uid]["prendido"] = True
+print(">>> V33 24/7 AUTO-ON ACTIVADO - BOT PRENDIDO PERMANENTE <<<")
+
 def motor_v32():
-    print("### V32 MULTI-HORIZONTE $150 MOTOR ESPANA ###")
+    print("### V33 24/7 MULTI-HORIZONTE $150 MOTOR ESPANA - NUNCA SE APAGA ###")
     contador = 0
     while True:
         time.sleep(60)
@@ -166,7 +183,8 @@ def motor_v32():
         atr_15, atr_1h, modo_elegido = calcular_atr_y_modo()
         config = ESTRATEGIAS_V32[modo_elegido]
         for user_id, u in list(USUARIOS.items()):
-            if not u["prendido"]: continue
+            if not u["prendido"]:
+                u["prendido"] = True # V33 SAFETY - SIEMPRE PRENDIDO
             if u["estrategias"][modo_elegido]["ops"] >= config["max_dia"]: continue
             if u["ultima_op"]:
                 try:
@@ -208,7 +226,7 @@ def motor_v32():
             if len(u["historial"]) > 200: u["historial"] = u["historial"][-200:]
             if es_ganada or u["ops_hoy"] % 5 == 0:
                 try:
-                    msg = f"🐺 V32 {modo_elegido} {activo} {tipo}\n💰 {monto_neto:+.2f}$ Neto | Balance ${u['balance']:.2f}\n📊 {config['desc']}\n🌐 Dashboard: {web_link}"
+                    msg = f"🐺 V33 24/7 {modo_elegido} {activo} {tipo}\n💰 {monto_neto:+.2f}$ Neto | Balance ${u['balance']:.2f}\n📊 {config['desc']}\n🌐 Dashboard: {web_link}"
                     bot.send_message(user_id, msg, disable_web_page_preview=True)
                 except: pass
         contador+=1
@@ -220,7 +238,7 @@ def motor_v32():
 def start(message):
     u = get_user_data(message.chat.id)
     modo_conexion = "🟢 TESTNET REAL ESPANA" if (client and IS_TESTNET) else "🔴 REAL" if client else f"🟡 DEMO ({CLIENT_ERROR[:80]})"
-    texto = f"🐺 V32 MULTI-HORIZONTE - $150 BASE\n{modo_conexion} | Comision 0.10% con BNB\n\n💰 Capital: $150 ($75 BTC + $75 BNB)\n🤖 RATA 5M / LOBO 1H / TIBURON 1D\n\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\n\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
+    texto = f"🐺 V33 24/7 AUTO-ON - $150 BASE\n{modo_conexion} | Comision 0.10% con BNB\n\n💰 Capital: $150 ($75 BTC + $75 BNB)\n🤖 RATA 5M / LOBO 1H / TIBURON 1D\n🔥 MODO 24/7 NUNCA SE APAGA\n\nATR 15M: {ESTADO['atr_actual']:.2f}% | 1H: {ESTADO['atr_1h']:.2f}%\nModo: {u['modo']} - {u['mercado']}\nBalance: ${u['balance']:.2f}\nBTC: ${ESTADO['btc']} | BNB: ${ESTADO['bnb']}\n\nWeb: {WEB_URL}\nTu ID: {message.chat.id}"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER", "/prender"])
@@ -230,7 +248,7 @@ def prender(message):
     guardar_datos()
     atr_15, atr_1h, modo = calcular_atr_y_modo()
     modo_conexion = "TESTNET REAL ESPANA" if (client and IS_TESTNET) else "REAL" if client else f"DEMO ({CLIENT_ERROR[:60]})"
-    bot.send_message(message.chat.id, f"🚀 V32 PRENDIDO $150 - {modo_conexion}\n\n💰 Balance: ${u['balance']:.2f} ($75 BTC + $75 BNB)\n📊 ATR 15M: {atr_15:.2f}% | 1H: {atr_1h:.2f}% -> {modo}\n🎯 {ESTRATEGIAS_V32[modo]['desc']}\nTP Neto: +{ESTRATEGIAS_V32[modo]['tp_neto']}% | SL Neto: {ESTRATEGIAS_V32[modo]['sl_neto']}%\n🌐 Web: {WEB_URL}", reply_markup=get_menu_v32(), disable_web_page_preview=True)
+    bot.send_message(message.chat.id, f"🚀 V33 24/7 PRENDIDO $150 - {modo_conexion}\n\n💰 Balance: ${u['balance']:.2f} ($75 BTC + $75 BNB)\n📊 ATR 15M: {atr_15:.2f}% | 1H: {atr_1h:.2f}% -> {modo}\n🎯 {ESTRATEGIAS_V32[modo]['desc']}\nTP Neto: +{ESTRATEGIAS_V32[modo]['tp_neto']}% | SL Neto: {ESTRATEGIAS_V32[modo]['sl_neto']}%\n🔥 24/7 AUTO-ON ACTIVO\n🌐 Web: {WEB_URL}", reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
 def balance(message):
@@ -238,14 +256,14 @@ def balance(message):
     win = calcular_winrate(u)
     gan_total = u["balance"] - u["capital_inicial"]
     modo_conexion = "TESTNET REAL ESPANA" if (client and IS_TESTNET) else "REAL" if client else f"DEMO ({CLIENT_ERROR[:60]})"
-    texto = f"💰 V32 $150 - {modo_conexion}\n\n💵 Inicial: ${u['capital_inicial']:.2f}\n💰 Actual: ${u['balance']:.2f}\n📈 Total NETO: ${gan_total:+.2f}\n📈 Hoy NETO: ${u['neto_hoy']:+.2f}\n\n₿ BTC: ${u['balance_btc']:.2f} | Hoy {u['neto_hoy_btc']:+.2f}\n🔶 BNB: ${u['balance_bnb']:.2f} | Hoy {u['neto_hoy_bnb']:+.2f}\n\n🎯 Winrate: {win}%\n⚙️ {u['modo']} - {u['mercado']}\n\n🤖 V32 Hoy:\n🐀 RATA 50%: {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}\n🐺 LOBO 35%: {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}\n🦈 TIBURON 15%: {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}\n\n🌐 {WEB_URL}\n"
+    texto = f"💰 V33 24/7 $150 - {modo_conexion}\n\n💵 Inicial: ${u['capital_inicial']:.2f}\n💰 Actual: ${u['balance']:.2f}\n📈 Total NETO: ${gan_total:+.2f}\n📈 Hoy NETO: ${u['neto_hoy']:+.2f}\n\n₿ BTC: ${u['balance_btc']:.2f} | Hoy {u['neto_hoy_btc']:+.2f}\n🔶 BNB: ${u['balance_bnb']:.2f} | Hoy {u['neto_hoy_bnb']:+.2f}\n\n🎯 Winrate: {win}%\n⚙️ {u['modo']} - {u['mercado']}\n🔥 24/7 PRENDIDO\n\n🤖 V33 Hoy:\n🐀 RATA 50%: {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}\n🐺 LOBO 35%: {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}\n🦈 TIBURON 15%: {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}\n\n🌐 {WEB_URL}\n"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
 def historial(message):
     u = get_user_data(message.chat.id)
     ultimos = u["historial"][-20:] if u["historial"] else ["Sin ops aun"]
-    txt = f"📜 V32 HISTORIAL NETO 0.10%\n\n" + "\n".join(ultimos) + f"\n\n🌐 {WEB_URL}"
+    txt = f"📜 V33 24/7 HISTORIAL NETO 0.10%\n\n" + "\n".join(ultimos) + f"\n\n🌐 {WEB_URL}"
     bot.send_message(message.chat.id, txt, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["💸 RETIRAR", "/retirar"])
@@ -256,7 +274,7 @@ def retirar(message):
     bloqueado = round(u["balance"] - disponible, 2)
     fee = round(disponible * 0.001, 2)
     neto_recibir = round(disponible - fee, 2)
-    texto = f"💸 RETIRAR V32 - $150 BASE\n\n💰 Balance: ${u['balance']:.2f}\n📈 Ganancia: ${gan:+.2f}\n\n✅ Disponible: ${disponible:.2f}\n🔒 En trades: ${bloqueado:.2f}\nFee 0.10%: -${fee:.2f}\nRecibís: ${neto_recibir:.2f}\n\n🌐 {WEB_URL}"
+    texto = f"💸 RETIRAR V33 - $150 BASE\n\n💰 Balance: ${u['balance']:.2f}\n📈 Ganancia: ${gan:+.2f}\n\n✅ Disponible: ${disponible:.2f}\n🔒 En trades: ${bloqueado:.2f}\nFee 0.10%: -${fee:.2f}\nRecibís: ${neto_recibir:.2f}\n\n🌐 {WEB_URL}"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_retiro(), disable_web_page_preview=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("retirar_"))
@@ -284,17 +302,17 @@ def apagar(message):
     u = get_user_data(message.chat.id)
     u["prendido"] = False
     guardar_datos()
-    bot.send_message(message.chat.id, f"🔴 BOT APAGADO - Balance ${u['balance']:.2f}", reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, f"🔴 BOT APAGADO - Balance ${u['balance']:.2f}\n⚠️ V33 lo volverá a prender solo en 60s (24/7)", reply_markup=get_menu_v32())
 
 @bot.message_handler(commands=['reset'])
 def reset(message):
     if int(message.chat.id) not in ADMINS_IDS:
         bot.reply_to(message, "Solo admin"); return
-    USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": False, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
+    USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": True, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
     guardar_datos()
-    bot.send_message(message.chat.id, "🔄 RESET V32 $150 OK", reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, "🔄 RESET V33 $150 24/7 OK", reply_markup=get_menu_v32())
 
-HTML_V32 = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V32 ESPANA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:15px;border-bottom:2px solid #00ffea}.kpi{display:inline-block;background:#1e222d;padding:10px 14px;border-radius:10px;margin:5px;font-size:13px;border:1px solid #2a2e39;min-width:120px;text-align:center}#chart_btc{height:45vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}#chart_bnb{height:35vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}</style></head><body><div class="header"><b>V32 $150 ESPANA REAL - RATA 5M / LOBO 1H / TIBURON 1D</b><div id="admin">Cargando...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"60","theme":"dark","container_id":"chart_bnb"});async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('admin').innerHTML=`<span class="kpi total">💵 Inicial $${a.capital_inicial.toFixed(2)}</span><span class="kpi total">💰 Actual $${a.balance.toFixed(2)}</span><span class="kpi total">📈 Hoy $${a.neto_hoy.toFixed(2)}</span><br><span class="kpi">🐀 RATA ${a.estrategias.RATA.ops} $${a.estrategias.RATA.neto.toFixed(2)}</span><span class="kpi">🐺 LOBO ${a.estrategias.LOBO.ops} $${a.estrategias.LOBO.neto.toFixed(2)}</span><span class="kpi">🦈 TIBURON ${a.estrategias.TIBURON.ops} $${a.estrategias.TIBURON.neto.toFixed(2)}</span>`;}setInterval(load,2500);load();</script></body></html>"""
+HTML_V32 = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V33 24/7 ESPANA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:15px;border-bottom:2px solid #00ffea}.kpi{display:inline-block;background:#1e222d;padding:10px 14px;border-radius:10px;margin:5px;font-size:13px;border:1px solid #2a2e39;min-width:120px;text-align:center}#chart_btc{height:45vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}#chart_bnb{height:35vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}</style></head><body><div class="header"><b>V33 $150 ESPANA 24/7 - RATA 5M / LOBO 1H / TIBURON 1D - NUNCA SE APAGA</b><div id="admin">Cargando...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"60","theme":"dark","container_id":"chart_bnb"});async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('admin').innerHTML=`<span class="kpi total">💵 Inicial $${a.capital_inicial.toFixed(2)}</span><span class="kpi total">💰 Actual $${a.balance.toFixed(2)}</span><span class="kpi total">📈 Hoy $${a.neto_hoy.toFixed(2)}</span><br><span class="kpi">🐀 RATA ${a.estrategias.RATA.ops} $${a.estrategias.RATA.neto.toFixed(2)}</span><span class="kpi">🐺 LOBO ${a.estrategias.LOBO.ops} $${a.estrategias.LOBO.neto.toFixed(2)}</span><span class="kpi">🦈 TIBURON ${a.estrategias.TIBURON.ops} $${a.estrategias.TIBURON.neto.toFixed(2)}</span>`;}setInterval(load,2500);load();</script></body></html>"""
 @app.route('/')
 def home(): return render_template_string(HTML_V32)
 @app.route('/api/data')
@@ -315,7 +333,7 @@ def run_bot():
         print(f"Error borrando webhook: {e}")
     while True:
         try:
-            print(">>> Polling iniciado ESPANA")
+            print(">>> Polling iniciado ESPANA V33 24/7")
             bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=30)
         except Exception as e:
             err = str(e)
