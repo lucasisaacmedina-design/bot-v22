@@ -58,7 +58,7 @@ else:
 
 client = None
 CLIENT_ERROR = "No iniciado"
-REAL_BALANCE_USDT = 153.57
+REAL_BALANCE_USDT = 10000.00
 
 def get_real_balance_binance():
     global REAL_BALANCE_USDT
