@@ -37,7 +37,6 @@ IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() ==
 WEB_URL_RAW = os.getenv("WEB_URL", "https://bot-v22.onrender.com")
 WEB_URL = WEB_URL_RAW.strip().replace("tu-web.onrender.com", "bot-v22.onrender.com").rstrip("/")
 
-# ====== NUEVO SISTEMA DE PROXY ROTATIVO ======
 PROXY_LIST_RAW = (
     os.getenv("PROXY_LIST") or
     os.getenv("PROXY_URL") or
@@ -129,7 +128,6 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
         client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, testnet=IS_TESTNET, requests_params=req_params)
         if PROXIES:
             client.session.proxies.update(PROXIES)
-            print(f">>> CLIENT PROXY FORZADO: {client.session.proxies}")
         try:
             client.ping()
             client.get_account()
@@ -138,10 +136,8 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
             print(f">>> BINANCE OK - SALDO {REAL_BALANCE_USDT}")
         except Exception as ping_e:
             CLIENT_ERROR = f"PING FALLO: {ping_e}"
-            print(f">>> {CLIENT_ERROR}")
     except Exception as e:
         CLIENT_ERROR = str(e)
-        print(f">>> ERROR CREANDO CLIENT: {CLIENT_ERROR}")
 
 BALANCE_INICIAL = REAL_BALANCE_USDT
 BALANCE_BTC_INICIAL = REAL_BALANCE_USDT / 2
@@ -153,9 +149,9 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 COMISION_TOTAL = 0.10
 ESTRATEGIAS_V32 = {
-    "RATA": {"tf": "5M", "alloc": 0.50, "tp_neto": 0.45, "sl_neto": -0.50, "winrate": 0.72, "max_dia": 30, "cooldown_min": 4, "desc": "RATA 5M - Bollinger+RSI7+Vol"},
-    "LOBO": {"tf": "1H", "alloc": 0.35, "tp_neto": 2.35, "sl_neto": -1.35, "winrate": 0.55, "max_dia": 6, "cooldown_min": 15, "desc": "LOBO 1H - EMA20+ADX+MACD"},
-    "TIBURON": {"tf": "1D", "alloc": 0.15, "tp_neto": 10.0, "sl_neto": -3.65, "winrate": 0.45, "max_dia": 2, "cooldown_min": 60, "desc": "TIBURON 1D - GoldenCross"}
+    "RATA": {"tf": "5M", "alloc": 0.50, "tp_neto": 0.45, "sl_neto": -0.50, "winrate": 0.72, "max_dia": 9999, "cooldown_min": 4, "desc": "RATA 5M - Bollinger+RSI7+Vol"},
+    "LOBO": {"tf": "1H", "alloc": 0.35, "tp_neto": 2.35, "sl_neto": -1.35, "winrate": 0.55, "max_dia": 9999, "cooldown_min": 15, "desc": "LOBO 1H - EMA20+ADX+MACD"},
+    "TIBURON": {"tf": "1D", "alloc": 0.15, "tp_neto": 10.0, "sl_neto": -3.65, "winrate": 0.45, "max_dia": 9999, "cooldown_min": 60, "desc": "TIBURON 1D - GoldenCross"}
 }
 ESTADO = {"btc": 78287.4, "bnb": 739.68, "btc_history": [78287.4 + random.uniform(-200,200) for _ in range(60)], "bnb_history": [739.68 + random.uniform(-5,5) for _ in range(60)], "atr_actual": 0.40, "atr_1h": 0.40, "en_trade": {"RATA": 0.0, "LOBO": 0.0, "TIBURON": 0.0}}
 USUARIOS = {}
@@ -163,27 +159,27 @@ LOCK = threading.Lock()
 
 def ahora_art(): return datetime.now(TZ)
 
-def get_precio_real(symbol):
-    try:
-        url = f"https://data-api.binance.vision/api/v3/ticker/price?symbol={symbol}"
-        r = requests.get(url, timeout=8, proxies=PROXIES)
-        return float(r.json()['price'])
-    except:
-        try:
-            if client:
-                t = client.get_symbol_ticker(symbol=symbol)
-                return float(t['price'])
-        except:
-            pass
-        return None
+def check_reset_diario(u):
+    hoy_str = ahora_art().strftime("%Y-%m-%d")
+    if "fecha_hoy" not in u or u["fecha_hoy"]!= hoy_str:
+        u["fecha_hoy"] = hoy_str
+        u["neto_hoy"] = 0.0
+        u["neto_hoy_btc"] = 0.0
+        u["neto_hoy_bnb"] = 0.0
+        u["ops_hoy"] = 0
+        u["ops_hoy_btc"] = 0
+        u["ops_hoy_bnb"] = 0
+        return True
+    return False
 
 def get_user_data(user_id):
     user_id = int(user_id)
     with LOCK:
         if user_id not in USUARIOS:
-            USUARIOS[user_id] = {"user_id": user_id, "prendido": True, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
+            USUARIOS[user_id] = {"user_id": user_id, "prendido": True, "balance": BALANCE_INICIAL, "capital_inicial": BALANCE_INICIAL, "balance_btc": BALANCE_BTC_INICIAL, "balance_bnb": BALANCE_BNB_INICIAL, "capital_btc": BALANCE_BTC_INICIAL, "capital_bnb": BALANCE_BNB_INICIAL, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "fecha_hoy": ahora_art().strftime("%Y-%m-%d")}
         else:
             USUARIOS[user_id]["prendido"] = True
+            check_reset_diario(USUARIOS[user_id])
         return USUARIOS[user_id]
 
 def calcular_winrate(u):
@@ -237,6 +233,8 @@ def cargar_datos():
             with LOCK:
                 for k,v in data.items():
                     v["prendido"] = True
+                    if "fecha_hoy" not in v:
+                        v["fecha_hoy"] = ahora_art().strftime("%Y-%m-%d")
                     USUARIOS[int(k)] = v
     except Exception as e:
         print(f"Error cargando datos: {e}")
@@ -244,6 +242,22 @@ def cargar_datos():
 cargar_datos()
 for uid in list(USUARIOS.keys()):
     USUARIOS[uid]["prendido"] = True
+    if "fecha_hoy" not in USUARIOS[uid]:
+        USUARIOS[uid]["fecha_hoy"] = ahora_art().strftime("%Y-%m-%d")
+
+def get_precio_real(symbol):
+    try:
+        url = f"https://data-api.binance.vision/api/v3/ticker/price?symbol={symbol}"
+        r = requests.get(url, timeout=8, proxies=PROXIES)
+        return float(r.json()['price'])
+    except:
+        try:
+            if client:
+                t = client.get_symbol_ticker(symbol=symbol)
+                return float(t['price'])
+        except:
+            pass
+        return None
 
 def motor_v32():
     contador = 0
@@ -262,9 +276,10 @@ def motor_v32():
         for user_id in list(USUARIOS.keys()):
             with LOCK:
                 u = USUARIOS[user_id]
+                check_reset_diario(u)
                 if not u["prendido"]:
                     u["prendido"] = True
-                if u["estrategias"][modo_elegido]["ops"] >= config["max_dia"]: continue
+                # SIN TOPE - SE ELIMINO EL CHECK DE max_dia
                 if u["ultima_op"]:
                     try:
                         ultima = datetime.fromisoformat(u["ultima_op"])
@@ -334,13 +349,14 @@ def prender(message):
 @bot.message_handler(func=lambda m: m.text in ["📊 BALANCE", "/balance"])
 def balance(message):
     u = get_user_data(message.chat.id)
+    check_reset_diario(u)
     balance_real_total = round(u["balance_btc"] + u["balance_bnb"], 2)
     with LOCK:
         u["balance"] = balance_real_total
     win = calcular_winrate(u)
     gan_total = balance_real_total - u["capital_inicial"]
     modo_conexion = "🟢 TESTNET REAL ESPANA" if (client and IS_TESTNET and CLIENT_ERROR=="OK") else "REAL" if client else f"DEMO ({CLIENT_ERROR[:60]})"
-    texto = f"💰 V35 CEREBRO 24/7 ${u['capital_inicial']:.2f} - {modo_conexion}\n\n💵 Inicial: ${u['capital_inicial']:.2f}\n💰 Actual: ${balance_real_total:.2f} REAL\n📈 Total NETO: ${gan_total:+.2f}\n📈 Hoy NETO: ${u['neto_hoy']:+.2f}\n\n₿ BTC: ${u['balance_btc']:.2f} | Hoy {u['neto_hoy_btc']:+.2f}\n🔶 BNB: ${u['balance_bnb']:.2f} | Hoy {u['neto_hoy_bnb']:+.2f}\n\n🎯 Winrate: {win}%\n🧠 {u['modo']} - {u['mercado']}\n\n🤖 V35 Hoy:\n🐀 RATA 50%: {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}\n🐺 LOBO 35%: {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}\n🦈 TIBURON 15%: {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}\n\n🌐 {WEB_URL}\n"
+    texto = f"💰 V36.3 SIN TOPE 24/7 ${u['capital_inicial']:.2f} - {modo_conexion}\n\n💵 Inicial: ${u['capital_inicial']:.2f}\n💰 Actual: ${balance_real_total:.2f} REAL\n📈 Total NETO: ${gan_total:+.2f} (Actual - Inicial)\n📈 Hoy NETO: ${u['neto_hoy']:+.2f} (se resetea 00:00)\n\n₿ BTC: ${u['balance_btc']:.2f} | Hoy {u['neto_hoy_btc']:+.2f}\n🔶 BNB: ${u['balance_bnb']:.2f} | Hoy {u['neto_hoy_bnb']:+.2f}\n\n🎯 Winrate: {win}%\n🧠 {u['modo']} - {u['mercado']}\n\n🤖 V36.3 Hoy:\n🐀 RATA 50%: {u['estrategias']['RATA']['ops']} ops | ${u['estrategias']['RATA']['neto']:+.2f}\n🐺 LOBO 35%: {u['estrategias']['LOBO']['ops']} ops | ${u['estrategias']['LOBO']['neto']:+.2f}\n🦈 TIBURON 15%: {u['estrategias']['TIBURON']['ops']} ops | ${u['estrategias']['TIBURON']['neto']:+.2f}\n\n🌐 {WEB_URL}\n"
     bot.send_message(message.chat.id, texto, reply_markup=get_menu_v32(), disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda m: m.text in ["📜 HISTORIAL", "/historial"])
@@ -394,11 +410,11 @@ def reset(message):
         bot.reply_to(message, "Solo admin"); return
     saldo_real = get_real_balance_binance() or REAL_BALANCE_USDT
     with LOCK:
-        USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": True, "balance": saldo_real, "capital_inicial": saldo_real, "balance_btc": saldo_real/2, "balance_bnb": saldo_real/2, "capital_btc": saldo_real/2, "capital_bnb": saldo_real/2, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}},}
+        USUARIOS[message.chat.id] = {"user_id": message.chat.id, "prendido": True, "balance": saldo_real, "capital_inicial": saldo_real, "balance_btc": saldo_real/2, "balance_bnb": saldo_real/2, "capital_btc": saldo_real/2, "capital_bnb": saldo_real/2, "neto_hoy": 0.0, "neto_hoy_btc": 0.0, "neto_hoy_bnb": 0.0, "ops_hoy": 0, "ganadas": 0, "perdidas": 0, "ops_hoy_btc": 0, "ops_hoy_bnb": 0, "ganadas_btc": 0, "ganadas_bnb": 0, "perdidas_btc": 0, "perdidas_bnb": 0, "modo": "LOBO", "mercado": "NORMAL BTC+BNB", "pausa_hasta": None, "ultima_op": None, "historial": [], "estrategias": {"RATA": {"ops":0,"ganadas":0,"neto":0.0}, "LOBO": {"ops":0,"ganadas":0,"neto":0.0}, "TIBURON": {"ops":0,"ganadas":0,"neto":0.0}}, "fecha_hoy": ahora_art().strftime("%Y-%m-%d")}
     guardar_datos()
-    bot.send_message(message.chat.id, f"🔄 RESET V35 REAL ${saldo_real:.2f} 24/7 OK", reply_markup=get_menu_v32())
+    bot.send_message(message.chat.id, f"🔄 RESET V36.3 SIN TOPE REAL ${saldo_real:.2f} 24/7 OK", reply_markup=get_menu_v32())
 
-HTML_V32 = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V35 CEREBRO REAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:15px;border-bottom:2px solid #00ffea}.kpi{display:inline-block;background:#1e222d;padding:10px 14px;border-radius:10px;margin:5px;font-size:13px;border:1px solid #2a2e39;min-width:120px;text-align:center}#chart_btc{height:45vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}#chart_bnb{height:35vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}</style></head><body><div class="header"><b>V35 CEREBRO REAL - RATA 5M / LOBO 1H / TIBURON 1D - IMPECABLE</b><div id="admin">Cargando...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"60","theme":"dark","container_id":"chart_bnb"});async function load(){let a=await (await fetch('/api/data')).json();let total_real = (a.balance_btc + a.balance_bnb);document.getElementById('admin').innerHTML=`<span class="kpi total">💵 Inicial $${a.capital_inicial.toFixed(2)}</span><span class="kpi total">💰 Actual $${total_real.toFixed(2)} REAL</span><span class="kpi total">📈 Hoy $${a.neto_hoy.toFixed(2)}</span><br><span class="kpi">🐀 RATA ${a.estrategias.RATA.ops} $${a.estrategias.RATA.neto.toFixed(2)}</span><span class="kpi">🐺 LOBO ${a.estrategias.LOBO.ops} $${a.estrategias.LOBO.neto.toFixed(2)}</span><span class="kpi">🦈 TIBURON ${a.estrategias.TIBURON.ops} $${a.estrategias.TIBURON.neto.toFixed(2)}</span>`;}setInterval(load,2500);load();</script></body></html>"""
+HTML_V32 = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>V35 CEREBRO REAL</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.header{background:#1e222d;padding:15px;border-bottom:2px solid #00ffea}.kpi{display:inline-block;background:#1e222d;padding:10px 14px;border-radius:10px;margin:5px;font-size:13px;border:1px solid #2a2e39;min-width:120px;text-align:center}#chart_btc{height:45vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}#chart_bnb{height:35vh;margin:10px;border-radius:12px;overflow:hidden;border:1px solid #2a2e39}</style></head><body><div class="header"><b>V36.3 SIN TOPE REAL - RATA 5M / LOBO 1H / TIBURON 1D</b><div id="admin">Cargando...</div></div><div id="chart_btc"></div><div id="chart_bnb"></div><script>new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"5","theme":"dark","container_id":"chart_btc"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"60","theme":"dark","container_id":"chart_bnb"});async function load(){let a=await (await fetch('/api/data')).json();let total_real = (a.balance_btc + a.balance_bnb);document.getElementById('admin').innerHTML=`<span class="kpi total">💵 Inicial $${a.capital_inicial.toFixed(2)}</span><span class="kpi total">💰 Actual $${total_real.toFixed(2)} REAL</span><span class="kpi total">📈 Hoy $${a.neto_hoy.toFixed(2)}</span><br><span class="kpi">🐀 RATA ${a.estrategias.RATA.ops} $${a.estrategias.RATA.neto.toFixed(2)}</span><span class="kpi">🐺 LOBO ${a.estrategias.LOBO.ops} $${a.estrategias.LOBO.neto.toFixed(2)}</span><span class="kpi">🦈 TIBURON ${a.estrategias.TIBURON.ops} $${a.estrategias.TIBURON.neto.toFixed(2)}</span>`;}setInterval(load,2500);load();</script></body></html>"""
 @app.route('/')
 def home(): return render_template_string(HTML_V32)
 @app.route('/api/data')
@@ -408,6 +424,7 @@ def api_data():
     with LOCK:
         a = USUARIOS[target].copy()
         a["estrategias"] = {k: v.copy() for k,v in USUARIOS[target]["estrategias"].items()}
+        check_reset_diario(USUARIOS[target])
     balance_real_total = round(a["balance_btc"] + a["balance_bnb"], 2)
     a["balance"] = balance_real_total
     win = round((a["ganadas"]/(a["ganadas"]+a["perdidas"])*100) if (a["ganadas"]+a["perdidas"]) else 0)
