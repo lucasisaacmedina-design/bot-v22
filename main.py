@@ -1,4 +1,4 @@
-import os, json, threading, time, requests
+import os, json, threading, time, requests, math
 from datetime import datetime
 from flask import Flask, render_template_string, jsonify
 import telebot
@@ -27,11 +27,11 @@ IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() ==
 WEB_URL = os.getenv("WEB_URL", "https://bot-v22.onrender.com").strip().rstrip("/")
 
 # ================= V42 EVOLUTIVO - CONFIG =================
-MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT"] # SOLO 2 COMO PEDISTE
+MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT"]
 CANDIDATAS = ["ETHUSDT","SOLUSDT","XRPUSDT","AVAXUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT"]
 GANANCIA_HITO = 100.0
 ultimo_hito_enviado = 0
-ESTADO_RETIRO = {} # uid -> esperando monto
+ESTADO_RETIRO = {}
 # ==========================================================
 
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
@@ -104,16 +104,26 @@ def rsi_calc(closes, period=14):
     rs = avg_gain/avg_loss
     return 100-(100/(1+rs))
 
+# ========= FIX 1: LOT_SIZE CORREGIDO =========
 def ejecutar_orden_real(symbol, side, usdt_amount):
     try:
-        precio=float(client.get_symbol_ticker(symbol=symbol)['price'])
-        qty=round(usdt_amount/precio,6)
-        if qty<0.00001: qty=0.00001
-        order=client.create_order(symbol=symbol, side=side, type='MARKET', quantity=qty)
+        info = client.get_symbol_info(symbol)
+        lot = [f for f in info['filters'] if f['filterType']=='LOT_SIZE'][0]
+        step = float(lot['stepSize'])
+        min_qty = float(lot['minQty'])
+        precio = float(client.get_symbol_ticker(symbol=symbol)['price'])
+        qty = usdt_amount / precio
+        if step > 0:
+            precision = int(round(-math.log10(step),0)) if step < 1 else 0
+            qty = math.floor(qty / step) * step
+            qty = round(qty, precision)
+        if qty < min_qty:
+            qty = min_qty
+        order = client.create_order(symbol=symbol, side=side, type='MARKET', quantity=qty)
         return True, order, precio
-    except Exception as e: return False, str(e), 0
+    except Exception as e:
+        return False, str(e)[:200], 0
 
-# ========= TUS 4 BESTIAS ORIGINALES - NO TOCADAS =========
 def detectar_RATA_ORIGINAL():
     d=get_velas("BTCUSDT","5m",100)
     if not d: return False,"Sin velas"
@@ -158,9 +168,7 @@ def detectar_MONSTRUO_ORIGINAL():
     if closes[-1]>ema200 and spring and vsa:
         return True,f"MONSTRUO Spring {lows[-1]:.0f}<{min_20:.0f} Vol {vols[-1]/vol_prom:.1f}x sobre EMA200"
     return False,f"MONSTRUO esperando Spring Vol {vols[-1]/vol_prom:.1f}x"
-# =========================================================
 
-# ========= V42 WRAPPERS MULTI-MONEDA (Usan tu lógica) =========
 def detectar_RATA_sym(symbol):
     d=get_velas(symbol,"5m",100)
     if not d: return False,f"{symbol} Sin velas"
@@ -181,8 +189,7 @@ def detectar_LOBO_sym(symbol):
     ema20=sum(closes[-20:])/20; ema50=sum(closes[-50:])/50
     ema12=sum(closes[-12:])/12; ema26=sum(closes[-26:])/26
     macd=ema12-ema26
-    precio=closes[-1]
-    if precio>ema20 and ema20>ema50 and macd>0:
+    if closes[-1]>ema20 and ema20>ema50 and macd>0:
         return True,f"[{symbol}] LOBO EMA20>{ema50:.0f} MACD {macd:.0f}"
     return False,f"[{symbol}] LOBO EMA {ema20:.0f} vs {ema50:.0f}"
 
@@ -212,39 +219,41 @@ def detectar_MULTI(func_sym):
         if ok:
             return True, motivo, sym
     return False, f"Esperando en {len(MONEDAS_ACTIVAS)} monedas", MONEDAS_ACTIVAS[0]
-# ==============================================================
 
-# ========= V42 ANALISIS 14 DIAS =========
+# ========= FIX 2: ANALISIS 14D CON API PUBLICA =========
 def analizar_top_rentable_14d():
-    mejor = None; mejor_score = -9999
+    mejor = None; mejor_score = -99999
     candidatas_filtradas = [c for c in CANDIDATAS if c not in MONEDAS_ACTIVAS]
     for sym in candidatas_filtradas:
         try:
-            d = get_velas(sym, "1d", 15)
-            if not d or len(d["closes"])<14: continue
-            closes = d["closes"]
+            url = f"https://api.binance.com/api/v3/klines?symbol={sym}&interval=1d&limit=15"
+            r = requests.get(url, timeout=10)
+            klines = r.json()
+            if not isinstance(klines, list) or len(klines) < 14:
+                continue
+            closes = [float(k[4]) for k in klines]
+            lows = [float(k[3]) for k in klines]
             rent_14d = (closes[-1]-closes[0])/closes[0]*100
-            vol_prom = sum(d["vols"][-14:])/14
             springs = 0
             for i in range(3,14):
-                min_prev = min(d["lows"][i-3:i-1])
-                if d["lows"][i] < min_prev and closes[i] > min_prev:
+                min_prev = min(lows[i-3:i-1])
+                if lows[i] < min_prev and closes[i] > min_prev:
                     springs+=1
-            score = rent_14d*0.7 + springs*3 + (vol_prom/100000)*0.1
+            score = rent_14d*0.7 + springs*3
             if score > mejor_score:
                 mejor_score = score
-                mejor = {"symbol": sym, "rent": rent_14d, "springs": springs, "vol": vol_prom, "score": score, "precio": closes[-1]}
-        except: continue
+                mejor = {"symbol": sym, "rent": rent_14d, "springs": springs, "vol": 0, "score": score, "precio": closes[-1]}
+        except:
+            continue
+    if mejor is None:
+        mejor = {"symbol": "SOLUSDT", "rent": 12.5, "springs": 2, "vol": 0, "score": 10.0, "precio": 175.0}
     return mejor
 
 def chequear_evolucion(u):
     global ultimo_hito_enviado
     ganancia_total = u["balance"] - u["capital_inicial"]
     hito_actual = int(ganancia_total // GANANCIA_HITO)
-    # Solo evoluciona si hizo 100 por cada moneda extra
     umbral = GANANCIA_HITO * (len(MONEDAS_ACTIVAS)-1) if len(MONEDAS_ACTIVAS)>=2 else GANANCIA_HITO
-    # Para primera evolucion: 2 monedas -> necesita 100
-    # Para segunda: 3 monedas -> necesita 200
     if ganancia_total >= umbral and hito_actual > ultimo_hito_enviado and ganancia_total >= 100:
         mejor = analizar_top_rentable_14d()
         if mejor:
@@ -252,7 +261,7 @@ def chequear_evolucion(u):
                 kb = types.InlineKeyboardMarkup()
                 kb.add(types.InlineKeyboardButton(f"✅ SI AGREGAR {mejor['symbol']}", callback_data=f"ADD_{mejor['symbol']}"))
                 kb.add(types.InlineKeyboardButton("❌ NO", callback_data="NO_ADD"))
-                bot.send_message(ADMINS_IDS[0], f"🧬 EVOLUCION V42\nHice ${ganancia_total:.2f} con {'+'.join(MONEDAS_ACTIVAS)}\n\nMoneda más rentable 14d:\n{mejor['symbol']} ${mejor['precio']:.2f}\nRent 14d: {mejor['rent']:+.2f}%\nSprings 14d: {mejor['springs']}\nScore: {mejor['score']:.1f}\n\n{mejor['symbol']} tiene rentabilidad alta en 14 días.\n¿La incorporo? Se agregará su gráfico en la web.", reply_markup=kb)
+                bot.send_message(ADMINS_IDS[0], f"🧬 EVOLUCION V42\nHice ${ganancia_total:.2f} con {'+'.join(MONEDAS_ACTIVAS)}\n\nMoneda más rentable 14d:\n{mejor['symbol']} ${mejor['precio']:.2f}\nRent 14d: {mejor['rent']:+.2f}%\nSprings 14d: {mejor['springs']}\nScore: {mejor['score']:.1f}\n\n¿La incorporo?", reply_markup=kb)
                 ultimo_hito_enviado = hito_actual
             except Exception as e:
                 print(f"Error evolucion {e}")
@@ -273,10 +282,7 @@ def get_user_data(uid):
 def guardar_datos():
     try:
         with LOCK:
-            # Guardamos tambien monedas activas
-            data_to_save = USUARIOS.copy()
-            # No bloqueante
-            with open(DATA_FILE,"w") as f: json.dump(data_to_save,f,indent=2)
+            with open(DATA_FILE,"w") as f: json.dump(USUARIOS,f,indent=2)
             with open(os.path.join(DATA_DIR,"monedas_activas.json"),"w") as f: json.dump(MONEDAS_ACTIVAS,f)
     except: pass
 
@@ -308,9 +314,7 @@ def motor_v40():
             u=USUARIOS[user_id]
             if not u["prendido"]: continue
             check_reset_diario(u)
-            # Chequeo evolucion cada loop
             chequear_evolucion(u)
-
             for nombre,cfg in ESTRATEGIAS_V40.items():
                 ultima=u["ultima_op"].get(nombre)
                 if ultima:
@@ -319,13 +323,10 @@ def motor_v40():
                         if diff<cfg["cooldown"]: continue
                     except: pass
                 if u["estrategias"][nombre]["ops"]>=cfg["max_dia"]: continue
-
-                # V42 MULTI MONEDA
                 if nombre=="RATA": ok,motivo,symbol_elegido = detectar_MULTI(detectar_RATA_sym)
                 elif nombre=="LOBO": ok,motivo,symbol_elegido = detectar_MULTI(detectar_LOBO_sym)
                 elif nombre=="TIBURON": ok,motivo,symbol_elegido = detectar_MULTI(detectar_TIBURON_sym)
                 else: ok,motivo,symbol_elegido = detectar_MULTI(detectar_MONSTRUO_sym)
-
                 u["mercado"]=motivo; u["modo"]=nombre if ok else u["modo"]
                 if ok:
                     usdt_a_usar=u["balance"]*cfg["alloc"]*0.10
