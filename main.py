@@ -1,4 +1,4 @@
-import os, json, threading, time, requests, numpy as np
+import os, json, threading, time, requests
 from datetime import datetime
 from flask import Flask, render_template_string, jsonify
 import telebot
@@ -63,7 +63,6 @@ DATA_DIR="/opt/render/project/src/data" if os.path.exists("/opt/render/project/s
 DATA_FILE=os.path.join(DATA_DIR,"manada_v40.json")
 os.makedirs(DATA_DIR,exist_ok=True)
 
-# --- 4 BESTIAS REALES ---
 ESTRATEGIAS_V40 = {
     "RATA": {"tf": "5m", "alloc": 0.20, "tp_neto": 0.55, "sl_neto": -0.50, "max_dia": 100, "cooldown": 4, "desc": "RATA 5M"},
     "LOBO": {"tf": "1h", "alloc": 0.25, "tp_neto": 2.35, "sl_neto": -1.35, "max_dia": 20, "cooldown": 15, "desc": "LOBO 1H"},
@@ -75,7 +74,6 @@ ESTADO={"btc":78287.4,"bnb":739.68,"btc_history":[],"bnb_history":[],"atr_actual
 USUARIOS={}; LOCK=threading.Lock()
 def ahora_art(): return datetime.now(TZ)
 
-# --- FUNCIONES REALES ---
 def get_velas(symbol="BTCUSDT", interval="5m", limit=100):
     try:
         klines=client.get_klines(symbol=symbol, interval=interval, limit=limit)
@@ -88,10 +86,15 @@ def get_velas(symbol="BTCUSDT", interval="5m", limit=100):
     except: return None
 
 def rsi_calc(closes, period=14):
-    deltas=np.diff(closes); ups=deltas.clip(min=0); downs=-deltas.clip(max=0)
-    ma_up=np.mean(ups[-period:]); ma_down=np.mean(downs[-period:])
-    if ma_down==0: return 100
-    rs=ma_up/ma_down; return 100-(100/(1+rs))
+    if len(closes) < period+1: return 50.0
+    deltas = [closes[i]-closes[i-1] for i in range(1,len(closes))]
+    gains = [d if d>0 else 0 for d in deltas[-period:]]
+    losses = [-d if d<0 else 0 for d in deltas[-period:]]
+    avg_gain = sum(gains)/period if gains else 0.01
+    avg_loss = sum(losses)/period if losses else 0.01
+    if avg_loss == 0: return 100.0
+    rs = avg_gain/avg_loss
+    return 100-(100/(1+rs))
 
 def ejecutar_orden_real(symbol, side, usdt_amount):
     try:
@@ -130,25 +133,25 @@ def cargar_datos():
     except: pass
 cargar_datos()
 
-# --- DETECTORES REALES ---
 def detectar_RATA():
     d=get_velas("BTCUSDT","5m",100)
     if not d: return False,"Sin velas"
-    closes=np.array(d["closes"]); rsi=rsi_calc(closes)
-    sma20=np.mean(closes[-20:]); std=np.std(closes[-20:])
+    closes=d["closes"]; rsi=rsi_calc(closes)
+    sma20=sum(closes[-20:])/20
+    var=sum((x-sma20)**2 for x in closes[-20:])/20
+    std=var**0.5
     lower=sma20-2*std
-    precio=closes[-1]; vol_prom=np.mean(d["vols"][-20:]); vol_actual=d["vols"][-1]
+    precio=closes[-1]; vol_prom=sum(d["vols"][-20:])/20; vol_actual=d["vols"][-1]
     if precio<=lower and rsi<35 and vol_actual>vol_prom*1.3:
         return True,f"RATA Bollinger {precio:.0f}<={lower:.0f} RSI {rsi:.0f} Vol {vol_actual/vol_prom:.1f}x"
-    return False,f"RATA esperando RSI {rsi:.0f}"
+    return False,f"RATA esperando RSI {rsi:.0f} Lower {lower:.0f}"
 
 def detectar_LOBO():
     d=get_velas("BTCUSDT","1h",100)
     if not d: return False,"Sin velas"
-    closes=np.array(d["closes"])
-    ema20=np.mean(closes[-20:]); ema50=np.mean(closes[-50:])
-    # MACD simple
-    ema12=np.mean(closes[-12:]); ema26=np.mean(closes[-26:])
+    closes=d["closes"]
+    ema20=sum(closes[-20:])/20; ema50=sum(closes[-50:])/50
+    ema12=sum(closes[-12:])/12; ema26=sum(closes[-26:])/26
     macd=ema12-ema26
     precio=closes[-1]
     if precio>ema20 and ema20>ema50 and macd>0:
@@ -158,8 +161,8 @@ def detectar_LOBO():
 def detectar_TIBURON():
     d=get_velas("BTCUSDT","1d",200)
     if not d: return False,"Sin velas"
-    closes=np.array(d["closes"])
-    ema50=np.mean(closes[-50:]); ema200=np.mean(closes[-200:])
+    closes=d["closes"]
+    ema50=sum(closes[-50:])/50; ema200=sum(closes[-200:])/200 if len(closes)>=200 else sum(closes)/len(closes)
     if ema50>ema200 and closes[-2]<=ema50 and closes[-1]>ema50:
         return True,f"TIBURON Golden Cross EMA50 {ema50:.0f}>EMA200 {ema200:.0f}"
     return False,f"TIBURON EMA50 {ema50:.0f} vs EMA200 {ema200:.0f}"
@@ -167,17 +170,16 @@ def detectar_TIBURON():
 def detectar_MONSTRUO():
     d=get_velas("BTCUSDT","15m",100)
     if not d: return False,"Sin velas"
-    closes=np.array(d["closes"]); lows=np.array(d["lows"]); vols=np.array(d["vols"])
-    ema200=np.mean(closes[-200:]) if len(closes)>=200 else np.mean(closes)
+    closes=d["closes"]; lows=d["lows"]; vols=d["vols"]
+    ema200=sum(closes[-200:])/200 if len(closes)>=200 else sum(closes)/len(closes)
     min_20=min(lows[-21:-1]); spring=lows[-1]<min_20 and closes[-1]>min_20
-    vol_prom=np.mean(vols[-21:-1]); vsa=vols[-1]>vol_prom*1.5
+    vol_prom=sum(vols[-21:-1])/20; vsa=vols[-1]>vol_prom*1.5
     if closes[-1]>ema200 and spring and vsa:
         return True,f"MONSTRUO Spring {lows[-1]:.0f}<{min_20:.0f} Vol {vols[-1]/vol_prom:.1f}x sobre EMA200"
     return False,f"MONSTRUO esperando Spring Vol {vols[-1]/vol_prom:.1f}x"
 
-# --- MOTOR AUTOMATICO 100% REAL ---
 def motor_v40():
-    print(">>> MOTOR V40 4 BESTIAS REAL AUTOMATICO INICIADO")
+    print(">>> MOTOR V40 4 BESTIAS REAL AUTOMATICO INICIADO SIN NUMPY")
     detectores={"RATA":detectar_RATA,"LOBO":detectar_LOBO,"TIBURON":detectar_TIBURON,"MONSTRUO":detectar_MONSTRUO}
     while True:
         time.sleep(60)
@@ -190,7 +192,6 @@ def motor_v40():
             if not u["prendido"]: continue
             check_reset_diario(u)
             for nombre,cfg in ESTRATEGIAS_V40.items():
-                # Cooldown
                 ultima=u["ultima_op"].get(nombre)
                 if ultima:
                     try:
@@ -217,10 +218,8 @@ def motor_v40():
                     else:
                         try: bot.send_message(user_id,f"⚠️ {nombre} vio setup pero fallo orden: {res}")
                         except: pass
-                    break # solo 1 bestia por minuto para no saturar
-        # fin for
+                    break
 
-# --- TELEGRAM Y WEB ---
 def get_menu():
     m=types.ReplyKeyboardMarkup(resize_keyboard=True); m.add("🚀 PRENDER"); m.add("📊 BALANCE","📜 HISTORIAL"); m.add("💸 RETIRAR","📦 ORDENES"); return m
 
