@@ -1,5 +1,5 @@
 pyTelegramBotAPI
 Flask
+requests
 python-binance
 pytz
-requests
