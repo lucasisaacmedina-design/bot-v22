@@ -31,7 +31,7 @@ CANDIDATAS = ["ETHUSDT","SOLUSDT","XRPUSDT","AVAXUSDT","DOGEUSDT","ADAUSDT","LIN
 ESTADO_RETIRO = {}
 EVOLUCION_PROFIT_POR_MONEDA = 100.0
 
-# ===== V44.8 - TIBURON TRAILING ESCALONADO =====
+# ===== V44.8 - TIBURON TRAILING ESCALONADO - FIX PERSISTENCIA =====
 ESTRATEGIAS_V44 = {
     "RATA": {"tf": "5m", "desc": "RATA 5M LATERAL ONLY", "rango_tp": (1.0, 1.4), "sl_neto": -0.60, "max_dia": 100, "cooldown": 5, "mercado_ideal": "LINEAL"},
     "LOBO": {"tf": "1h", "desc": "LOBO 1H", "rango_tp": (1.5, 3.5), "sl_neto": -1.20, "max_dia": 100, "cooldown": 15, "mercado_ideal": "ALCISTA"},
@@ -86,6 +86,7 @@ BALANCE_INICIAL=REAL_BALANCE_USDT
 ADMINS_IDS=[6530209116]
 DATA_DIR="/opt/render/project/src/data" if os.path.exists("/opt/render/project/src/data") else "./data"
 DATA_FILE=os.path.join(DATA_DIR,"manada_v40.json")
+POS_FILE=os.path.join(DATA_DIR,"posiciones_abiertas.json") # FIX V44.8
 os.makedirs(DATA_DIR,exist_ok=True)
 
 ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regimenes":{},"estrategias_activas":{}}
@@ -274,10 +275,11 @@ def guardar_datos():
         with LOCK:
             with open(DATA_FILE,"w") as f: json.dump(USUARIOS,f,indent=2)
             with open(os.path.join(DATA_DIR,"monedas_activas.json"),"w") as f: json.dump(MONEDAS_ACTIVAS,f)
+            with open(POS_FILE,"w") as f: json.dump(POSICIONES_ABIERTAS,f,indent=2)
     except: pass
 
 def cargar_datos():
-    global MONEDAS_ACTIVAS
+    global MONEDAS_ACTIVAS, POSICIONES_ABIERTAS
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE,"r") as f:
@@ -286,11 +288,17 @@ def cargar_datos():
         path=os.path.join(DATA_DIR,"monedas_activas.json")
         if os.path.exists(path):
             with open(path,"r") as f: MONEDAS_ACTIVAS=json.load(f)
+        if os.path.exists(POS_FILE):
+            with open(POS_FILE,"r") as f:
+                raw=json.load(f)
+                for k,v in raw.items():
+                    try: POSICIONES_ABIERTAS[int(k)]=v
+                    except: POSICIONES_ABIERTAS[k]=v
     except: pass
 cargar_datos()
 
 def motor_v44():
-    print(">>> MOTOR V44.8 TIBURON TRAILING 10-18%")
+    print(">>> MOTOR V44.8 TIBURON TRAILING 10-18% + PERSISTENCIA")
     time.sleep(5)
     while True:
         try:
@@ -315,14 +323,17 @@ def motor_v44():
                         profit_actual = (precio_actual - pos["entrada"])/pos["entrada"]*100
                         if profit_actual >= 12 and pos["sl"] < 8:
                             pos["sl"]=8.0
+                            guardar_datos()
                             try: bot.send_message(user_id,f"🔒 TRAILING {pos['symbol']} +12% -> SL +8% Asegurado")
                             except: pass
                         elif profit_actual >= 10 and pos["sl"] < 5:
                             pos["sl"]=5.0
+                            guardar_datos()
                             try: bot.send_message(user_id,f"🔒 TRAILING {pos['symbol']} +10% -> SL +5% Asegurado")
                             except: pass
                         elif profit_actual >= 7 and pos["sl"] < 0:
                             pos["sl"]=0.0
+                            guardar_datos()
                             try: bot.send_message(user_id,f"🔒 TRAILING {pos['symbol']} +7% -> BREAKEVEN Ya no perdés")
                             except: pass
                     tp_price = pos["entrada"] * (1 + pos["tp"]/100)
@@ -346,6 +357,7 @@ def motor_v44():
                         linea=f"{ahora_art().strftime('%H:%M:%S')} {pos['estrategia']} {pos['symbol']} {cerrar} {pos['tp'] if cerrar=='TP' else pos['sl']}% ${pnl:+.2f}"
                         u["historial"].append(linea)
                         POSICIONES_ABIERTAS[user_id].remove(pos)
+                        guardar_datos()
                         icono = "✅" if cerrar=="TP" else "🔒" if cerrar=="TRAILING" else "❌"
                         try: bot.send_message(user_id,f"{icono} {pos['estrategia']} {pos['symbol']} {cerrar}\nEnt {pos['entrada']:.2f} -> {precio_actual:.2f}\n${pnl:+.2f} Bal ${u['balance']:.2f}")
                         except: pass
@@ -394,6 +406,7 @@ def motor_v44():
                     linea=f"{ahora_art().strftime('%H:%M:%S')} {estrategia_elegida} {symbol_elegido} COMPRA {precio:.2f} TP {tp_inteligente}%"
                     u["historial"].append(linea)
                     if len(u["historial"])>200: u["historial"]=u["historial"][-200:]
+                    guardar_datos()
                     try: bot.send_message(user_id,f"🟢 COMPRA V44.8 {estrategia_elegida} {symbol_elegido}\n{motivo}\nEnt {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}%\nEscalonado {num_pos_actual+1}/4 -> {TP_TIBURON_ESCALONADO} | Pos {len(POSICIONES_ABIERTAS[user_id])}/4 Bal ${u['balance']:.2f}")
                     except: pass
         guardar_datos()
