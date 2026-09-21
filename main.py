@@ -37,7 +37,6 @@ ESTRATEGIAS_V44 = {
     "TIBURON": {"tf": "1d", "desc": "TIBURON 1D", "rango_tp": (4.0, 14.0), "sl_neto": -3.50, "max_dia": 10, "cooldown": 0, "mercado_ideal": "ALCISTA_FUERTE"},
     "MONSTRUO": {"tf": "1w", "desc": "MONSTRUO 1W", "rango_tp": (7.0, 18.0), "sl_neto": -5.0, "max_dia": 10, "cooldown": 0, "mercado_ideal": "CRASH"}
 }
-# ===============================================================
 
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
 RAW_SPLIT = [clean_key(c) for c in PROXY_LIST_RAW.split(",") if clean_key(c)]
@@ -114,7 +113,6 @@ def ejecutar_orden_real(symbol, side, usdt_amount):
     except Exception as e:
         return False, str(e)[:200], 0
 
-# ========= V44 SABIO - REGIMEN + TP VARIABLE =========
 def detectar_regimen_btc():
     d1h=get_velas("BTCUSDT","1h",100); d1d=get_velas("BTCUSDT","1d",15)
     if not d1h or not d1d: return "LINEAL", "Sin datos"
@@ -178,7 +176,6 @@ def detectar_MONSTRUO_sym(symbol):
     return False,f"[{symbol}] MONS esperando", 0.08
 
 def detectar_MULTI_V44(regimen):
-    # Prioriza segun regimen, sin forzar $
     orden_prioridad = {
         "LINEAL": ["RATA","LOBO","TIBURON","MONSTRUO"],
         "ALCISTA": ["LOBO","RATA","TIBURON","MONSTRUO"],
@@ -187,8 +184,7 @@ def detectar_MULTI_V44(regimen):
         "BAJISTA": ["MONSTRUO","RATA","LOBO","TIBURON"]
     }
     prioridades = orden_prioridad.get(regimen, ["RATA","LOBO","TIBURON","MONSTRUO"])
-    mejor=None; mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
-
+    mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
         for nombre in prioridades:
             if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym)
@@ -196,14 +192,11 @@ def detectar_MULTI_V44(regimen):
             elif nombre=="TIBURON": ok,motivo,wr = detectar_TIBURON_sym(sym)
             else: ok,motivo,wr = detectar_MONSTRUO_sym(sym)
             if ok:
-                # bonus por regimen ideal
                 bonus = 0.25 if ESTRATEGIAS_V44[nombre]["mercado_ideal"]==regimen else 0
                 fuerza_final = wr + bonus
                 if fuerza_final > mejor_fuerza:
                     mejor_fuerza=fuerza_final; mejor_est=nombre; mejor_motivo=motivo; mejor_sym=sym
-        # si ya encontró en prioridad alta, no busca más monedas (inteligente)
         if mejor_est and mejor_est==prioridades[0]: break
-
     if mejor_est:
         return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     return False, f"V44 {regimen} - Esperando setup {prioridades[0]}", MONEDAS_ACTIVAS[0], None, 0
@@ -268,25 +261,20 @@ def motor_v44():
             regimen, detalle = detectar_regimen_btc()
             ESTADO["regimen"]=regimen; ESTADO["regimen_detalle"]=detalle
         except: pass
-
         for user_id in list(USUARIOS.keys()):
             u=USUARIOS[user_id]
             if not u.get("prendido", False): continue
             check_reset_diario(u)
-
             regimen_actual = ESTADO.get("regimen","LINEAL")
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_MULTI_V44(regimen_actual)
-            print(f"🔄 V44 {user_id} REG:{regimen_actual} {motivo[:100]}")
-
+            print(f"V44 {user_id} REG:{regimen_actual} {motivo[:100]}")
             if not ok:
                 u["mercado"]=f"BTC {regimen_actual} - {motivo}"
                 if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO"
                 continue
-
             if ok and estrategia_elegida:
                 cfg=ESTRATEGIAS_V44[estrategia_elegida]
                 tp_inteligente = calcular_tp_inteligente(estrategia_elegida, fuerza)
-
                 ultima=u["ultima_op"].get(estrategia_elegida)
                 if ultima:
                     try:
@@ -294,12 +282,9 @@ def motor_v44():
                         if diff<cfg["cooldown"]: continue
                     except: pass
                 if u["estrategias"][estrategia_elegida]["ops"]>=cfg["max_dia"]: continue
-
-                # Alloc sin forzar $2: usa peso por regimen
                 alloc_map = {"LINEAL":0.5,"ALCISTA":0.35,"ALCISTA_FUERTE":0.6,"CRASH":0.7,"BAJISTA":0.3}
                 alloc_real = alloc_map.get(regimen_actual, 0.35)
                 usdt_a_usar=u["balance"]*alloc_real*0.10
-
                 exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
                 if exito:
                     monto_neto=round(u["balance"]*(tp_inteligente/100)*alloc_real,2)
@@ -310,7 +295,7 @@ def motor_v44():
                     linea=f"{ahora_art().strftime('%H:%M:%S')} {estrategia_elegida} {symbol_elegido} TP {tp_inteligente}% ${monto_neto:+.2f} {regimen_actual}"
                     u["historial"].append(linea)
                     if len(u["historial"])>200: u["historial"]=u["historial"][-200:]
-                    try: bot.send_message(user_id,f"✅ V44 {estrategia_elegida} {symbol_elegido}\n{motivo}\nBTC {regimen_actual}\nTP Inteligente {tp_inteligente}% (rango {cfg['rango_tp'][0]}-{cfg['rango_tp'][1]}%)\n💰 ${monto_neto:+.2f} | Bal ${u['balance']:.2f}\n🌐 {WEB_URL}")
+                    try: bot.send_message(user_id,f"✅ V44 {estrategia_elegida} {symbol_elegido}\n{motivo}\nBTC {regimen_actual}\nTP {tp_inteligente}% (rango {cfg['rango_tp'][0]}-{cfg['rango_tp'][1]}%)\n💰 ${monto_neto:+.2f} | Bal ${u['balance']:.2f}\n🌐 {WEB_URL}")
                     except: pass
                 else:
                     try: bot.send_message(user_id,f"⚠️ V44 {estrategia_elegida} vio setup en {symbol_elegido} pero fallo orden: {res}")
@@ -407,30 +392,36 @@ def callback(call):
     elif call.data=="NO_ADD":
         bot.answer_callback_query(call.id, "No agregada")
 
+# === FIX V44 - SIN f-string para evitar SyntaxError ===
 @app.route('/')
 def home():
-    html=f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44 SABIO</title>
-    <script src="https://s3.tradingview.com/tv.js"></script>
-    <style>body{{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}}
-   .card{{background:#1e222d;padding:12px;margin:6px;border-radius:8px;display:inline-block;min-width:140px}}
-   .label{{color:#868993;font-size:11px}}.val{{color:#fff;font-size:16px;font-weight:bold}}
-    </style></head><body>
-    <div style="padding:10px;background:#1e222d;display:flex;flex-wrap:wrap">
-      <div class="card"><div class="label">BALANCE INICIAL</div><div class="val" id="b_ini">$0</div></div>
-      <div class="card"><div class="label">PROFIT HOY</div><div class="val" id="p_hoy">$0</div></div>
-      <div class="card"><div class="label">BTC</div><div class="val" id="btc_reg">LINEAL</div></div>
-      <div class="card"><div class="label">ESTRATEGIA ACTIVA</div><div class="val" id="strat">ESPERANDO</div></div>
-    </div>
-    <div id="chart_BTCUSDT" style="height:70vh"></div>
-    <script>
-    new TradingView.widget({{"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_BTCUSDT"}});
-    async function load(){{let a=await (await fetch('/api/data')).json();
-      document.getElementById('b_ini').innerHTML=`$${{a.capital_inicial.toFixed(0)}}`;
-      document.getElementById('p_hoy').innerHTML=`$${{a.neto_hoy>=0?'+':''}${{a.neto_hoy.toFixed(2)}}`;
-      document.getElementById('btc_reg').innerHTML=a.regimen_btc;
-      document.getElementById('strat').innerHTML=a.modo;
-    }} setInterval(load,3000);load();
-    </script></body></html>"""
+    html = """
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44 SABIO</title>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
+.card{background:#1e222d;padding:12px;margin:6px;border-radius:8px;display:inline-block;min-width:140px}
+.label{color:#868993;font-size:11px}.val{color:#fff;font-size:16px;font-weight:bold}
+</style></head><body>
+<div style="padding:10px;background:#1e222d;display:flex;flex-wrap:wrap">
+  <div class="card"><div class="label">BALANCE INICIAL</div><div class="val" id="b_ini">$0</div></div>
+  <div class="card"><div class="label">PROFIT HOY</div><div class="val" id="p_hoy">$0</div></div>
+  <div class="card"><div class="label">BTC</div><div class="val" id="btc_reg">LINEAL</div></div>
+  <div class="card"><div class="label">ESTRATEGIA ACTIVA</div><div class="val" id="strat">ESPERANDO</div></div>
+</div>
+<div id="chart_BTCUSDT" style="height:70vh"></div>
+<script>
+new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_BTCUSDT"});
+async function load(){
+  let a=await (await fetch('/api/data')).json();
+  document.getElementById('b_ini').innerHTML='$'+a.capital_inicial.toFixed(0);
+  let signo = a.neto_hoy>=0? '+' : '';
+  document.getElementById('p_hoy').innerHTML='$'+signo+a.neto_hoy.toFixed(2);
+  document.getElementById('btc_reg').innerHTML=a.regimen_btc;
+  document.getElementById('strat').innerHTML=a.modo;
+}
+setInterval(load,3000);load();
+</script></body></html>
+"""
     return render_template_string(html)
 
 @app.route('/api/data')
