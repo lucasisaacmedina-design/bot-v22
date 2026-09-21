@@ -38,6 +38,18 @@ ESTRATEGIAS_V44 = {
     "MONSTRUO": {"tf": "1w", "desc": "MONSTRUO 1W", "rango_tp": (7.0, 18.0), "sl_neto": -5.0, "max_dia": 10, "cooldown": 0, "mercado_ideal": "CRASH"}
 }
 
+# === SOLO ESTO AGREGO ===
+MAPA_ESTRATEGIA = {
+    "LINEAL": "RATA 0.6-0.9%",
+    "ALCISTA": "LOBO 1.5-3.5%",
+    "ALCISTA_FUERTE": "TIBURON 4.0-14.0%",
+    "CRASH": "MONSTRUO 7.0-18.0%",
+    "BAJISTA": "MONSTRUO 7.0-18.0%"
+}
+def estrategia_prevista(regimen_txt):
+    reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
+    return MAPA_ESTRATEGIA.get(reg, "RATA 0.6-0.9%")
+
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
 RAW_SPLIT = [clean_key(c) for c in PROXY_LIST_RAW.split(",") if clean_key(c)]
 if not RAW_SPLIT:
@@ -328,8 +340,11 @@ def get_menu():
 def start(m):
     u=get_user_data(m.chat.id)
     estado_txt = "🟢 CAZANDO V44" if u["prendido"] else "🔴 APAGADO"
-    regs = " | ".join([f"{k.replace('USDT','')}:{v}" for k,v in ESTADO.get("regimenes",{}).items()]) or f"BTC {ESTADO['regimen']}"
-    bot.send_message(m.chat.id,f"🦁 V44.1 SABIO {estado_txt}\n{regs}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    regs=[]
+    for k,v in ESTADO.get("regimenes",{}).items():
+        regs.append(f"{k.replace('USDT','')}:{v} -> Usara {estrategia_prevista(v)}")
+    regs_txt = "\n".join(regs) or f"BTC {ESTADO['regimen']} -> Usara {estrategia_prevista(ESTADO['regimen'])}"
+    bot.send_message(m.chat.id,f"🦁 V44.1 SABIO {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="📦 ORDENES")
 def ordenes(m):
@@ -349,7 +364,11 @@ def ordenes(m):
 def balance(m):
     u=get_user_data(m.chat.id)
     ganancia_total = u["balance"]-u["capital_inicial"]
-    texto=f"💰 V44.1\nBTC {ESTADO.get('regimen','LINEAL')}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\nProxima moneda en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
+    regs=[]
+    for k,v in ESTADO.get("regimenes",{}).items():
+        regs.append(f"{k}: {v} => Usara {estrategia_prevista(v)}")
+    regs_txt = "\n".join(regs) or f"BTC {ESTADO.get('regimen','LINEAL')}"
+    texto=f"💰 V44.1\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
     for k,v in u["estrategias"].items():
         rango=ESTRATEGIAS_V44[k]["rango_tp"]
         texto+=f"{k} {rango[0]}-{rango[1]}%: {v['ops']} ops ${v['neto']:+.2f}\n"
@@ -430,6 +449,13 @@ def home():
   <div><div style="background:#1e293b;padding:6px;font-size:12px" id="bnb_title">BNBUSDT</div><div id="chart_BNBUSDT" style="height:70vh"></div></div>
 </div>
 <script>
+function estrat(reg){
+  if(!reg) return 'RATA 0.6-0.9%';
+  if(reg.includes('ALCISTA_FUERTE')) return 'TIBURON 4.0-14.0%';
+  if(reg.includes('ALCISTA')) return 'LOBO 1.5-3.5%';
+  if(reg.includes('CRASH')||reg.includes('BAJISTA')) return 'MONSTRUO 7.0-18.0%';
+  return 'RATA 0.6-0.9%';
+}
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_BTCUSDT"});
 new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_BNBUSDT"});
 async function load(){
@@ -438,11 +464,13 @@ async function load(){
   let s=a.neto_hoy>=0?'+':'';
   document.getElementById('p_hoy').innerHTML='$'+s+a.neto_hoy.toFixed(2);
   document.getElementById('p_hoy').style.color=a.neto_hoy>=0?'#22c55e':'#ef4444';
-  document.getElementById('btc_reg').innerHTML=(a.regimenes['BTCUSDT']||a.regimen_btc)+' <span class=badge>'+(a.estrategias_activas['BTCUSDT']||'')+'</span>';
-  document.getElementById('bnb_reg').innerHTML=(a.regimenes['BNBUSDT']||'')+' <span class=badge>'+(a.estrategias_activas['BNBUSDT']||'')+'</span>';
+  let btcR = a.regimenes['BTCUSDT']||a.regimen_btc;
+  let bnbR = a.regimenes['BNBUSDT']||'';
+  document.getElementById('btc_reg').innerHTML=btcR+' <span class=badge>-> '+estrat(btcR)+'</span>';
+  document.getElementById('bnb_reg').innerHTML=bnbR+' <span class=badge>-> '+estrat(bnbR)+'</span>';
   document.getElementById('strat').innerHTML=a.modo;
-  document.getElementById('btc_title').innerHTML='BTCUSDT - '+(a.estrategias_activas['BTCUSDT']||a.modo)+' - '+(a.regimenes['BTCUSDT']||'');
-  document.getElementById('bnb_title').innerHTML='BNBUSDT - '+(a.estrategias_activas['BNBUSDT']||'')+' - '+(a.regimenes['BNBUSDT']||'');
+  document.getElementById('btc_title').innerHTML='BTCUSDT - '+btcR+' -> Usara '+estrat(btcR)+' | Activa '+(a.estrategias_activas['BTCUSDT']||a.modo);
+  document.getElementById('bnb_title').innerHTML='BNBUSDT - '+bnbR+' -> Usara '+estrat(bnbR)+' | Activa '+(a.estrategias_activas['BNBUSDT']||'');
   document.getElementById('evo').innerHTML=a.monedas.join('+')+' | $'+a.ganancia_total.toFixed(0)+'/'+(a.monedas.length*100);
 }
 setInterval(load,3000);load();
