@@ -31,23 +31,23 @@ CANDIDATAS = ["ETHUSDT","SOLUSDT","XRPUSDT","AVAXUSDT","DOGEUSDT","ADAUSDT","LIN
 ESTADO_RETIRO = {}
 EVOLUCION_PROFIT_POR_MONEDA = 100.0
 
+# ===== V44.4 - SOLO RATA Y TIBURON MODIFICADOS - LOBO INTACTO =====
 ESTRATEGIAS_V44 = {
-    "RATA": {"tf": "5m", "desc": "RATA 5M", "rango_tp": (0.60, 0.90), "sl_neto": -0.35, "max_dia": 15, "cooldown": 5, "mercado_ideal": "LINEAL"},
+    "RATA": {"tf": "5m", "desc": "RATA 5M LATERAL ONLY", "rango_tp": (1.0, 1.4), "sl_neto": -0.60, "max_dia": 2, "cooldown": 5, "mercado_ideal": "LINEAL"},
     "LOBO": {"tf": "1h", "desc": "LOBO 1H", "rango_tp": (1.5, 3.5), "sl_neto": -1.20, "max_dia": 3, "cooldown": 60, "mercado_ideal": "ALCISTA"},
-    "TIBURON": {"tf": "1d", "desc": "TIBURON 1D", "rango_tp": (4.0, 14.0), "sl_neto": -3.50, "max_dia": 10, "cooldown": 0, "mercado_ideal": "ALCISTA_FUERTE"},
+    "TIBURON": {"tf": "1d", "desc": "TIBURON 1D LIBERADO", "rango_tp": (2.8, 14.0), "sl_neto": -3.50, "max_dia": 10, "cooldown": 0, "mercado_ideal": "ALCISTA_FUERTE"},
     "MONSTRUO": {"tf": "1w", "desc": "MONSTRUO 1W", "rango_tp": (7.0, 18.0), "sl_neto": -5.0, "max_dia": 10, "cooldown": 0, "mercado_ideal": "CRASH"}
 }
-
 MAPA_ESTRATEGIA = {
-    "LINEAL": "RATA 0.6-0.9%",
+    "LINEAL": "RATA 1.0-1.4%",
     "ALCISTA": "LOBO 1.5-3.5%",
-    "ALCISTA_FUERTE": "TIBURON 4.0-14.0%",
+    "ALCISTA_FUERTE": "TIBURON 2.8-14.0%",
     "CRASH": "MONSTRUO 7.0-18.0%",
     "BAJISTA": "MONSTRUO 7.0-18.0%"
 }
 def estrategia_prevista(regimen_txt):
     reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
-    return MAPA_ESTRATEGIA.get(reg, "RATA 0.6-0.9%")
+    return MAPA_ESTRATEGIA.get(reg, "RATA 1.0-1.4%")
 
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
 RAW_SPLIT = [clean_key(c) for c in PROXY_LIST_RAW.split(",") if clean_key(c)]
@@ -91,13 +91,11 @@ USUARIOS={}; LOCK=threading.Lock()
 POSICIONES_ABIERTAS = {}
 
 def ahora_art(): return datetime.now(TZ)
-
 def get_velas(symbol="BTCUSDT", interval="5m", limit=200):
     try:
         klines=client.get_klines(symbol=symbol, interval=interval, limit=limit)
         return {"closes": [float(k[4]) for k in klines],"highs": [float(k[2]) for k in klines],"lows": [float(k[3]) for k in klines],"vols": [float(k[5]) for k in klines]}
     except: return None
-
 def rsi_calc(closes, period=14):
     if len(closes) < period+1: return 50.0
     deltas = [closes[i]-closes[i-1] for i in range(1,len(closes))]
@@ -108,10 +106,8 @@ def rsi_calc(closes, period=14):
     if avg_loss == 0: return 100.0
     rs = avg_gain/avg_loss
     return 100-(100/(1+rs))
-
 def adx_calc(highs, lows, closes, period=14):
-    if len(closes) < period*2 + 1:
-        return 15.0
+    if len(closes) < period*2 + 1: return 15.0
     tr_list, plus_dm_list, minus_dm_list = [], [], []
     for i in range(1, len(closes)):
         hl = highs[i] - lows[i]
@@ -137,7 +133,6 @@ def adx_calc(highs, lows, closes, period=14):
     minus_di = 100 * minus_dm_s / atr
     dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di)!= 0 else 0
     return round(dx, 2)
-
 def ejecutar_orden_real(symbol, side, usdt_amount):
     try:
         info = client.get_symbol_info(symbol)
@@ -154,7 +149,6 @@ def ejecutar_orden_real(symbol, side, usdt_amount):
         return True, order, precio
     except Exception as e:
         return False, str(e)[:200], 0
-
 def detectar_regimen_sym(symbol):
     d1h=get_velas(symbol,"1h",100); d1d=get_velas(symbol,"1d",15)
     if not d1h or not d1d: return "LINEAL", "Sin datos"
@@ -167,9 +161,7 @@ def detectar_regimen_sym(symbol):
     elif rent_14d > 0.06 and closes_1h[-1] > ema50: return "ALCISTA_FUERTE", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
     elif closes_1h[-1] > ema50 and adx_1h > 20: return "ALCISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
     else: return "BAJISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
-
 def detectar_regimen_btc(): return detectar_regimen_sym("BTCUSDT")
-
 def calcular_tp_inteligente(estrategia, fuerza):
     min_tp, max_tp = ESTRATEGIAS_V44[estrategia]["rango_tp"]
     fuerza_norm = max(0, min(1, (fuerza-0.3)/0.6))
@@ -177,14 +169,20 @@ def calcular_tp_inteligente(estrategia, fuerza):
     return round(tp, 2)
 
 def detectar_RATA_sym(symbol):
+    # V44.4 RATA SOLO LATERAL - BLOQUEA SI ADX4H >25
+    d4h=get_velas(symbol,"4h",50)
+    if d4h:
+        adx_4h = adx_calc(d4h["highs"], d4h["lows"], d4h["closes"], 14)
+        if adx_4h > 25:
+            return False,f"[{symbol}] RATA BLOQUEADA ADX4 {adx_4h:.0f}>25 tendencia fuerte",0
     d5=get_velas(symbol,"5m",100); d15=get_velas(symbol,"15m",100)
     if not d5 or not d15: return False,f"{symbol} Sin velas",0
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
     sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; lower=sma20-2*std
     precio=closes[-1]; vol_prom=sum(d5["vols"][-20:])/20; vol_actual=d5["vols"][-1]
     ema200_15=sum(d15["closes"][-200:])/200 if len(d15["closes"])>=200 else sum(d15["closes"])/len(d15["closes"])
-    if precio<=lower and rsi<30 and vol_actual>vol_prom*1.5 and closes[-1]>ema200_15:
-        return True,f"[{symbol}] RATA 5M Bollinger RSI{int(rsi)} ADX{adx_calc(d5['highs'],d5['lows'],d5['closes'],14):.0f}", 0.68
+    if precio<=lower and rsi<15 and vol_actual>vol_prom*1.5 and closes[-1]>ema200_15:
+        return True,f"[{symbol}] RATA 5M LATERAL RSI{int(rsi)} ADX4<25", 0.68
     return False,f"[{symbol}] RATA esperando RSI{int(rsi)}", 0.30
 
 def detectar_LOBO_sym(symbol):
@@ -203,8 +201,9 @@ def detectar_TIBURON_sym(symbol):
     if not d: return False,f"{symbol} Sin velas",0
     closes=d["closes"]; ema50=sum(closes[-50:])/50; ema200=sum(closes[-200:])/200 if len(closes)>=200 else sum(closes)/len(closes)
     rsi14=rsi_calc(closes,14); max_20=max(closes[-21:-1]) if len(closes)>=21 else closes[-1]
-    if ema50>ema200 and rsi14>50 and closes[-1]>max_20:
-        return True,f"[{symbol}] TIBURON 1D Golden RSI{int(rsi14)} Ruptura", 0.55
+    retroceso_ok = abs(closes[-1]-ema50)/ema50 < 0.035 if ema50!=0 else True
+    if ema50>ema200 and rsi14>50 and (closes[-1]>max_20 or retroceso_ok):
+        return True,f"[{symbol}] TIBURON 1D Golden RSI{int(rsi14)} Ruptura RET3.5%", 0.55
     return False,f"[{symbol}] TIBU esperando", 0.25
 
 def detectar_MONSTRUO_sym(symbol):
@@ -220,7 +219,6 @@ def detectar_MONSTRUO_sym(symbol):
     return False,f"[{symbol}] MONS esperando", 0.08
 
 def detectar_MULTI_V44(regimen):
-    # V44.3 - 4 BESTIAS SIEMPRE ACTIVAS
     todas = ["RATA","LOBO","TIBURON","MONSTRUO"]
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
@@ -237,7 +235,7 @@ def detectar_MULTI_V44(regimen):
                     mejor_fuerza=fuerza_final; mejor_est=nombre; mejor_motivo=motivo; mejor_sym=sym
     if mejor_est:
         return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    return False, f"V44.3 4 BESTIAS CAZANDO - Esperando", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V44.4 4 BESTIAS CAZANDO - RATA solo lateral", MONEDAS_ACTIVAS[0], None, 0
 
 def analizar_top_rentable_14d():
     mejor=None; mejor_score=-99999
@@ -288,7 +286,7 @@ def cargar_datos():
 cargar_datos()
 
 def motor_v44():
-    print(">>> MOTOR V44.3 4 BESTIAS + 4 POSICIONES")
+    print(">>> MOTOR V44.4 4 BESTIAS + 4 POSICIONES - RATA LATERAL ONLY + TIBURON 2.8%")
     time.sleep(5)
     while True:
         try:
@@ -349,7 +347,7 @@ def motor_v44():
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_MULTI_V44(regimen_actual)
             if not ok:
                 u["mercado"]=f"BTC {regimen_actual} - {motivo}"
-                if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO V44 4 BESTIAS"
+                if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO V44.4 4 BESTIAS"
                 continue
             if ok and estrategia_elegida:
                 cfg=ESTRATEGIAS_V44[estrategia_elegida]
@@ -375,7 +373,7 @@ def motor_v44():
                     linea=f"{ahora_art().strftime('%H:%M:%S')} {estrategia_elegida} {symbol_elegido} COMPRA {precio:.2f} TP {tp_inteligente}%"
                     u["historial"].append(linea)
                     if len(u["historial"])>200: u["historial"]=u["historial"][-200:]
-                    try: bot.send_message(user_id,f"🟢 COMPRA V44.3 {estrategia_elegida} {symbol_elegido}\n{motivo}\nEntrada {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}%\nPosiciones: {len(POSICIONES_ABIERTAS[user_id])}/4 - Bal ${u['balance']:.2f}")
+                    try: bot.send_message(user_id,f"🟢 COMPRA V44.4 {estrategia_elegida} {symbol_elegido}\n{motivo}\nEntrada {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}%\nPosiciones: {len(POSICIONES_ABIERTAS[user_id])}/4 - Bal ${u['balance']:.2f}")
                     except: pass
         guardar_datos()
         time.sleep(60)
@@ -388,12 +386,12 @@ def get_menu():
 @bot.message_handler(commands=['start'])
 def start(m):
     u=get_user_data(m.chat.id)
-    estado_txt = "🟢 CAZANDO V44.3 4 BESTIAS" if u["prendido"] else "🔴 APAGADO"
+    estado_txt = "🟢 CAZANDO V44.4 4 BESTIAS" if u["prendido"] else "🔴 APAGADO"
     regs=[]
     for k,v in ESTADO.get("regimenes",{}).items():
         regs.append(f"{k.replace('USDT','')}:{v} -> Usara {estrategia_prevista(v)}")
     regs_txt = "\n".join(regs) or f"BTC {ESTADO['regimen']} -> Usara {estrategia_prevista(ESTADO['regimen'])}"
-    bot.send_message(m.chat.id,f"🦁 V44.3 4 BESTIAS {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V44.4 4 BESTIAS {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="📦 ORDENES")
 def ordenes(m):
@@ -418,7 +416,7 @@ def balance(m):
         regs.append(f"{k}: {v} => Usara {estrategia_prevista(v)}")
     regs_txt = "\n".join(regs) or f"BTC {ESTADO.get('regimen','LINEAL')}"
     pos_txt = "\n".join([f"🔓 {p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin posiciones abiertas"
-    texto=f"💰 V44.3 4 BESTIAS\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
+    texto=f"💰 V44.4 4 BESTIAS\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
     for k,v in u["estrategias"].items():
         rango=ESTRATEGIAS_V44[k]["rango_tp"]
         texto+=f"{k} {rango[0]}-{rango[1]}%: {v['ops']} ops ${v['neto']:+.2f}\n"
@@ -428,18 +426,18 @@ def balance(m):
 def historial(m):
     u=get_user_data(m.chat.id)
     txt="\n".join(u["historial"][-20:]) if u["historial"] else "Sin ops"
-    bot.send_message(m.chat.id,f"📜 V44.3\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"📜 V44.4\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER","/prender"])
 def prender(m):
-    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V44.3 4 BESTIAS"
+    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V44.4 4 BESTIAS"
     guardar_datos()
-    bot.send_message(m.chat.id,f"🦁 V44.3 4 BESTIAS PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V44.4 4 BESTIAS PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["⏸️ APAGAR","/apagar"])
 def apagar(m):
     u=get_user_data(m.chat.id); u["prendido"]=False; u["modo"]="ESPERANDO"; guardar_datos()
-    bot.send_message(m.chat.id,f"⏸️ V44 APAGADO",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"⏸️ V44.4 APAGADO",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="🧬 EVOLUCIONAR")
 def evolucionar_manual(m):
@@ -477,55 +475,7 @@ def callback(call):
 
 @app.route('/')
 def home():
-    html = """
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44.3 4 BESTIAS</title>
-<script src="https://s3.tradingview.com/tv.js"></script>
-<style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
-.card{background:#1e222d;padding:10px;margin:5px;border-radius:8px;display:inline-block;min-width:150px}
-.label{color:#868993;font-size:11px}.val{color:#fff;font-size:13px;font-weight:bold}
-.badge{color:#facc15}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}
-</style></head><body>
-<div style="padding:10px;background:#1e222d;display:flex;flex-wrap:wrap">
-  <div class="card"><div class="label">BALANCE INICIAL</div><div class="val" id="b_ini">$0</div></div>
-  <div class="card"><div class="label">PROFIT HOY</div><div class="val" id="p_hoy">$0</div></div>
-  <div class="card"><div class="label">BTC</div><div class="val" id="btc_reg">-</div></div>
-  <div class="card"><div class="label">BNB</div><div class="val" id="bnb_reg">-</div></div>
-  <div class="card"><div class="label">ESTRATEGIA ACTIVA</div><div class="val badge" id="strat">-</div></div>
-  <div class="card"><div class="label">EVOLUCION $100</div><div class="val" id="evo">-</div></div>
-</div>
-<div class="grid">
-  <div><div style="background:#1e293b;padding:6px;font-size:12px" id="btc_title">BTCUSDT</div><div id="chart_BTCUSDT" style="height:70vh"></div></div>
-  <div><div style="background:#1e293b;padding:6px;font-size:12px" id="bnb_title">BNBUSDT</div><div id="chart_BNBUSDT" style="height:70vh"></div></div>
-</div>
-<script>
-function estrat(reg){
-  if(!reg) return 'RATA 0.6-0.9%';
-  if(reg.includes('ALCISTA_FUERTE')) return 'TIBURON 4.0-14.0%';
-  if(reg.includes('ALCISTA')) return 'LOBO 1.5-3.5%';
-  if(reg.includes('CRASH')||reg.includes('BAJISTA')) return 'MONSTRUO 7.0-18.0%';
-  return 'RATA 0.6-0.9%';
-}
-new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_BTCUSDT"});
-new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_BNBUSDT"});
-async function load(){
-  let a=await (await fetch('/api/data')).json();
-  document.getElementById('b_ini').innerHTML='$'+a.capital_inicial.toFixed(0);
-  let s=a.neto_hoy>=0?'+':'';
-  document.getElementById('p_hoy').innerHTML='$'+s+a.neto_hoy.toFixed(2);
-  document.getElementById('p_hoy').style.color=a.neto_hoy>=0?'#22c55e':'#ef4444';
-  let btcR = a.regimenes['BTCUSDT']||a.regimen_btc;
-  let bnbR = a.regimenes['BNBUSDT']||'';
-  document.getElementById('btc_reg').innerHTML=btcR+' <span class=badge>-> '+estrat(btcR)+'</span>';
-  document.getElementById('bnb_reg').innerHTML=bnbR+' <span class=badge>-> '+estrat(bnbR)+'</span>';
-  document.getElementById('strat').innerHTML=a.modo;
-  document.getElementById('btc_title').innerHTML='BTCUSDT - '+btcR+' -> Usara '+estrat(btcR)+' | Activa '+(a.estrategias_activas['BTCUSDT']||a.modo);
-  document.getElementById('bnb_title').innerHTML='BNBUSDT - '+bnbR+' -> Usara '+estrat(bnbR)+' | Activa '+(a.estrategias_activas['BNBUSDT']||'');
-  document.getElementById('evo').innerHTML=a.monedas.join('+')+' | $'+a.ganancia_total.toFixed(0)+'/'+(a.monedas.length*100);
-}
-setInterval(load,3000);load();
-</script></body></html>
-"""
+    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44.4 4 BESTIAS</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.card{background:#1e222d;padding:10px;margin:5px;border-radius:8px;display:inline-block;min-width:150px}.label{color:#868993;font-size:11px}.val{color:#fff;font-size:13px;font-weight:bold}.badge{color:#facc15}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}</style></head><body><div style="padding:10px;background:#1e222d;display:flex;flex-wrap:wrap"><div class="card"><div class="label">BALANCE INICIAL</div><div class="val" id="b_ini">$0</div></div><div class="card"><div class="label">PROFIT HOY</div><div class="val" id="p_hoy">$0</div></div><div class="card"><div class="label">BTC</div><div class="val" id="btc_reg">-</div></div><div class="card"><div class="label">BNB</div><div class="val" id="bnb_reg">-</div></div><div class="card"><div class="label">ESTRATEGIA ACTIVA</div><div class="val badge" id="strat">-</div></div><div class="card"><div class="label">EVOLUCION $100</div><div class="val" id="evo">-</div></div></div><div class="grid"><div><div style="background:#1e293b;padding:6px;font-size:12px" id="btc_title">BTCUSDT</div><div id="chart_BTCUSDT" style="height:70vh"></div></div><div><div style="background:#1e293b;padding:6px;font-size:12px" id="bnb_title">BNBUSDT</div><div id="chart_BNBUSDT" style="height:70vh"></div></div></div><script>function estrat(reg){if(!reg) return 'RATA 1.0-1.4%';if(reg.includes('ALCISTA_FUERTE')) return 'TIBURON 2.8-14.0%';if(reg.includes('ALCISTA')) return 'LOBO 1.5-3.5%';if(reg.includes('CRASH')||reg.includes('BAJISTA')) return 'MONSTRUO 7.0-18.0%';return 'RATA 1.0-1.4%';}new TradingView.widget({"autosize":true,"symbol":"BINANCE:BTCUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_BTCUSDT"});new TradingView.widget({"autosize":true,"symbol":"BINANCE:BNBUSDT","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_BNBUSDT"});async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('b_ini').innerHTML='$'+a.capital_inicial.toFixed(0);let s=a.neto_hoy>=0?'+':'';document.getElementById('p_hoy').innerHTML='$'+s+a.neto_hoy.toFixed(2);document.getElementById('p_hoy').style.color=a.neto_hoy>=0?'#22c55e':'#ef4444';let btcR = a.regimenes['BTCUSDT']||a.regimen_btc;let bnbR = a.regimenes['BNBUSDT']||'';document.getElementById('btc_reg').innerHTML=btcR+' <span class=badge>-> '+estrat(btcR)+'</span>';document.getElementById('bnb_reg').innerHTML=bnbR+' <span class=badge>-> '+estrat(bnbR)+'</span>';document.getElementById('strat').innerHTML=a.modo;document.getElementById('btc_title').innerHTML='BTCUSDT - '+btcR+' -> Usara '+estrat(btcR)+' | Activa '+(a.estrategias_activas['BTCUSDT']||a.modo);document.getElementById('bnb_title').innerHTML='BNBUSDT - '+bnbR+' -> Usara '+estrat(bnbR)+' | Activa '+(a.estrategias_activas['BNBUSDT']||'');document.getElementById('evo').innerHTML=a.monedas.join('+')+' | $'+a.ganancia_total.toFixed(0)+'/'+(a.monedas.length*100);}setInterval(load,3000);load();</script></body></html>"""
     return render_template_string(html)
 
 @app.route('/api/data')
