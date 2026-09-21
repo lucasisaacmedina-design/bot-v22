@@ -38,7 +38,6 @@ ESTRATEGIAS_V44 = {
     "MONSTRUO": {"tf": "1w", "desc": "MONSTRUO 1W", "rango_tp": (7.0, 18.0), "sl_neto": -5.0, "max_dia": 10, "cooldown": 0, "mercado_ideal": "CRASH"}
 }
 
-# === SOLO ESTO AGREGO ===
 MAPA_ESTRATEGIA = {
     "LINEAL": "RATA 0.6-0.9%",
     "ALCISTA": "LOBO 1.5-3.5%",
@@ -89,6 +88,9 @@ os.makedirs(DATA_DIR,exist_ok=True)
 
 ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regimenes":{},"estrategias_activas":{}}
 USUARIOS={}; LOCK=threading.Lock()
+# POSICIONES ABIERTAS REALISTAS
+POSICIONES_ABIERTAS = {} # uid -> list de posiciones
+
 def ahora_art(): return datetime.now(TZ)
 
 def get_velas(symbol="BTCUSDT", interval="5m", limit=200):
@@ -107,6 +109,39 @@ def rsi_calc(closes, period=14):
     if avg_loss == 0: return 100.0
     rs = avg_gain/avg_loss
     return 100-(100/(1+rs))
+
+# === ADX REAL WILDER 14 ===
+def adx_calc(highs, lows, closes, period=14):
+    if len(closes) < period*2 + 1:
+        return 15.0
+    tr_list, plus_dm_list, minus_dm_list = [], [], []
+    for i in range(1, len(closes)):
+        hl = highs[i] - lows[i]
+        hc = abs(highs[i] - closes[i-1])
+        lc = abs(lows[i] - closes[i-1])
+        tr = max(hl, hc, lc)
+        up = highs[i] - highs[i-1]
+        down = lows[i-1] - lows[i]
+        plus_dm = up if up > down and up > 0 else 0
+        minus_dm = down if down > up and down > 0 else 0
+        tr_list.append(tr)
+        plus_dm_list.append(plus_dm)
+        minus_dm_list.append(minus_dm)
+
+    atr = sum(tr_list[:period]) / period
+    plus_dm_s = sum(plus_dm_list[:period]) / period
+    minus_dm_s = sum(minus_dm_list[:period]) / period
+
+    for i in range(period, len(tr_list)):
+        atr = (atr * (period-1) + tr_list[i]) / period
+        plus_dm_s = (plus_dm_s * (period-1) + plus_dm_list[i]) / period
+        minus_dm_s = (minus_dm_s * (period-1) + minus_dm_list[i]) / period
+
+    if atr == 0: return 15.0
+    plus_di = 100 * plus_dm_s / atr
+    minus_di = 100 * minus_dm_s / atr
+    dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di)!= 0 else 0
+    return round(dx, 2)
 
 def ejecutar_orden_real(symbol, side, usdt_amount):
     try:
@@ -130,13 +165,13 @@ def detectar_regimen_sym(symbol):
     if not d1h or not d1d: return "LINEAL", "Sin datos"
     closes_1h=d1h["closes"]; closes_1d=d1d["closes"]
     ema50=sum(closes_1h[-50:])/50; ema200=sum(closes_1h[-200:])/200 if len(closes_1h)>=200 else sum(closes_1h)/len(closes_1h)
-    adx_sim = abs(ema50-ema200)/ema200*1000 if ema200!=0 else 0
+    adx_1h = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14)
     rent_14d = (closes_1d[-1]-closes_1d[0])/closes_1d[0] if closes_1d[0]!=0 else 0
-    if adx_sim < 2.2 and abs(rent_14d) < 0.03: return "LINEAL", f"{rent_14d*100:+.1f}%"
-    elif rent_14d < -0.12: return "CRASH", f"{rent_14d*100:.1f}%"
-    elif rent_14d > 0.06 and closes_1h[-1] > ema50: return "ALCISTA_FUERTE", f"{rent_14d*100:+.1f}%"
-    elif closes_1h[-1] > ema50: return "ALCISTA", f"{rent_14d*100:+.1f}%"
-    else: return "BAJISTA", f"{rent_14d*100:+.1f}%"
+    if adx_1h < 20 and abs(rent_14d) < 0.03: return "LINEAL", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
+    elif rent_14d < -0.12: return "CRASH", f"ADX{adx_1h:.0f} {rent_14d*100:.1f}%"
+    elif rent_14d > 0.06 and closes_1h[-1] > ema50: return "ALCISTA_FUERTE", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
+    elif closes_1h[-1] > ema50 and adx_1h > 20: return "ALCISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
+    else: return "BAJISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
 
 def detectar_regimen_btc(): return detectar_regimen_sym("BTCUSDT")
 
@@ -154,19 +189,19 @@ def detectar_RATA_sym(symbol):
     precio=closes[-1]; vol_prom=sum(d5["vols"][-20:])/20; vol_actual=d5["vols"][-1]
     ema200_15=sum(d15["closes"][-200:])/200 if len(d15["closes"])>=200 else sum(d15["closes"])/len(d15["closes"])
     if precio<=lower and rsi<30 and vol_actual>vol_prom*1.5 and closes[-1]>ema200_15:
-        return True,f"[{symbol}] RATA 5M Bollinger RSI{int(rsi)}", 0.68
-    return False,f"[{symbol}] RATA esperando", 0.30
+        return True,f"[{symbol}] RATA 5M Bollinger RSI{int(rsi)} ADX{adx_calc(d5['highs'],d5['lows'],d5['closes'],14):.0f}", 0.68
+    return False,f"[{symbol}] RATA esperando RSI{int(rsi)}", 0.30
 
 def detectar_LOBO_sym(symbol):
     d=get_velas(symbol,"1h",100)
     if not d: return False,f"{symbol} Sin velas",0
     closes=d["closes"]; ema20=sum(closes[-20:])/20; ema50=sum(closes[-50:])/50
     ema12=sum(closes[-12:])/12; ema26=sum(closes[-26:])/26; macd=ema12-ema26
-    adx_sim = abs(ema20-ema50)/ema50*1000 if ema50!=0 else 0
+    adx = adx_calc(d["highs"], d["lows"], d["closes"], 14)
     retroceso = abs(closes[-1]-ema20)/ema20 < 0.015 if ema20!=0 else False
-    if closes[-1]>ema20 and ema20>ema50 and macd>0 and adx_sim>2.2 and retroceso:
-        return True,f"[{symbol}] LOBO 1H EMA20>EMA50 MACD {macd:.1f}", 0.65
-    return False,f"[{symbol}] LOBO esperando", 0.35
+    if closes[-1]>ema20 and ema20>ema50 and macd>0 and adx>20 and retroceso:
+        return True,f"[{symbol}] LOBO 1H ADX{adx:.0f} MACD{macd:.1f}", 0.65
+    return False,f"[{symbol}] LOBO ADX{adx:.0f} esperando", 0.35
 
 def detectar_TIBURON_sym(symbol):
     d=get_velas(symbol,"1d",210)
@@ -266,7 +301,7 @@ def cargar_datos():
 cargar_datos()
 
 def motor_v44():
-    print(">>> MOTOR V44.1")
+    print(">>> MOTOR V44.2 ADX REAL")
     time.sleep(5)
     while True:
         try:
@@ -281,10 +316,43 @@ def motor_v44():
                     d=get_velas(sym,"1m",1)
                     if d: ESTADO["bnb"]=d["closes"][-1]
         except: pass
+
         for user_id in list(USUARIOS.keys()):
             u=USUARIOS[user_id]
+            if user_id not in POSICIONES_ABIERTAS: POSICIONES_ABIERTAS[user_id] = []
+            # 1) CHEQUEAR POSICIONES ABIERTAS - TP/SL REAL
+            for pos in POSICIONES_ABIERTAS[user_id][:]:
+                try:
+                    precio_actual = float(client.get_symbol_ticker(symbol=pos["symbol"])['price'])
+                    tp_price = pos["entrada"] * (1 + pos["tp"]/100)
+                    sl_price = pos["entrada"] * (1 + pos["sl"]/100)
+                    cerrar = None
+                    if precio_actual >= tp_price: cerrar = "TP"
+                    elif precio_actual <= sl_price: cerrar = "SL"
+                    if cerrar:
+                        usdt_a_vender = pos["usdt"]
+                        ejecutar_orden_real(pos["symbol"], "SELL", usdt_a_vender)
+                        pnl = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"]
+                        if cerrar=="TP":
+                            u["balance"]+=abs(pnl); u["neto_hoy"]+=abs(pnl); u["ganadas"]+=1
+                            u["estrategias"][pos["estrategia"]]["ganadas"]+=1
+                        else:
+                            u["balance"]-=abs(pnl); u["neto_hoy"]-=abs(pnl); u["perdidas"]+=1
+                        u["estrategias"][pos["estrategia"]]["ops"]+=1
+                        u["estrategias"][pos["estrategia"]]["neto"]+=pnl
+                        u["ops_hoy"]+=1
+                        linea=f"{ahora_art().strftime('%H:%M:%S')} {pos['estrategia']} {pos['symbol']} {cerrar} {pos['tp'] if cerrar=='TP' else pos['sl']}% ${pnl:+.2f}"
+                        u["historial"].append(linea)
+                        POSICIONES_ABIERTAS[user_id].remove(pos)
+                        try: bot.send_message(user_id,f"{'✅' if cerrar=='TP' else '❌'} {pos['estrategia']} {pos['symbol']} {cerrar}\nEntrada {pos['entrada']:.2f} -> {precio_actual:.2f}\n${pnl:+.2f} Bal ${u['balance']:.2f}")
+                        except: pass
+                except: pass
+
             if not u.get("prendido", False): continue
             check_reset_diario(u)
+            # Evitar sobre-operar si hay posicion abierta misma moneda
+            if len(POSICIONES_ABIERTAS[user_id]) >= 2: continue
+
             ganancia_total = u["balance"] - u["capital_inicial"]
             monedas_desbloqueables = max(1, int(ganancia_total // EVOLUCION_PROFIT_POR_MONEDA) + 1)
             while len(MONEDAS_ACTIVAS) < monedas_desbloqueables and len(MONEDAS_ACTIVAS) < 8:
@@ -299,12 +367,12 @@ def motor_v44():
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_MULTI_V44(regimen_actual)
             if not ok:
                 u["mercado"]=f"BTC {regimen_actual} - {motivo}"
-                if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO V44"
+                if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO V44 ADX"
                 continue
             if ok and estrategia_elegida:
                 cfg=ESTRATEGIAS_V44[estrategia_elegida]
                 tp_inteligente = calcular_tp_inteligente(estrategia_elegida, fuerza)
-                ESTADO["estrategias_activas"][symbol_elegido] = f"{estrategia_elegida} {tp_inteligente}%"
+                ESTADO["estrategias_activas"][symbol_elegido] = f"{estrategia_elegida} {tp_inteligente}% ADX"
                 ultima=u["ultima_op"].get(estrategia_elegida)
                 if ultima:
                     try:
@@ -318,15 +386,14 @@ def motor_v44():
                 usdt_a_usar=u["balance"]*alloc_real*0.10
                 exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
                 if exito:
-                    monto_neto=round(u["balance"]*(tp_inteligente/100)*alloc_real,2)
-                    u["balance"]+=monto_neto; u["neto_hoy"]+=monto_neto; u["ops_hoy"]+=1; u["ganadas"]+=1
-                    u["estrategias"][estrategia_elegida]["ops"]+=1; u["estrategias"][estrategia_elegida]["ganadas"]+=1; u["estrategias"][estrategia_elegida]["neto"]+=monto_neto
+                    pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_inteligente, "sl": cfg["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat()}
+                    POSICIONES_ABIERTAS[user_id].append(pos)
                     u["ultima_op"][estrategia_elegida]=ahora_art().isoformat()
                     u["modo"]=f"{estrategia_elegida} {symbol_elegido} TP{tp_inteligente}%"; u["mercado"]=f"{motivo}"
-                    linea=f"{ahora_art().strftime('%H:%M:%S')} {estrategia_elegida} {symbol_elegido} TP {tp_inteligente}% ${monto_neto:+.2f} {ESTADO['regimenes'].get(symbol_elegido,'')}"
+                    linea=f"{ahora_art().strftime('%H:%M:%S')} {estrategia_elegida} {symbol_elegido} COMPRA {precio:.2f} TP {tp_inteligente}%"
                     u["historial"].append(linea)
                     if len(u["historial"])>200: u["historial"]=u["historial"][-200:]
-                    try: bot.send_message(user_id,f"✅ V44 {estrategia_elegida} {symbol_elegido}\n{motivo}\nTP {tp_inteligente}% rango {cfg['rango_tp'][0]}-{cfg['rango_tp'][1]}%\n💰 ${monto_neto:+.2f} | Bal ${u['balance']:.2f}")
+                    try: bot.send_message(user_id,f"🟢 COMPRA V44 {estrategia_elegida} {symbol_elegido}\n{motivo}\nEntrada {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}%\nEsperando TP/SL real... Bal ${u['balance']:.2f}")
                     except: pass
         guardar_datos()
         time.sleep(60)
@@ -344,7 +411,7 @@ def start(m):
     for k,v in ESTADO.get("regimenes",{}).items():
         regs.append(f"{k.replace('USDT','')}:{v} -> Usara {estrategia_prevista(v)}")
     regs_txt = "\n".join(regs) or f"BTC {ESTADO['regimen']} -> Usara {estrategia_prevista(ESTADO['regimen'])}"
-    bot.send_message(m.chat.id,f"🦁 V44.1 SABIO {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V44.2 ADX REAL {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="📦 ORDENES")
 def ordenes(m):
@@ -368,7 +435,8 @@ def balance(m):
     for k,v in ESTADO.get("regimenes",{}).items():
         regs.append(f"{k}: {v} => Usara {estrategia_prevista(v)}")
     regs_txt = "\n".join(regs) or f"BTC {ESTADO.get('regimen','LINEAL')}"
-    texto=f"💰 V44.1\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
+    pos_txt = "\n".join([f"🔓 {p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin posiciones abiertas"
+    texto=f"💰 V44.2 ADX REAL\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
     for k,v in u["estrategias"].items():
         rango=ESTRATEGIAS_V44[k]["rango_tp"]
         texto+=f"{k} {rango[0]}-{rango[1]}%: {v['ops']} ops ${v['neto']:+.2f}\n"
@@ -378,13 +446,13 @@ def balance(m):
 def historial(m):
     u=get_user_data(m.chat.id)
     txt="\n".join(u["historial"][-20:]) if u["historial"] else "Sin ops"
-    bot.send_message(m.chat.id,f"📜 V44.1\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"📜 V44.2\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER","/prender"])
 def prender(m):
-    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V44"
+    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V44 ADX"
     guardar_datos()
-    bot.send_message(m.chat.id,f"🦁 V44.1 PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V44.2 ADX PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["⏸️ APAGAR","/apagar"])
 def apagar(m):
@@ -428,7 +496,7 @@ def callback(call):
 @app.route('/')
 def home():
     html = """
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44.1</title>
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44.2 ADX</title>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
 .card{background:#1e222d;padding:10px;margin:5px;border-radius:8px;display:inline-block;min-width:150px}
