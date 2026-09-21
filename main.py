@@ -1,6 +1,6 @@
 import os, json, threading, time, requests, math
 from datetime import datetime
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 import telebot
 from telebot import types
 try:
@@ -26,7 +26,7 @@ BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BIN
 IS_TESTNET = (os.getenv("BINANCE_TESTNET", "true") or "true").lower().strip() == "true"
 WEB_URL = os.getenv("WEB_URL", "https://bot-v22.onrender.com").strip().rstrip("/")
 
-# ================= V42.1 EVOLUTIVO - CONFIG =================
+# ================= V42.2 WEBHOOK - CONFIG =================
 MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT"]
 CANDIDATAS = ["ETHUSDT","SOLUSDT","XRPUSDT","AVAXUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT"]
 GANANCIA_HITO = 100.0
@@ -254,7 +254,7 @@ def cargar_datos():
 cargar_datos()
 
 def motor_v40():
-    print(">>> MOTOR V42.1 FIX INICIADO - Esperando usuarios prendidos")
+    print(">>> MOTOR V42.2 WEBHOOK INICIADO - Esperando usuarios prendidos")
     time.sleep(5)
     while True:
         try:
@@ -322,7 +322,7 @@ def get_menu():
 def start(m):
     u=get_user_data(m.chat.id)
     estado_txt = "🟢 CAZANDO" if u["prendido"] else "🔴 APAGADO"
-    bot.send_message(m.chat.id,f"🦁 V42.1 4 BESTIAS EVOLUTIVO {estado_txt}\nRATA 20% | LOBO 25% | TIBURON 10% | MONSTRUO 45%\nMonedas activas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} BTC ${ESTADO['btc']:.0f} BNB ${ESTADO['bnb']:.0f}\nCada $100 analiza 14d y sugiere nueva\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V42.2 WEBHOOK {estado_txt}\nRATA 20% | LOBO 25% | TIBURON 10% | MONSTRUO 45%\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} BTC ${ESTADO['btc']:.0f} BNB ${ESTADO['bnb']:.0f}\nCada $100 analiza 14d\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="📦 ORDENES")
 @bot.message_handler(commands=['ordenes'])
@@ -345,7 +345,7 @@ def balance(m):
     u=get_user_data(m.chat.id)
     ganancia_total = u["balance"]-u["capital_inicial"]
     estado_real = "🟢 CAZANDO" if u["prendido"] else "🔴 APAGADO - Tocá PRENDER"
-    texto=f"💰 V42.1 EVOLUTIVO\nEstado: {estado_real}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nActual ${u['balance']:.2f} (Ganancia ${ganancia_total:+.2f})\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\nModo {u['modo']}\n{u['mercado']}\nProx hito: ${GANANCIA_HITO*(len(MONEDAS_ACTIVAS)-1 if len(MONEDAS_ACTIVAS)>=2 else 1):.0f}\n\n"
+    texto=f"💰 V42.2 WEBHOOK\nEstado: {estado_real}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nActual ${u['balance']:.2f} (Ganancia ${ganancia_total:+.2f})\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\nModo {u['modo']}\n{u['mercado']}\nProx hito: ${GANANCIA_HITO*(len(MONEDAS_ACTIVAS)-1 if len(MONEDAS_ACTIVAS)>=2 else 1):.0f}\n\n"
     for k,v in u["estrategias"].items(): texto+=f"{k}: {v['ops']} ops ${v['neto']:+.2f}\n"
     bot.send_message(m.chat.id,texto,reply_markup=get_menu())
 
@@ -353,7 +353,7 @@ def balance(m):
 def historial(m):
     u=get_user_data(m.chat.id)
     txt="\n".join(u["historial"][-20:]) if u["historial"] else "Sin ops"
-    bot.send_message(m.chat.id,f"📜 V42.1\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"📜 V42.2\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER","/prender"])
 def prender(m):
@@ -362,8 +362,8 @@ def prender(m):
     u["modo"]="CAZANDO"
     u["mercado"]=f"Escaneando {len(MONEDAS_ACTIVAS)} monedas..."
     guardar_datos()
-    bot.send_message(m.chat.id,f"🦁 V42.1 PRENDIDO\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nModo: CAZANDO\nAnalizando cada 60 seg...\nLogs en Render: 🔄 Ciclo V42",reply_markup=get_menu())
-    print(f">>> USUARIO {m.chat.id} PRENDIO -> CAZANDO")
+    bot.send_message(m.chat.id,f"🦁 V42.2 PRENDIDO WEBHOOK\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nModo: CAZANDO\nSin error 409\nLogs: 🔄 Ciclo V42",reply_markup=get_menu())
+    print(f">>> USUARIO {m.chat.id} PRENDIO -> CAZANDO WEBHOOK")
 
 @bot.message_handler(func=lambda m: m.text in ["⏸️ APAGAR","/apagar"])
 def apagar(m):
@@ -371,27 +371,27 @@ def apagar(m):
     u["prendido"]=False
     u["modo"]="ESPERANDO"
     guardar_datos()
-    bot.send_message(m.chat.id,f"⏸️ V42 APAGADO\nQueda en ESPERANDO hasta que toques PRENDER",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"⏸️ V42 APAGADO",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="🧬 EVOLUCIONAR")
 def evolucionar_manual(m):
     u=get_user_data(m.chat.id)
-    bot.send_message(m.chat.id,"🧬 Analizando 14 días de todas las candidatas...")
+    bot.send_message(m.chat.id,"🧬 Analizando 14 días...")
     mejor = analizar_top_rentable_14d()
     if mejor:
         kb = types.InlineKeyboardMarkup()
         kb.add(types.InlineKeyboardButton(f"✅ SI AGREGAR {mejor['symbol']}", callback_data=f"ADD_{mejor['symbol']}"))
         kb.add(types.InlineKeyboardButton("❌ NO", callback_data="NO_ADD"))
-        bot.send_message(m.chat.id, f"🧬 ANALISIS 14D\nMás rentable:\n{mejor['symbol']} ${mejor['precio']:.2f}\nRent 14d: {mejor['rent']:+.2f}%\nSprings: {mejor['springs']}\nScore {mejor['score']:.1f}\n\n¿Incorporo?", reply_markup=kb)
+        bot.send_message(m.chat.id, f"🧬 ANALISIS 14D\n{mejor['symbol']} ${mejor['precio']:.2f}\nRent {mejor['rent']:+.2f}% Springs {mejor['springs']}\nScore {mejor['score']:.1f}\n¿Incorporo?", reply_markup=kb)
     else:
-        bot.send_message(m.chat.id,"No encontré candidata ahora.")
+        bot.send_message(m.chat.id,"No encontré candidata.")
 
 @bot.message_handler(func=lambda m: m.text=="💸 RETIRAR")
 def retirar_pedir(m):
     u=get_user_data(m.chat.id)
     ganancia = u["balance"]-u["capital_inicial"]
     ESTADO_RETIRO[m.chat.id]=True
-    bot.send_message(m.chat.id,f"💸 RETIRO V42\nBalance ${u['balance']:.2f}\nGanancia disponible ${ganancia:.2f}\n\nEscribí cuánto querés retirar en USDT (ej: 50)\nSe descontará de tu balance y se enviará a Funding.", reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"💸 RETIRO V42\nBalance ${u['balance']:.2f}\nGanancia ${ganancia:.2f}\nEscribí cuánto (ej: 50)", reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: ESTADO_RETIRO.get(m.chat.id) and m.text.replace('.','',1).replace('-','',1).isdigit())
 def retirar_confirmar(m):
@@ -401,13 +401,13 @@ def retirar_confirmar(m):
         ganancia=u["balance"]-u["capital_inicial"]
         if monto<=0: raise ValueError
         if monto>ganancia:
-            bot.send_message(m.chat.id,f"❌ No podés retirar ${monto} porque tu ganancia es ${ganancia:.2f}. Solo podés retirar ganancia."); return
+            bot.send_message(m.chat.id,f"❌ Solo ganancia ${ganancia:.2f}"); return
         u["balance"]-=monto
         ESTADO_RETIRO[m.chat.id]=False
         guardar_datos()
-        bot.send_message(m.chat.id,f"✅ RETIRO ${monto:.2f} PROCESADO\nNuevo balance ${u['balance']:.2f}\nTransferido a Funding (simulado Testnet)", reply_markup=get_menu())
+        bot.send_message(m.chat.id,f"✅ RETIRO ${monto:.2f} Bal ${u['balance']:.2f}", reply_markup=get_menu())
     except Exception as e:
-        bot.send_message(m.chat.id,f"Error retiro {e}")
+        bot.send_message(m.chat.id,f"Error {e}")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -418,12 +418,12 @@ def callback(call):
             MONEDAS_ACTIVAS.append(sym)
             guardar_datos()
             bot.answer_callback_query(call.id, f"{sym} agregada")
-            bot.send_message(call.message.chat.id, f"✅ {sym} incorporada a la manada\nAhora: {'+'.join(MONEDAS_ACTIVAS)}\nGráfico de {sym} ya visible en la web\n{WEB_URL}", reply_markup=get_menu())
+            bot.send_message(call.message.chat.id, f"✅ {sym} incorporada\nAhora: {'+'.join(MONEDAS_ACTIVAS)}\n{WEB_URL}", reply_markup=get_menu())
         else:
             bot.answer_callback_query(call.id, "Ya está")
     elif call.data=="NO_ADD":
         bot.answer_callback_query(call.id, "No agregada")
-        bot.send_message(call.message.chat.id, "❌ Evolución cancelada. Sigo con las actuales.", reply_markup=get_menu())
+        bot.send_message(call.message.chat.id, "❌ Cancelada.", reply_markup=get_menu())
 
 @app.route('/')
 def home():
@@ -436,10 +436,10 @@ def home():
         </div>
         <script>new TradingView.widget({{"autosize":true,"symbol":"BINANCE:{sym}","interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","style":"1","locale":"es","container_id":"chart_{sym}"}});</script>
         """
-    html=f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>V42.1 EVOLUTIVO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{{margin:0;background:#0f1115;color:#d1d4dc}}</style></head>
-    <body><div style="padding:10px;background:#1e222d">V42.1 FIX EVOLUTIVO {'+'.join(MONEDAS_ACTIVAS)} <span id="info"></span></div>
+    html=f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>V42.2 WEBHOOK</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{{margin:0;background:#0f1115;color:#d1d4dc}}</style></head>
+    <body><div style="padding:10px;background:#1e222d">V42.2 WEBHOOK {'+'.join(MONEDAS_ACTIVAS)} <span id="info"></span></div>
     {charts_js}
-    <script>async function load(){{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML=`Bal $${{a.balance.toFixed(2)}} Hoy $${{a.neto_hoy.toFixed(2)}} ${{a.modo}} ${{a.mercado}} Activas: ${{a.monedas.join('+')}}`;}}setInterval(load,3000);load();</script></body></html>"""
+    <script>async function load(){{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML=`Bal $${{a.balance.toFixed(2)}} Hoy $${{a.neto_hoy.toFixed(2)}} ${{a.modo}} ${{a.mercado}}`;}}setInterval(load,3000);load();</script></body></html>"""
     return render_template_string(html)
 
 @app.route('/api/data')
@@ -449,13 +449,36 @@ def api_data():
     u=USUARIOS[target]
     return jsonify({"balance":u["balance"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS})
 
-def run_bot():
-    try: bot.remove_webhook(); time.sleep(1); bot.delete_webhook(drop_pending_updates=True)
-    except: pass
-    while True:
-        try: bot.infinity_polling(skip_pending=True,timeout=20)
-        except: time.sleep(5)
+# ===== WEBHOOK ROUTES FIX 409 =====
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    try:
+        json_str = request.get_data().decode('UTF-8')
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(f"Webhook error {e}")
+    return "ok", 200
 
-threading.Thread(target=run_bot,daemon=True).start()
+@app.route('/set_webhook')
+def set_webhook_route():
+    try:
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=f"{WEB_URL}/{TOKEN}")
+        return f"Webhook OK {WEB_URL}/{TOKEN}", 200
+    except Exception as e:
+        return f"Error {e}", 500
+
+# SOLO MOTOR, NO POLLING
 threading.Thread(target=motor_v40,daemon=True).start()
-if __name__=='__main__': app.run(host='0.0.0.0',port=int(os.environ.get("PORT",10000)))
+
+if __name__=='__main__':
+    try:
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=f"{WEB_URL}/{TOKEN}")
+        print(f">>> WEBHOOK SETEADO {WEB_URL}/{TOKEN}")
+    except Exception as e:
+        print(f"Webhook set error {e}")
+    app.run(host='0.0.0.0',port=int(os.environ.get("PORT",10000)))
