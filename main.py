@@ -88,8 +88,7 @@ os.makedirs(DATA_DIR,exist_ok=True)
 
 ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regimenes":{},"estrategias_activas":{}}
 USUARIOS={}; LOCK=threading.Lock()
-# POSICIONES ABIERTAS REALISTAS
-POSICIONES_ABIERTAS = {} # uid -> list de posiciones
+POSICIONES_ABIERTAS = {}
 
 def ahora_art(): return datetime.now(TZ)
 
@@ -110,7 +109,6 @@ def rsi_calc(closes, period=14):
     rs = avg_gain/avg_loss
     return 100-(100/(1+rs))
 
-# === ADX REAL WILDER 14 ===
 def adx_calc(highs, lows, closes, period=14):
     if len(closes) < period*2 + 1:
         return 15.0
@@ -127,16 +125,13 @@ def adx_calc(highs, lows, closes, period=14):
         tr_list.append(tr)
         plus_dm_list.append(plus_dm)
         minus_dm_list.append(minus_dm)
-
     atr = sum(tr_list[:period]) / period
     plus_dm_s = sum(plus_dm_list[:period]) / period
     minus_dm_s = sum(minus_dm_list[:period]) / period
-
     for i in range(period, len(tr_list)):
         atr = (atr * (period-1) + tr_list[i]) / period
         plus_dm_s = (plus_dm_s * (period-1) + plus_dm_list[i]) / period
         minus_dm_s = (minus_dm_s * (period-1) + minus_dm_list[i]) / period
-
     if atr == 0: return 15.0
     plus_di = 100 * plus_dm_s / atr
     minus_di = 100 * minus_dm_s / atr
@@ -198,7 +193,7 @@ def detectar_LOBO_sym(symbol):
     closes=d["closes"]; ema20=sum(closes[-20:])/20; ema50=sum(closes[-50:])/50
     ema12=sum(closes[-12:])/12; ema26=sum(closes[-26:])/26; macd=ema12-ema26
     adx = adx_calc(d["highs"], d["lows"], d["closes"], 14)
-    retroceso = abs(closes[-1]-ema20)/ema20 < 0.015 if ema20!=0 else False
+    retroceso = abs(closes[-1]-ema20)/ema20 < 0.025 if ema20!=0 else False
     if closes[-1]>ema20 and ema20>ema50 and macd>0 and adx>20 and retroceso:
         return True,f"[{symbol}] LOBO 1H ADX{adx:.0f} MACD{macd:.1f}", 0.65
     return False,f"[{symbol}] LOBO ADX{adx:.0f} esperando", 0.35
@@ -316,11 +311,9 @@ def motor_v44():
                     d=get_velas(sym,"1m",1)
                     if d: ESTADO["bnb"]=d["closes"][-1]
         except: pass
-
         for user_id in list(USUARIOS.keys()):
             u=USUARIOS[user_id]
             if user_id not in POSICIONES_ABIERTAS: POSICIONES_ABIERTAS[user_id] = []
-            # 1) CHEQUEAR POSICIONES ABIERTAS - TP/SL REAL
             for pos in POSICIONES_ABIERTAS[user_id][:]:
                 try:
                     precio_actual = float(client.get_symbol_ticker(symbol=pos["symbol"])['price'])
@@ -347,12 +340,9 @@ def motor_v44():
                         try: bot.send_message(user_id,f"{'✅' if cerrar=='TP' else '❌'} {pos['estrategia']} {pos['symbol']} {cerrar}\nEntrada {pos['entrada']:.2f} -> {precio_actual:.2f}\n${pnl:+.2f} Bal ${u['balance']:.2f}")
                         except: pass
                 except: pass
-
             if not u.get("prendido", False): continue
             check_reset_diario(u)
-            # Evitar sobre-operar si hay posicion abierta misma moneda
             if len(POSICIONES_ABIERTAS[user_id]) >= 2: continue
-
             ganancia_total = u["balance"] - u["capital_inicial"]
             monedas_desbloqueables = max(1, int(ganancia_total // EVOLUCION_PROFIT_POR_MONEDA) + 1)
             while len(MONEDAS_ACTIVAS) < monedas_desbloqueables and len(MONEDAS_ACTIVAS) < 8:
