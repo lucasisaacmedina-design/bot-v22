@@ -195,8 +195,8 @@ def detectar_LOBO_sym(symbol):
     adx = adx_calc(d["highs"], d["lows"], d["closes"], 14)
     retroceso = abs(closes[-1]-ema20)/ema20 < 0.025 if ema20!=0 else False
     if closes[-1]>ema20 and ema20>ema50 and macd>0 and adx>20 and retroceso:
-        return True,f"[{symbol}] LOBO 1H ADX{adx:.0f} MACD{macd:.1f}", 0.65
-    return False,f"[{symbol}] LOBO ADX{adx:.0f} esperando", 0.35
+        return True,f"[{symbol}] LOBO 1H ADX{adx:.0f} MACD{macd:.1f} RET2.5%", 0.65
+    return False,f"[{symbol}] LOBO ADX{adx:.0f} esperando retroceso 2.5%", 0.35
 
 def detectar_TIBURON_sym(symbol):
     d=get_velas(symbol,"1d",210)
@@ -220,32 +220,24 @@ def detectar_MONSTRUO_sym(symbol):
     return False,f"[{symbol}] MONS esperando", 0.08
 
 def detectar_MULTI_V44(regimen):
-    orden_prioridad = {
-        "LINEAL": ["RATA","LOBO","TIBURON","MONSTRUO"],
-        "ALCISTA": ["LOBO","RATA","TIBURON","MONSTRUO"],
-        "ALCISTA_FUERTE": ["TIBURON","LOBO","MONSTRUO","RATA"],
-        "CRASH": ["MONSTRUO","TIBURON","LOBO","RATA"],
-        "BAJISTA": ["MONSTRUO","RATA","LOBO","TIBURON"]
-    }
-    prioridades = orden_prioridad.get(regimen, ["RATA","LOBO","TIBURON","MONSTRUO"])
+    # V44.3 - 4 BESTIAS SIEMPRE ACTIVAS
+    todas = ["RATA","LOBO","TIBURON","MONSTRUO"]
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
-        reg_sym = ESTADO.get("regimenes",{}).get(sym, regimen).split()[0]
-        prio_sym = orden_prioridad.get(reg_sym, prioridades)
-        for nombre in prio_sym:
+        for nombre in todas:
             if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym)
             elif nombre=="LOBO": ok,motivo,wr = detectar_LOBO_sym(sym)
             elif nombre=="TIBURON": ok,motivo,wr = detectar_TIBURON_sym(sym)
             else: ok,motivo,wr = detectar_MONSTRUO_sym(sym)
             if ok:
+                reg_sym = ESTADO.get("regimenes",{}).get(sym, regimen).split()[0]
                 bonus = 0.25 if ESTRATEGIAS_V44[nombre]["mercado_ideal"]==reg_sym else 0
                 fuerza_final = wr + bonus
                 if fuerza_final > mejor_fuerza:
                     mejor_fuerza=fuerza_final; mejor_est=nombre; mejor_motivo=motivo; mejor_sym=sym
-        if mejor_est and mejor_est==prioridades[0]: break
     if mejor_est:
         return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    return False, f"V44 {regimen} - Esperando setup {prioridades[0]}", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V44.3 4 BESTIAS CAZANDO - Esperando", MONEDAS_ACTIVAS[0], None, 0
 
 def analizar_top_rentable_14d():
     mejor=None; mejor_score=-99999
@@ -296,7 +288,7 @@ def cargar_datos():
 cargar_datos()
 
 def motor_v44():
-    print(">>> MOTOR V44.2 ADX REAL")
+    print(">>> MOTOR V44.3 4 BESTIAS + 4 POSICIONES")
     time.sleep(5)
     while True:
         try:
@@ -342,7 +334,7 @@ def motor_v44():
                 except: pass
             if not u.get("prendido", False): continue
             check_reset_diario(u)
-            if len(POSICIONES_ABIERTAS[user_id]) >= 2: continue
+            if len(POSICIONES_ABIERTAS[user_id]) >= 4: continue
             ganancia_total = u["balance"] - u["capital_inicial"]
             monedas_desbloqueables = max(1, int(ganancia_total // EVOLUCION_PROFIT_POR_MONEDA) + 1)
             while len(MONEDAS_ACTIVAS) < monedas_desbloqueables and len(MONEDAS_ACTIVAS) < 8:
@@ -357,7 +349,7 @@ def motor_v44():
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_MULTI_V44(regimen_actual)
             if not ok:
                 u["mercado"]=f"BTC {regimen_actual} - {motivo}"
-                if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO V44 ADX"
+                if u["modo"]=="ESPERANDO": u["modo"]="CAZANDO V44 4 BESTIAS"
                 continue
             if ok and estrategia_elegida:
                 cfg=ESTRATEGIAS_V44[estrategia_elegida]
@@ -383,7 +375,7 @@ def motor_v44():
                     linea=f"{ahora_art().strftime('%H:%M:%S')} {estrategia_elegida} {symbol_elegido} COMPRA {precio:.2f} TP {tp_inteligente}%"
                     u["historial"].append(linea)
                     if len(u["historial"])>200: u["historial"]=u["historial"][-200:]
-                    try: bot.send_message(user_id,f"🟢 COMPRA V44 {estrategia_elegida} {symbol_elegido}\n{motivo}\nEntrada {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}%\nEsperando TP/SL real... Bal ${u['balance']:.2f}")
+                    try: bot.send_message(user_id,f"🟢 COMPRA V44.3 {estrategia_elegida} {symbol_elegido}\n{motivo}\nEntrada {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}%\nPosiciones: {len(POSICIONES_ABIERTAS[user_id])}/4 - Bal ${u['balance']:.2f}")
                     except: pass
         guardar_datos()
         time.sleep(60)
@@ -396,12 +388,12 @@ def get_menu():
 @bot.message_handler(commands=['start'])
 def start(m):
     u=get_user_data(m.chat.id)
-    estado_txt = "🟢 CAZANDO V44" if u["prendido"] else "🔴 APAGADO"
+    estado_txt = "🟢 CAZANDO V44.3 4 BESTIAS" if u["prendido"] else "🔴 APAGADO"
     regs=[]
     for k,v in ESTADO.get("regimenes",{}).items():
         regs.append(f"{k.replace('USDT','')}:{v} -> Usara {estrategia_prevista(v)}")
     regs_txt = "\n".join(regs) or f"BTC {ESTADO['regimen']} -> Usara {estrategia_prevista(ESTADO['regimen'])}"
-    bot.send_message(m.chat.id,f"🦁 V44.2 ADX REAL {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V44.3 4 BESTIAS {estado_txt}\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="📦 ORDENES")
 def ordenes(m):
@@ -426,7 +418,7 @@ def balance(m):
         regs.append(f"{k}: {v} => Usara {estrategia_prevista(v)}")
     regs_txt = "\n".join(regs) or f"BTC {ESTADO.get('regimen','LINEAL')}"
     pos_txt = "\n".join([f"🔓 {p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin posiciones abiertas"
-    texto=f"💰 V44.2 ADX REAL\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
+    texto=f"💰 V44.3 4 BESTIAS\n{regs_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Ganancia ${ganancia_total:+.2f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\nProxima en ${len(MONEDAS_ACTIVAS)*100} (faltan ${len(MONEDAS_ACTIVAS)*100-ganancia_total:.0f})\n"
     for k,v in u["estrategias"].items():
         rango=ESTRATEGIAS_V44[k]["rango_tp"]
         texto+=f"{k} {rango[0]}-{rango[1]}%: {v['ops']} ops ${v['neto']:+.2f}\n"
@@ -436,13 +428,13 @@ def balance(m):
 def historial(m):
     u=get_user_data(m.chat.id)
     txt="\n".join(u["historial"][-20:]) if u["historial"] else "Sin ops"
-    bot.send_message(m.chat.id,f"📜 V44.2\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"📜 V44.3\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER","/prender"])
 def prender(m):
-    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V44 ADX"
+    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V44.3 4 BESTIAS"
     guardar_datos()
-    bot.send_message(m.chat.id,f"🦁 V44.2 ADX PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V44.3 4 BESTIAS PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["⏸️ APAGAR","/apagar"])
 def apagar(m):
@@ -486,7 +478,7 @@ def callback(call):
 @app.route('/')
 def home():
     html = """
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44.2 ADX</title>
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>V44.3 4 BESTIAS</title>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}
 .card{background:#1e222d;padding:10px;margin:5px;border-radius:8px;display:inline-block;min-width:150px}
