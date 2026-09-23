@@ -46,12 +46,12 @@ PIRANA_CONFIG = {
     "MARGEN_FUERA": 0.03,
     "RSI_MAX": 35,
     "COMISION_RT": 0.20,
-    "NETO_MIN": 2.0
+    "NETO_MIN": 2.0,
+    "RSI_REC": 50
 }
 ESTADO_PIRANA = {}
 BOLSA_PIRANA = {"neto": 0.0, "ops": 0}
 
-# === V48.3 EXPANSION CONFIG ===
 META_TP_PARA_EXPANDIR = 100.0
 CANDIDATAS_CACHE = {"_ultimo_scan": 0, "_aviso_meta": 0}
 TIEMPO_ESCANEO_CANDIDATAS = 600
@@ -61,7 +61,7 @@ ESTRATEGIAS_V45 = {
     "LOBO": {"tf": "1h", "desc": "LOBO 1H BANDA", "rango_tp": (1.5, 3.5), "sl_neto": -1.20, "max_dia": 100, "cooldown": 300, "cooldown_rec": 300, "mercado_ideal": "ALCISTA", "tp_fijo_banda": 2.5},
     "TIBURON": {"tf": "1d", "desc": "TIBURON 1D 10% FIJA BANDA", "rango_tp": (10.0, 10.0), "sl_neto": -3.50, "max_dia": 2, "cooldown": 14400, "mercado_ideal": "ALCISTA_FUERTE"},
     "KRAKEN": {"tf": "1w", "desc": "KRAKEN 1W 18%", "rango_tp": (18.0, 18.0), "sl_neto": -5.0, "max_dia": 2, "cooldown": 14400, "mercado_ideal": "CRASH"},
-    "PIRANA": {"tf": "5m", "desc": "PIRAÑA 5x 3% ARRIBA/ABAJO", "rango_tp": (2.2, 2.2), "sl_neto": -1.2, "max_dia": 100, "cooldown": 60, "mercado_ideal": "LINEAL", "tp_fijo_banda": 2.2}
+    "PIRANA": {"tf": "5m", "desc": "PIRAÑA EXCEPCION TOTAL", "rango_tp": (2.2, 2.2), "sl_neto": -1.2, "max_dia": 100, "cooldown": 60, "mercado_ideal": "LINEAL", "tp_fijo_banda": 2.2}
 }
 
 MAPA_ESTRATEGIA = {"LINEAL": "RATA 1.0-1.4%", "ALCISTA": "LOBO 1.5-3.5%", "ALCISTA_FUERTE": "TIBURON 10% BANDA", "CRASH": "KRAKEN 18%", "BAJISTA": "KRAKEN 18%"}
@@ -249,16 +249,16 @@ def oportunidad_pirana(symbol, rsi, precio, banda):
     entrada = banda["entrada_tiburon"]
     tope = banda["tope"]
     margen = PIRANA_CONFIG["MARGEN_FUERA"]
-    # FIX V48.3: 3% ABAJO y 3% ARRIBA - permite BNB 768 con banda 741-764
     low_ext = entrada * (1 - margen)
     high_ext = tope * (1 + margen)
     if not (low_ext <= precio <= high_ext):
         return False
     tipo = banda.get("tipo","NORMAL")
+    # V48.4: RECUPERACION mas permisivo para que BNB entre
     if tipo == "RECUPERACION":
-        return rsi < 45
+        return rsi < PIRANA_CONFIG["RSI_REC"] # 50
     else:
-        return rsi < PIRANA_CONFIG["RSI_MAX"]
+        return rsi < PIRANA_CONFIG["RSI_MAX"] # 35
 
 def es_rentable(tp_bruto):
     neto = tp_bruto - COMISION_TOTAL
@@ -320,15 +320,16 @@ def mandar_pensamiento_telegram():
                     tipo = banda.get("tipo","NORMAL")
                     umbral_lobo = 45 if tipo=="RECUPERACION" else 40
                     umbral_rata = 35 if tipo=="RECUPERACION" else 30
-                    if rsi < umbral_rata: estado_rsi = f"🟢 RSI{rsi:.0f} LISTO RATA (<{umbral_rata})"
-                    elif rsi < umbral_lobo: estado_rsi = f"🟢 RSI{rsi:.0f} LISTO LOBO (<{umbral_lobo})"
+                    umbral_pir = 50 if tipo=="RECUPERACION" else 35
+                    if rsi < umbral_rata: estado_rsi = f"🟢 RSI{rsi:.0f} LISTO RATA/PIRAÑA"
+                    elif rsi < umbral_pir: estado_rsi = f"🟢 RSI{rsi:.0f} LISTO PIRAÑA (<{umbral_pir})"
                     elif rsi < 55: estado_rsi = f"🟡 RSI{rsi:.0f} esperando"
                     else: estado_rsi = f"🔴 RSI{rsi:.0f} ALTO"
                     lineas.append(f"{sym} {estado_rsi} Banda {banda['entrada_tiburon']:.0f}->{banda['tope']:.0f} [{tipo}] Precio {precio:.0f}")
                 else:
                     lineas.append(f"{sym} {reg} sin banda")
             if lineas:
-                texto = "🧠 V48.3 PIRAÑA 5x 3% ARR/ABA ESCANEANDO\n" + "\n".join(lineas) + f"\n📊 {WEB_URL}\nNorm: LOBO<40 RATA<30 | Recu: LOBO<45 RATA<35 | PIRAÑA 5x RSI<35/45 TP2.2% 3% MARGEN"
+                texto = "🧠 V48.4 PIRAÑA EXCEPCION 5x 3% ESCANEANDO\n" + "\n".join(lineas) + f"\n📊 {WEB_URL}\nPIRAÑA EXCEPCION: ignora 1 pos/moneda | Recu RSI<50 Norm RSI<35 | TP2.2% 0.5x"
                 try: bot.send_message(uid, texto)
                 except: pass
     except: pass
@@ -381,7 +382,7 @@ def detectar_BI_CEREBRO(regimen):
                     if not ok_rent: continue
                     mejor_fuerza=fuerza_final; mejor_est=nombre; mejor_motivo=motivo; mejor_sym=sym
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    return False, f"V48.3 PIRAÑA 5x 3% ESPERANDO", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V48.4 PIRAÑA EXCEPCION ESPERANDO", MONEDAS_ACTIVAS[0], None, 0
 
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
@@ -445,7 +446,7 @@ def cargar_datos():
 
 def limpiar_pos_viejas():
     global POSICIONES_ABIERTAS
-    print(">>> V48.3 PIRAÑA 5x 3% ARR/ABA - 1 POS POR MONEDA (PIRAÑA NO CUENTA) INICIADO")
+    print(">>> V48.4 PIRAÑA EXCEPCION - PIRAÑA NO CUENTA EN LIMITE 1 POS/MONEDA")
     try:
         for uid in list(POSICIONES_ABIERTAS.keys()):
             lista = POSICIONES_ABIERTAS[uid]
@@ -506,7 +507,7 @@ def callback_candidata(call):
                 MONEDAS_ACTIVAS.append(sym)
                 guardar_datos()
                 bot.answer_callback_query(call.id, f"{sym} AGREGADA!")
-                bot.send_message(call.message.chat.id, f"✅ V48.3 5x 3% MANADA ACTUALIZADA\nNueva: {sym}\nAhora cazando: {'+'.join(MONEDAS_ACTIVAS)}\nPiraña 5x 3% arriba/abajo activa")
+                bot.send_message(call.message.chat.id, f"✅ V48.4 EXCEPCION MANADA ACTUALIZADA\nNueva: {sym}\nAhora cazando: {'+'.join(MONEDAS_ACTIVAS)}\nPiraña excepcion activa")
                 try: bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
                 except: pass
             else:
@@ -569,7 +570,7 @@ migrar_bandas_v46()
 
 def motor_v45():
     global ESTADO_PIRANA
-    print(">>> MOTOR V48.3 PIRAÑA 5x 3% ARR/ABA + TP100 EXPANSION")
+    print(">>> MOTOR V48.4 PIRAÑA EXCEPCION TOTAL + TP100")
     reconstruir_bandas_faltantes()
     migrar_bandas_v46()
     time.sleep(5)
@@ -648,6 +649,8 @@ def motor_v45():
                 except Exception as e:
                     print(f"check cierre error {e}")
             if not u.get("prendido", False): continue
+
+            # === V48.4 PIRAÑA EXCEPCION - SE EJECUTA SIEMPRE PRIMERO, IGNORA TODO ===
             try:
                 for sym in list(MONEDAS_ACTIVAS):
                     if sym not in BANDAS_ACTIVAS or not BANDAS_ACTIVAS[sym].get("activa"): continue
@@ -677,12 +680,14 @@ def motor_v45():
                             u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} PIRANA {sym} COMPRA {precio_entrada:.2f} TP {PIRANA_CONFIG['TP']}%")
                             guardar_datos()
                             link = f"{WEB_URL}/chart?symbol={sym}&interval=5m"
-                            try: bot.send_message(user_id, f"🐟 V48.3 PIRAÑA {sym} {ESTADO_PIRANA[key_banda]}/{PIRANA_CONFIG['MAX_POR_BANDA']} en banda {banda['entrada_tiburon']:.0f}->{banda['tope']:.0f} [{banda['tipo']}]\nRSI{rsi:.0f} Precio {precio_entrada:.2f} TP {PIRANA_CONFIG['TP']}% Neto {PIRANA_CONFIG['TP']-PIRANA_CONFIG['COMISION_RT']:.1f}% 0.5x MARGEN 3% ARR/ABA\nBolsa PIRAÑA ${BOLSA_PIRANA['neto']:+.2f}\n📊 {link}")
+                            try: bot.send_message(user_id, f"🐟 V48.4 EXCEPCION PIRAÑA {sym} {ESTADO_PIRANA[key_banda]}/{PIRANA_CONFIG['MAX_POR_BANDA']} banda {banda['entrada_tiburon']:.0f}->{banda['tope']:.0f} [{banda['tipo']}]\nRSI{rsi:.0f} Precio {precio_entrada:.2f} TP {PIRANA_CONFIG['TP']}% Neto 2.0% EXCEPCION 1 POS\nBolsa PIRAÑA ${BOLSA_PIRANA['neto']:+.2f}\n📊 {link}")
                             except: pass
             except Exception as e:
-                print(f"PIRAÑA loop error {e}")
+                print(f"PIRAÑA V48.4 error {e}")
+
             check_reset_diario(u)
             counts_moneda = contar_por_moneda()
+            # V48.4: este limite NO afecta a PIRAÑA, PIRAÑA ya se ejecuto arriba
             if sum(counts_moneda.values()) >= 2: continue
             counts_global, total_tib_global = contar_posiciones_globales()
             regimen_actual = ESTADO.get("regimen","LINEAL")
@@ -691,7 +696,6 @@ def motor_v45():
             if ok and estrategia_elegida:
                 key_lock = f"{symbol_elegido}_{estrategia_elegida}"
                 cfg_tmp = ESTRATEGIAS_V45.get(estrategia_elegida, {"cooldown":90})
-                # FIX V48.3: usa cooldown_rec para RECUPERACION
                 banda_tmp = BANDAS_ACTIVAS.get(symbol_elegido, {})
                 if banda_tmp.get("tipo")=="RECUPERACION" and "cooldown_rec" in cfg_tmp:
                     cooldown_real = cfg_tmp.get("cooldown_rec", 180)
@@ -720,7 +724,7 @@ def motor_v45():
                     guardar_datos()
                     link = f"{WEB_URL}/chart?symbol={symbol_elegido}&interval=15m"
                     tipo_banda = " [FIJA BANDA]" if estrategia_elegida=="TIBURON" else " [DENTRO BANDA]" if symbol_elegido in BANDAS_ACTIVAS and BANDAS_ACTIVAS[symbol_elegido].get("activa") else ""
-                    try: bot.send_message(user_id,f"🟢 V48.3 {estrategia_elegida}{tipo_banda} {symbol_elegido}\n{motivo}\nEnt {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}% Neto {neto:.2f}%\n📊 {link}")
+                    try: bot.send_message(user_id,f"🟢 V48.4 {estrategia_elegida}{tipo_banda} {symbol_elegido}\n{motivo}\nEnt {precio:.2f} TP {tp_inteligente}% SL {cfg['sl_neto']}% Neto {neto:.2f}%\n📊 {link}")
                     except: pass
         guardar_datos()
         time.sleep(60)
@@ -733,12 +737,12 @@ def get_menu():
 @bot.message_handler(commands=['start'])
 def start(m):
     u=get_user_data(m.chat.id)
-    estado_txt = "🟢 V48.3 PIRAÑA 5x 3% ARR/ABA" if u["prendido"] else "🔴 APAGADO"
+    estado_txt = "🟢 V48.4 PIRAÑA EXCEPCION" if u["prendido"] else "🔴 APAGADO"
     regs="\n".join([f"{k}:{v} -> {estrategia_prevista(v)}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen']
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
     ganancia = u["balance"] - u["capital_inicial"] + BOLSA_PIRANA["neto"]
     meta = META_TP_PARA_EXPANDIR * (len(MONEDAS_ACTIVAS)-1)
-    bot.send_message(m.chat.id,f"🦁 V48.3 {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f} Bolsa PIRAÑA ${BOLSA_PIRANA['neto']:+.2f}\nGanancia ${ganancia:.2f} / Meta exp ${meta:.0f}\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V48.4 {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f} Bolsa PIRAÑA ${BOLSA_PIRANA['neto']:+.2f}\nGanancia ${ganancia:.2f} / Meta exp ${meta:.0f}\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="📊 BALANCE")
 def balance(m):
@@ -749,7 +753,7 @@ def balance(m):
     pos_txt = "\n".join([f"🔒 {p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}% SL{p['sl']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin pos"
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
     meta = META_TP_PARA_EXPANDIR * (len(MONEDAS_ACTIVAS)-1) if len(MONEDAS_ACTIVAS)>=2 else 100
-    texto=f"💰 V48.3 PIRAÑA 5x 3% ARR/ABA\n{regs}\n{bandas_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Gan ${ganancia_total:+.2f} PIRAÑA ${BOLSA_PIRANA['neto']:+.2f} Total ${ganancia_con_pirana:+.2f}\nMeta prox moneda: ${meta:.0f} (falta ${max(0, meta-ganancia_con_pirana):.0f})\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\n"
+    texto=f"💰 V48.4 PIRAÑA EXCEPCION\n{regs}\n{bandas_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Gan ${ganancia_total:+.2f} PIRAÑA ${BOLSA_PIRANA['neto']:+.2f} Total ${ganancia_con_pirana:+.2f}\nMeta prox moneda: ${meta:.0f} (falta ${max(0, meta-ganancia_con_pirana):.0f})\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\n"
     for k,v in u["estrategias"].items(): texto+=f"{k}: {v['ops']} ops ${v['neto']:+.2f}\n"
     bot.send_message(m.chat.id,texto,reply_markup=get_menu())
 
@@ -757,29 +761,29 @@ def balance(m):
 def historial(m):
     u=get_user_data(m.chat.id)
     txt="\n".join(u["historial"][-20:]) if u["historial"] else "Sin ops"
-    bot.send_message(m.chat.id,f"📜 V48.3 PIRAÑA\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"📜 V48.4 PIRAÑA EXCEPCION\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["🚀 PRENDER","/prender"])
 def prender(m):
-    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V48.3 5x 3% ARR/ABA"
+    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V48.4 EXCEPCION"
     guardar_datos()
-    bot.send_message(m.chat.id,f"🦁 V48.3 PIRAÑA 5x 3% ARR/ABA PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}\nMargen 3% arriba/abajo - BNB 768 ahora SÍ caza\nRATA 180s LOBO 300s en RECUP - hasta viernes",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"🦁 V48.4 PIRAÑA EXCEPCION PRENDIDO\n{'+'.join(MONEDAS_ACTIVAS)}\nPiraña ignora 1 pos/moneda - BNB ahora caza aunque haya RATA\nRSI<50 en RECUP - hasta viernes",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text in ["⏸️ APAGAR","/apagar"])
 def apagar(m):
     u=get_user_data(m.chat.id); u["prendido"]=False; guardar_datos()
-    bot.send_message(m.chat.id,f"⏸️ V48.3 APAGADO",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"⏸️ V48.4 APAGADO",reply_markup=get_menu())
 
 @app.route('/')
 def home():
-    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V48.3 PIRAÑA 5x 3% ARR/ABA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{position:relative;background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.badge{position:absolute;top:36px;left:6px;z-index:5;background:rgba(0,0,0,0.85);padding:6px 8px;border-radius:6px;font-size:11px;line-height:15px;max-width:95%}.badge.tib{color:#00ff88}.badge.lobo{color:#ffcc00}.badge.pirana{color:#ff4444;font-weight:bold}.badge.banda{color:#ffaa00;font-weight:bold}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}@media(max-width:900px){.grid{grid-template-columns:1fr}}</style></head><body><div class="top" id="info">Cargando V48.3...</div><div class="grid" id="charts_grid"></div><script>async function load(){let a=await (await fetch('/api/data')).json();let bandas=a.bandas||{};let pos=a.posiciones||[];document.getElementById('info').innerHTML=`<b>V48.3 5x 3% ARR/ABA ${a.modo}</b> | <span style="color:#00ff88">${a.bandas_txt}</span> | Bal $${a.balance.toFixed(2)} Piraña $${a.bolsa_pirana.neto.toFixed(2)} Gan $${(a.ganancia_total+a.bolsa_pirana.neto).toFixed(2)}/${a.meta_proxima} | ${a.monedas.join('+')}`;let grid=document.getElementById('charts_grid');if(grid.childElementCount!=a.monedas.length){grid.innerHTML='';a.monedas.forEach(sym=>{let pSym=pos.filter(p=>p.symbol==sym);let b=bandas[sym];let badgeHtml='';if(b&&b.activa)badgeHtml+=`<div class="banda">🎯 BANDA ${b.entrada_tiburon.toFixed(0)} -> ${b.tope.toFixed(0)} ${b.tipo}</div>`;pSym.forEach(p=>{let precio=a.precios[sym]||p.entrada;let pnl=((precio-p.entrada)/p.entrada*100);let pnl_usd=(precio-p.entrada)/p.entrada*p.usdt;let cls=p.estrategia=='TIBURON'?'tib':p.estrategia=='PIRANA'?'pirana':'lobo';badgeHtml+=`<div class="${cls}">🔒 ${p.estrategia} Ent ${p.entrada.toFixed(2)} | TP ${(p.entrada*(1+p.tp/100)).toFixed(2)} | PnL ${pnl.toFixed(2)}% $${pnl_usd.toFixed(2)}</div>`;});if(!badgeHtml)badgeHtml='<div style="color:#888">Sin pos - esperando RSI</div>';let div=document.createElement('div');div.className='card';div.innerHTML=`<div style="background:#1e293b;padding:8px;font-weight:bold;display:flex;justify-content:space-between"><span>${sym}</span><span style="font-weight:normal;color:#aaa;font-size:11px">${a.regimenes[sym]||''}</span></div><div class="badge">${badgeHtml}</div><div id="chart_${sym}" style="height:74vh"></div>`;grid.appendChild(div);setTimeout(()=>{new TradingView.widget({"autosize":true,"symbol":"BINANCE:"+sym,"interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_"+sym,"studies":["RSI@tv-basicstudies"]});},300);});}else{a.monedas.forEach(sym=>{let pSym=pos.filter(p=>p.symbol==sym);let b=bandas[sym];let el=document.querySelector(`#chart_${sym}`)?.parentElement?.querySelector('.badge');if(el){let h='';if(b&&b.activa)h+=`<div class="banda">🎯 BANDA ${b.entrada_tiburon.toFixed(0)}->${b.tope.toFixed(0)} ${b.tipo}</div>`;pSym.forEach(p=>{let precio=a.precios[sym]||p.entrada;let pnl=((precio-p.entrada)/p.entrada*100);let pnl_usd=(precio-p.entrada)/p.entrada*p.usdt;let cls=p.estrategia=='TIBURON'?'tib':p.estrategia=='PIRANA'?'pirana':'lobo';h+=`<div class="${cls}">🔒 ${p.estrategia} Ent ${p.entrada.toFixed(2)} TP ${(p.entrada*(1+p.tp/100)).toFixed(2)} | PnL ${pnl.toFixed(2)}% $${pnl_usd.toFixed(2)}</div>`;});if(!h)h='<div style="color:#888">Sin pos - esperando RSI</div>';el.innerHTML=h;}});document.getElementById('info').innerHTML=`<b>V48.3 5x 3% ARR/ABA ${a.modo}</b> | <span style="color:#00ff88">${a.bandas_txt}</span> | Bal $${a.balance.toFixed(2)} Piraña $${a.bolsa_pirana.neto.toFixed(2)} | ${a.monedas.join('+')}`;}}setInterval(load,3000);load();</script></body></html>"""
+    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V48.4 PIRAÑA EXCEPCION</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{position:relative;background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.badge{position:absolute;top:36px;left:6px;z-index:5;background:rgba(0,0,0,0.85);padding:6px 8px;border-radius:6px;font-size:11px;line-height:15px;max-width:95%}.badge.tib{color:#00ff88}.badge.lobo{color:#ffcc00}.badge.pirana{color:#ff4444;font-weight:bold}.badge.banda{color:#ffaa00;font-weight:bold}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}@media(max-width:900px){.grid{grid-template-columns:1fr}}</style></head><body><div class="top" id="info">Cargando V48.4...</div><div class="grid" id="charts_grid"></div><script>async function load(){let a=await (await fetch('/api/data')).json();let bandas=a.bandas||{};let pos=a.posiciones||[];document.getElementById('info').innerHTML=`<b>V48.4 EXCEPCION ${a.modo}</b> | <span style="color:#00ff88">${a.bandas_txt}</span> | Bal $${a.balance.toFixed(2)} Piraña $${a.bolsa_pirana.neto.toFixed(2)} Gan $${(a.ganancia_total+a.bolsa_pirana.neto).toFixed(2)}/${a.meta_proxima} | ${a.monedas.join('+')}`;let grid=document.getElementById('charts_grid');if(grid.childElementCount!=a.monedas.length){grid.innerHTML='';a.monedas.forEach(sym=>{let pSym=pos.filter(p=>p.symbol==sym);let b=bandas[sym];let badgeHtml='';if(b&&b.activa)badgeHtml+=`<div class="banda">🎯 BANDA ${b.entrada_tiburon.toFixed(0)} -> ${b.tope.toFixed(0)} ${b.tipo}</div>`;pSym.forEach(p=>{let precio=a.precios[sym]||p.entrada;let pnl=((precio-p.entrada)/p.entrada*100);let pnl_usd=(precio-p.entrada)/p.entrada*p.usdt;let cls=p.estrategia=='TIBURON'?'tib':p.estrategia=='PIRANA'?'pirana':'lobo';badgeHtml+=`<div class="${cls}">🔒 ${p.estrategia} Ent ${p.entrada.toFixed(2)} | TP ${(p.entrada*(1+p.tp/100)).toFixed(2)} | PnL ${pnl.toFixed(2)}% $${pnl_usd.toFixed(2)}</div>`;});if(!badgeHtml)badgeHtml='<div style="color:#888">Sin pos - esperando RSI</div>';let div=document.createElement('div');div.className='card';div.innerHTML=`<div style="background:#1e293b;padding:8px;font-weight:bold;display:flex;justify-content:space-between"><span>${sym}</span><span style="font-weight:normal;color:#aaa;font-size:11px">${a.regimenes[sym]||''}</span></div><div class="badge">${badgeHtml}</div><div id="chart_${sym}" style="height:74vh"></div>`;grid.appendChild(div);setTimeout(()=>{new TradingView.widget({"autosize":true,"symbol":"BINANCE:"+sym,"interval":"15","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart_"+sym,"studies":["RSI@tv-basicstudies"]});},300);});}else{a.monedas.forEach(sym=>{let pSym=pos.filter(p=>p.symbol==sym);let b=bandas[sym];let el=document.querySelector(`#chart_${sym}`)?.parentElement?.querySelector('.badge');if(el){let h='';if(b&&b.activa)h+=`<div class="banda">🎯 BANDA ${b.entrada_tiburon.toFixed(0)}->${b.tope.toFixed(0)} ${b.tipo}</div>`;pSym.forEach(p=>{let precio=a.precios[sym]||p.entrada;let pnl=((precio-p.entrada)/p.entrada*100);let pnl_usd=(precio-p.entrada)/p.entrada*p.usdt;let cls=p.estrategia=='TIBURON'?'tib':p.estrategia=='PIRANA'?'pirana':'lobo';h+=`<div class="${cls}">🔒 ${p.estrategia} Ent ${p.entrada.toFixed(2)} TP ${(p.entrada*(1+p.tp/100)).toFixed(2)} | PnL ${pnl.toFixed(2)}% $${pnl_usd.toFixed(2)}</div>`;});if(!h)h='<div style="color:#888">Sin pos - esperando RSI</div>';el.innerHTML=h;}});document.getElementById('info').innerHTML=`<b>V48.4 EXCEPCION ${a.modo}</b> | <span style="color:#00ff88">${a.bandas_txt}</span> | Bal $${a.balance.toFixed(2)} Piraña $${a.bolsa_pirana.neto.toFixed(2)} | ${a.monedas.join('+')}`;}}setInterval(load,3000);load();</script></body></html>"""
     return render_template_string(html)
 
 @app.route('/chart')
 def chart_page():
     symbol = request.args.get('symbol','BTCUSDT')
     interval = request.args.get('interval','15m')
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{symbol}</title><script src="https://s3.tradingview.com/tv.js"></script></head><body style="margin:0;background:#0f1115"><div style="padding:10px;background:#1e222d;color:#fff">{symbol} - V48.3 <a href="/" style="color:#00ff88">Volver</a></div><div id="chart" style="height:90vh"></div><script>new TradingView.widget({{"autosize":true,"symbol":"BINANCE:{symbol}","interval":"{interval}","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart"}});</script></body></html>"""
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{symbol}</title><script src="https://s3.tradingview.com/tv.js"></script></head><body style="margin:0;background:#0f1115"><div style="padding:10px;background:#1e222d;color:#fff">{symbol} - V48.4 <a href="/" style="color:#00ff88">Volver</a></div><div id="chart" style="height:90vh"></div><script>new TradingView.widget({{"autosize":true,"symbol":"BINANCE:{symbol}","interval":"{interval}","timezone":"America/Argentina/Buenos_Aires","theme":"dark","container_id":"chart"}});</script></body></html>"""
     return render_template_string(html)
 
 @app.route('/api/data')
