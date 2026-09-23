@@ -29,12 +29,14 @@ WEB_URL = os.getenv("WEB_URL", "https://lobobot22-v45.onrender.com").strip().rst
 MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT"]
 CANDIDATAS = ["ETHUSDT","SOLUSDT","XRPUSDT","AVAXUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT"]
 
-# ===== V45.4 COMUNICADOR - RATA<30 + AVISOS + CELEBRACION =====
-TANQUE_BNB_USDT = 10.0
-TANQUE_BNB_MIN = 2.0
-TANQUE_BNB_RECARGA = 8.0
+# ===== V45.4 COMUNICADOR - FIX TANQUE 20 DESDE RENDER =====
+TANQUE_BNB_USDT = float(os.getenv("TANQUE", os.getenv("TANQUE_BNB_USDT", "20")))
+TANQUE_BNB_MIN = float(os.getenv("TANQUE_BNB_MIN", "2.0"))
+TANQUE_BNB_RECARGA = float(os.getenv("TANQUE_BNB_RECARGA", "8.0"))
+TANQUE = TANQUE_BNB_USDT
 COMISION_TOTAL = 0.15
 FILTRO_NETO_MIN = 0.5
+print(f"💰 TANQUE CONFIGURADO: {TANQUE_BNB_USDT} USDT (ENV TANQUE={os.getenv('TANQUE')})")
 
 ESTRATEGIAS_V45 = {
     "RATA": {"tf": "5m", "desc": "RATA 5M BANDA", "rango_tp": (1.0, 1.4), "sl_neto": -0.60, "max_dia": 100, "cooldown": 5, "mercado_ideal": "LINEAL", "tp_fijo_banda": 1.0},
@@ -186,7 +188,6 @@ def detectar_regimen_sym(symbol):
     elif closes_1h[-1] > ema50 and adx_1h > 20: return "ALCISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
     else: return "BAJISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}%"
 
-# ===== CAMBIO 1: RATA <30 SUELTA =====
 def detectar_RATA_sym(symbol):
     d5=get_velas(symbol,"5m",100)
     if not d5: return False,f"{symbol} Sin velas",0
@@ -231,7 +232,6 @@ def es_rentable(tp_bruto):
     neto = tp_bruto - COMISION_TOTAL
     return neto >= FILTRO_NETO_MIN, neto
 
-# ===== CAMBIO 2 Y 3: AVISOS OJO + PENSAMIENTO =====
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     ahora = time.time()
@@ -269,7 +269,6 @@ def detectar_BI_CEREBRO(regimen):
             d5=get_velas(sym,"5m",50)
             if d5:
                 rsi = rsi_calc(d5["closes"],7)
-                # AVISO OJO - RSI bajando
                 if 35 <= rsi < 45:
                     key = f"{sym}_OJO"
                     if key not in ULTIMO_OJO or time.time()-ULTIMO_OJO[key] > 900:
@@ -461,7 +460,6 @@ def motor_v45():
                         u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {pos['estrategia']} {pos['symbol']} {cerrar} ${pnl:+.2f}")
                         POSICIONES_ABIERTAS[user_id].remove(pos); guardar_datos()
                         link = f"{WEB_URL}/chart?symbol={pos['symbol']}&interval=15m"
-                        # ===== CAMBIO 4: CELEBRACION CUANDO GANA =====
                         if cerrar in ["TP","TRAILING"]:
                             ganancia_pct = (precio_actual - pos["entrada"])/pos["entrada"]*100
                             if pnl >= 10: titulo = "🔥🔥🔥 JACKPOT LOBO 🔥🔥🔥"
@@ -544,7 +542,7 @@ def balance(m):
     regs="\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()])
     pos_txt = "\n".join([f"🔓 {p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}% SL{p['sl']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin pos"
     bandas_txt = "\n".join([f"🎯 BANDA {k} {v['entrada_tiburon']:.0f}->{v['tope']:.0f} {v['tipo']}" for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
-    texto=f"💰 V45.4 COMUNICADOR\n{regs}\n{bandas_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Gan ${ganancia_total:+.2f} Tanque $10\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\n"
+    texto=f"💰 V45.4 COMUNICADOR\n{regs}\n{bandas_txt}\nMonedas: {'+'.join(MONEDAS_ACTIVAS)}\nBalance ${u['balance']:.2f} Gan ${ganancia_total:+.2f} Tanque ${TANQUE_BNB_USDT:.0f}\nHoy ${u['neto_hoy']:+.2f} {u['ops_hoy']} ops\n{pos_txt}\n"
     for k,v in u["estrategias"].items(): texto+=f"{k}: {v['ops']} ops ${v['neto']:+.2f}\n"
     bot.send_message(m.chat.id,texto,reply_markup=get_menu())
 
