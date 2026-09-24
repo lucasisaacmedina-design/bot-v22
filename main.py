@@ -395,9 +395,9 @@ def banda_txt_display(k,v):
     base = f"🎯 BANDA {k} {v['entrada_tiburon']:.0f}->{v['tope']:.0f} {v['tipo']}"
     if v.get("origen_mov"): base += f" MOVIL"
     return base
-# PARCHE MINIMO V50.6.3 - SOLO GRAFICO LIMPIO
 def banda_txt_api(k,v):
     return f"{k.replace('USDT','')} {v.get('tipo','')}"
+# PARCHE V50.6.3 - SOLO TELEGRAM LIMPIO - FIX 0.4h/1.0h
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     ahora = time.time()
@@ -415,31 +415,27 @@ def mandar_pensamiento_telegram():
                 if sym not in ["BTCUSDT","BNBUSDT"]:
                     try: precio = float(client.get_symbol_ticker(symbol=sym)['price']) if client else 0
                     except: pass
-                reg = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
+                reg = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
                 if banda and banda.get("activa"):
                     tipo = banda.get("tipo","NORMAL")
                     entrada = banda["entrada_tiburon"]; tope = banda["tope"]
                     adentro = entrada*0.997 <= precio <= tope
-                    tiempo_fuera_txt = ""
-                    if sym in BANDAS_TIEMPO_FUERA:
-                        tf = (ahora - BANDAS_TIEMPO_FUERA[sym]["fuera_desde"])/3600
-                        topt = tiempo_fuera_inteligente(sym, tipo)/3600
-                        tiempo_fuera_txt = f" {tf:.1f}h/{topt:.1f}h"
+                    # LIMPIO - sin tiempo_fuera_txt y sin precio duplicado
                     if tipo=="NORMAL":
                         if not adentro:
-                            estado_rsi = f"🔴 EN ESPERA - ACECHANDO RSI{rsi:.0f} {precio:.0f}<{entrada:.0f}{tiempo_fuera_txt} -> BAJISTA"
+                            estado_rsi = f"🔴 ACECHANDO RSI{int(rsi):.0f} -> BAJISTA"
                         else:
-                            estado_rsi = f"🟢 EN ZONA DE CAZA - CAZANDO RSI{rsi:.0f}" if rsi<35 else f"🟡 EN ZONA DE CAZA - EN ESPERA RSI{rsi:.0f}"
+                            estado_rsi = f"🟢 CAZANDO RSI{int(rsi):.0f}" if rsi<35 else f"🟡 ZONA RSI{int(rsi):.0f}"
                     else:
                         if not adentro:
-                            estado_rsi = f"🟡 EN ESPERA - BAJISTA {entrada:.0f}->{tope:.0f} {precio:.0f}{tiempo_fuera_txt} -> NORMAL"
+                            estado_rsi = f"🟡 ESPERA BAJISTA -> NORMAL"
                         else:
-                            estado_rsi = f"🟢 EN ZONA DE CAZA - CAZANDO KRAKEN+NEGRA RSI{rsi:.0f}" if rsi<28 else f"🟡 EN ZONA DE CAZA - EN ESPERA KRAKEN RSI{rsi:.0f}"
-                    lineas.append(f"{sym} {estado_rsi} Banda {entrada:.0f}->{tope:.0f} [{tipo}]")
+                            estado_rsi = f"🟢 CAZANDO KRAKEN RSI{int(rsi):.0f}" if rsi<28 else f"🟡 ZONA KRAKEN RSI{int(rsi):.0f}"
+                    lineas.append(f"{sym.replace('USDT','')} {estado_rsi} [{tipo} {entrada:.0f}->{tope:.0f}]")
                 else:
-                    lineas.append(f"{sym} {reg} sin banda - EN ESPERA")
+                    lineas.append(f"{sym.replace('USDT','')} {reg} sin banda")
             if lineas:
-                texto = f"🦁 V50.6.2 ESCALABLE\n" + "\n".join(lineas) + f"\n📊 {WEB_URL}\nTP 0.8% FORZADO + BANDA BAJISTA AUTO + KRAKEN 30/35"
+                texto = f"🦁 V50.6.3 LIMPIO\n" + "\n".join(lineas) + f"\n📊 {WEB_URL}"
                 try: bot.send_message(uid, texto)
                 except: pass
     except: pass
