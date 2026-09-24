@@ -267,7 +267,7 @@ def gestionar_bandas_moviles():
         except: precio = ESTADO.get("btc" if "BTC" in sym else "bnb",0)
         if precio==0: continue
         entrada = banda["entrada_tiburon"]; tope = banda["tope"]; tipo = banda.get("tipo","NORMAL")
-        adentro = entrada <= precio <= tope
+        adentro = entrada*0.997 <= precio <= tope
         if adentro: BANDAS_TIEMPO_FUERA.pop(sym, None); continue
         fuera_tipo = "ABAJO" if precio < entrada else "ARRIBA"
         if sym not in BANDAS_TIEMPO_FUERA or BANDAS_TIEMPO_FUERA[sym]["tipo_fuera"]!= fuera_tipo:
