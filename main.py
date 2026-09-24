@@ -337,7 +337,7 @@ def mandar_pensamiento_telegram():
                 if banda and banda.get("activa"):
                     tipo = banda.get("tipo","NORMAL")
                     entrada = banda["entrada_tiburon"]; tope = banda["tope"]
-                    adentro = entrada <= precio <= tope
+                    adentro = entrada*0.997 <= precio <= tope
                     tiempo_fuera_txt = ""
                     if sym in BANDAS_TIEMPO_FUERA:
                         tf = (ahora - BANDAS_TIEMPO_FUERA[sym]["fuera_desde"])/3600
