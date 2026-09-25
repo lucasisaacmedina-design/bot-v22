@@ -405,7 +405,8 @@ def banda_txt_display(k,v):
     return base
 def banda_txt_api(k,v):
     return f"{k.replace('USDT','')} {v.get('tipo','')}"
-# === PARCHE 60 LINEAS MANADA GRITONA V50.6.4.3 - SOLO NOTIFICACIONES ===
+
+# === PARCHE COLMILLOS V50.6.4.3 - SOLO FRASES LOBO ===
 def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
     try:
         emojis = {"RATA":"🐀 RATA 5m","LOBO":"🐺 LOBO 1h","TIBURON":"🦈 TIBURON 1d","KRAKEN":"🐙 KRAKEN","PIRANA":"🐟 PIRAÑA","PIRAÑA_NEGRA":"🐟⚫ PIRAÑA NEGRA"}
@@ -421,21 +422,26 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
 
 def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es_tp, subtipo=""):
     try:
-        icono = "✅ TP" if es_tp else "❌ SL"
         emojis = {"RATA":"🐀","LOBO":"🐺","TIBURON":"🦈","KRAKEN":"🐙","PIRANA":"🐟","PIRAÑA_NEGRA":"🐟⚫"}
         tp_tipo = tipo
         if subtipo=="NEGRA": tp_tipo="PIRAÑA_NEGRA"
         emoji = emojis.get(tp_tipo, "🎯")
         u = USUARIOS.get(ADMINS_IDS[0], {})
-        hoy = u.get("neto_hoy",0); total = (u.get("balance",0)-u.get("capital_inicial",0)+BOLSA_PIRANA["neto"]+BOLSA_PIRANA_NEGRA["neto"])
-        estado = "COBRADO" if es_tp else "TOCADO"
-        msg = f"{icono} {estado} {emoji} {tp_tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n{'+' if ganancia_usdt>0 else ''}${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\nExp: {CONTADOR_TP_EXPANSION:.0f}/100 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}"
+        hoy = u.get("neto_hoy",0)
+        total = (u.get("balance",0)-u.get("capital_inicial",0)+BOLSA_PIRANA["neto"]+BOLSA_PIRANA_NEGRA["neto"])
+
+        if es_tp:
+            msg = f"🐺☠️ PRESA DEVORADA ☠️🐺\n{emoji} {tp_tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n+${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\nExp: {CONTADOR_TP_EXPANSION:.0f}/100 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}"
+        else:
+            msg = f"🏃💨 ¡ESCAPÓ LA PRESA! 💨🏃\n{emoji} {tp_tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\nLa manada la vuelve a oler..."
+
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
                 except: pass
     except Exception as e: print(f"notif cierre err {e}")
-# === FIN PARCHE 60 LINEAS ===
+# === FIN PARCHE COLMILLOS ===
+
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     ahora = time.time()
