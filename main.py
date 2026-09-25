@@ -405,6 +405,37 @@ def banda_txt_display(k,v):
     return base
 def banda_txt_api(k,v):
     return f"{k.replace('USDT','')} {v.get('tipo','')}"
+# === PARCHE 60 LINEAS MANADA GRITONA V50.6.4.3 - SOLO NOTIFICACIONES ===
+def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
+    try:
+        emojis = {"RATA":"🐀 RATA 5m","LOBO":"🐺 LOBO 1h","TIBURON":"🦈 TIBURON 1d","KRAKEN":"🐙 KRAKEN","PIRANA":"🐟 PIRAÑA","PIRAÑA_NEGRA":"🐟⚫ PIRAÑA NEGRA"}
+        t = tipo if tipo in emojis else "PIRANA" if "NEGRA" in str(tipo) else tipo
+        if tipo=="PIRANA" and "NEGRA" in str(banda_txt): t="PIRAÑA_NEGRA"
+        emoji = emojis.get(t, "🎯")
+        msg = f"{emoji} ¡PRESA CAZADA!\nPar: {sym}\nEntrada: ${precio:.2f}\nMonto: ${usdt:.2f}\nTP: {tp}% | SL: {sl}%\nBanda: {banda_txt}\n{motivo[:100]}\nExp: {CONTADOR_TP_EXPANSION:.0f}/100 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n🌐 {WEB_URL}"
+        for uid in list(USUARIOS.keys()):
+            if USUARIOS[uid].get("prendido"):
+                try: bot.send_message(uid, msg)
+                except: pass
+    except Exception as e: print(f"notif caza err {e}")
+
+def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es_tp, subtipo=""):
+    try:
+        icono = "✅ TP" if es_tp else "❌ SL"
+        emojis = {"RATA":"🐀","LOBO":"🐺","TIBURON":"🦈","KRAKEN":"🐙","PIRANA":"🐟","PIRAÑA_NEGRA":"🐟⚫"}
+        tp_tipo = tipo
+        if subtipo=="NEGRA": tp_tipo="PIRAÑA_NEGRA"
+        emoji = emojis.get(tp_tipo, "🎯")
+        u = USUARIOS.get(ADMINS_IDS[0], {})
+        hoy = u.get("neto_hoy",0); total = (u.get("balance",0)-u.get("capital_inicial",0)+BOLSA_PIRANA["neto"]+BOLSA_PIRANA_NEGRA["neto"])
+        estado = "COBRADO" if es_tp else "TOCADO"
+        msg = f"{icono} {estado} {emoji} {tp_tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n{'+' if ganancia_usdt>0 else ''}${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\nExp: {CONTADOR_TP_EXPANSION:.0f}/100 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}"
+        for uid in list(USUARIOS.keys()):
+            if USUARIOS[uid].get("prendido"):
+                try: bot.send_message(uid, msg)
+                except: pass
+    except Exception as e: print(f"notif cierre err {e}")
+# === FIN PARCHE 60 LINEAS ===
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     ahora = time.time()
@@ -699,6 +730,8 @@ def motor_v45():
                         pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"]
                         comision = pos["usdt"] * COMISION_TOTAL/100
                         pnl = pnl_bruto - comision
+                        pnl_pct = (precio_actual - pos["entrada"])/pos["entrada"]*100 if pos["entrada"]!=0 else 0
+                        es_tp = cerrar in ["TP","TRAILING"]
                         if pos["estrategia"]=="PIRANA":
                             if pos.get("subtipo")=="NEGRA":
                                 key_banda = f"{pos['symbol']}_NEGRA_{int(pos.get('banda_id', pos['entrada']))}"
@@ -714,7 +747,7 @@ def motor_v45():
                             else:
                                 entrada = pos["entrada"]; sl_price_val = entrada * 0.965; banda_rec_base = sl_price_val * 0.97
                                 BANDAS_ACTIVAS[pos["symbol"]] = {"entrada_tiburon": banda_rec_base, "tope": sl_price_val, "tipo": "BAJISTA", "activa": True, "perdida_origen": abs(pnl)}
-                        if cerrar in ["TP","TRAILING"]:
+                        if es_tp:
                             u["balance"]+=abs(pnl); u["neto_hoy"]+=abs(pnl); u["ganadas"]+=1
                             u["estrategias"][pos["estrategia"]]["ganadas"]+=1
                             CONTADOR_TP_EXPANSION += 1
@@ -724,6 +757,8 @@ def motor_v45():
                             u["balance"]-=abs(pnl); u["neto_hoy"]-=abs(pnl); u["perdidas"]+=1
                         u["estrategias"][pos["estrategia"]]["ops"]+=1; u["estrategias"][pos["estrategia"]]["neto"]+=pnl; u["ops_hoy"]+=1
                         u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {pos['estrategia']} {pos.get('subtipo','')} {pos['symbol']} {cerrar} ${pnl:+.2f} TP:{pos['tp']}% ADAPT")
+                        # PARCHE CIERRE
+                        notificar_cierre(pos["symbol"], pos["estrategia"], pos["entrada"], precio_actual, pnl, pnl_pct, es_tp, pos.get("subtipo",""))
                         POSICIONES_ABIERTAS[user_id].remove(pos); guardar_datos()
                 except: pass
             if not u.get("prendido", False): continue
@@ -750,7 +785,10 @@ def motor_v45():
                             ULTIMO_TRADE[lock_key] = time.time()
                             ESTADO_PIRANA[key_banda] = ESTADO_PIRANA.get(key_banda,0)+1
                             pos = {"symbol": sym, "estrategia": "PIRANA", "entrada": precio_entrada, "tp": tp_adaptativo(sym,"PIRANA"), "sl": PIRANA_CONFIG["SL"], "usdt": usdt_pirana, "hora": ahora_art().isoformat(), "banda_id": BANDAS_ACTIVAS[sym]["entrada_tiburon"]}
-                            POSICIONES_ABIERTAS[user_id].append(pos); guardar_datos()
+                            POSICIONES_ABIERTAS[user_id].append(pos)
+                            banda_txt = f"{BANDAS_ACTIVAS[sym]['entrada_tiburon']:.0f}->{BANDAS_ACTIVAS[sym]['tope']:.0f} {BANDAS_ACTIVAS[sym]['tipo']}"
+                            notificar_caza(sym, "PIRANA", precio_entrada, pos["tp"], pos["sl"], banda_txt, usdt_pirana, f"RSI{rsi:.0f}")
+                            guardar_datos()
             except: pass
             try:
                 for sym in list(MONEDAS_ACTIVAS):
@@ -777,7 +815,10 @@ def motor_v45():
                             ULTIMO_TRADE[lock_key] = time.time()
                             ESTADO_PIRANA_NEGRA[key_banda] = ESTADO_PIRANA_NEGRA.get(key_banda,0)+1
                             pos = {"symbol": sym, "estrategia": "PIRANA", "subtipo": "NEGRA", "entrada": precio_entrada, "tp": PIRANA_NEGRA_CONFIG["TP"], "sl": PIRANA_NEGRA_CONFIG["SL"], "usdt": usdt_negra, "hora": ahora_art().isoformat(), "banda_id": BANDAS_ACTIVAS[sym]["entrada_tiburon"]}
-                            POSICIONES_ABIERTAS[user_id].append(pos); guardar_datos()
+                            POSICIONES_ABIERTAS[user_id].append(pos)
+                            banda_txt = f"{BANDAS_ACTIVAS[sym]['entrada_tiburon']:.0f}->{BANDAS_ACTIVAS[sym]['tope']:.0f} BAJISTA NEGRA"
+                            notificar_caza(sym, "PIRAÑA_NEGRA", precio_entrada, pos["tp"], pos["sl"], banda_txt, usdt_negra, f"RSI{rsi:.0f} VSAx{vol_actual/vol_prom:.1f}")
+                            guardar_datos()
             except: pass
             check_reset_diario(u)
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
@@ -806,6 +847,9 @@ def motor_v45():
                     u["modo"]=f"{estrategia_elegida} {symbol_elegido} TP{tp_inteligente}%"; u["mercado"]=motivo
                     if estrategia_elegida=="TIBURON": BANDAS_ACTIVAS[symbol_elegido] = {"entrada_tiburon": precio, "tope": precio*1.10, "tipo": "NORMAL", "activa": True}
                     if estrategia_elegida=="KRAKEN": BANDAS_ACTIVAS[symbol_elegido] = {"entrada_tiburon": precio*0.97, "tope": precio*0.995, "tipo": "BAJISTA", "activa": True}
+                    b = BANDAS_ACTIVAS.get(symbol_elegido,{})
+                    banda_txt = f"{b.get('entrada_tiburon',precio*0.97):.0f}->{b.get('tope',precio*1.10):.0f} {b.get('tipo','')}"
+                    notificar_caza(symbol_elegido, estrategia_elegida, precio, tp_inteligente, cfg["sl_neto"], banda_txt, usdt_a_usar, motivo)
                     guardar_datos()
         guardar_datos()
         time.sleep(60)
@@ -870,7 +914,7 @@ def ordenes_estado(m):
         except: precio_actual = p["entrada"]
         pnl_pct = (precio_actual - p["entrada"])/p["entrada"]*100 if p["entrada"]!=0 else 0
         txt += f"🔒 {p['symbol']} {p['estrategia']} {p.get('subtipo','')} Ent {p['entrada']:.2f} Ahora {precio_actual:.2f} P/L {pnl_pct:+.2f}% TP{p['tp']}%\n"
-    txt += f"\nBal ${u['balance']:.2f} Total ${ganancia_total:+.2f} Hoy ${u['neto_hoy']:+.2f}\nFalta EVOLUCIONAR: ${120-ganancia_total:.2f} / $120"
+    txt += f"\nBal ${u['balance']:.2f} Total ${ganancia_total:.2f} Hoy ${u['neto_hoy']:+.2f}\nFalta EVOLUCIONAR: ${120-ganancia_total:.2f} / $120"
     bot.send_message(uid, txt, reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text and 'EVOLUCIONAR' in m.text.upper())
@@ -882,7 +926,6 @@ def evolucionar(m):
         return
     bot.send_message(m.chat.id, f"🚀 OBJETIVO CUMPLIDO ${ganancia_total:.2f} >= $120\nMANADA EVOLUCIONANDO A V51 - KRAKEN LIBRE REAL\n$36 cada $100 desbloqueado", reply_markup=get_menu())
 
-# PARCHE V50.6.4.2 - RETIRAR CON LOG
 @bot.message_handler(func=lambda m: m.text and 'RETIRAR' in m.text.upper())
 def retirar(m):
     uid = m.chat.id
