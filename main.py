@@ -294,8 +294,8 @@ def detectar_KRAKEN_sym(symbol):
     caida_30m = 0
     if d5 and len(d5["closes"])>=7:
         caida_30m = (d5["closes"][-1] - d5["closes"][-7]) / d5["closes"][-7] * 100 if d5["closes"][-7]!=0 else 0
-        if caida_30m > -4.0:
-            return False,f"[{symbol}] KRAKEN ACECHANDO caída {caida_30m:.1f}% esperando >4%",0.05
+        if caida_30m > -2.5:
+            return False,f"[{symbol}] KRAKEN ACECHANDO caída {caida_30m:.1f}% esperando >2.5%",0.05
     d1h=get_velas(symbol,"1h",100)
     d1d=get_velas(symbol,"1d",30)
     if not d1h or not d1d: return False,f"{symbol} Sin velas",0
