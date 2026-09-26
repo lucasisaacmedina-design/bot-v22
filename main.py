@@ -396,6 +396,8 @@ def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es
                 try: bot.send_message(uid, msg)
                 except: pass
     except Exception as e: print(f"notif cierre err {e}")
+
+# ========== SOLO ESTA FUNCION CORREGIDA - MISMO DETALLE QUE EL GRAFICO ==========
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     ahora = time.time()
@@ -406,26 +408,49 @@ def mandar_pensamiento_telegram():
             if not USUARIOS[uid].get("prendido"): continue
             lineas = []
             for sym in MONEDAS_ACTIVAS:
-                banda = BANDAS_ACTIVAS.get(sym)
-                d5 = get_velas(sym,"5m",20)
-                rsi = rsi_calc(d5["closes"],7) if d5 else 50
-                precio = get_precio_robusto(sym)
-                reg = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
-                if banda and banda.get("activa"):
-                    tipo = banda.get("tipo","NORMAL")
-                    entrada = banda["entrada_tiburon"]; tope = banda["tope"]
-                    if tipo=="NORMAL":
-                        estado_rsi = f"\U0001f7e2 CAZANDO RSI{int(rsi):.0f}<38" if rsi<38 else f"\U0001f7e1 ZONA RSI{int(rsi):.0f}"
+                try:
+                    d5 = get_velas(sym,"5m",100)
+                    d1h = get_velas(sym,"1h",100)
+                    precio = get_precio_robusto(sym)
+                    rsi = rsi_calc(d5["closes"],7) if d5 else 50
+                    adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
+                    atr = atr_calc(d1h,14) if d1h else 0
+                    atr_pct = (atr/precio*100) if precio else 0
+                    ema9 = ema_calc(d5["closes"][-20:],9) if d5 else 0
+                    ema20 = ema_calc(d5["closes"][-20:],20) if d5 else 0
+                    vol_ratio = (d5["vols"][-1] / (sum(d5["vols"][-20:])/20)) if d5 and len(d5["vols"])>=20 else 1.0
+                    reg_full = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
+                    reg = reg_full.split()[0] if reg_full else "LINEAL"
+                    banda = BANDAS_ACTIVAS.get(sym,{})
+                    if banda and banda.get("activa"):
+                        entrada = banda["entrada_tiburon"]; tope = banda["tope"]
+                        madre = banda.get("tipo","NORMAL")
+                        banda_txt = f"[{madre} {entrada:.0f}->{tope:.0f}]"
                     else:
-                        estado_rsi = f"\U0001f7e2 CAZANDO KRAKEN RSI{int(rsi):.0f}"
-                    lineas.append(f"{sym.replace('USDT','')} {estado_rsi} [{tipo} {entrada:.0f}->{tope:.0f}] ${precio:.0f}")
-                else:
-                    lineas.append(f"{sym.replace('USDT','')} {reg} sin banda ${precio:.0f}")
+                        madre = "NORMAL"
+                        banda_txt = f"[{madre}]"
+                    mapa_mejor = {
+                        "LINEAL_MUERTO": "MOJARRA 0.3% + PIRANA BLANCA 0.5%",
+                        "LINEAL": "RATA 0.8-1.5%",
+                        "ALCISTA": "LOBO 1.2-2.2%",
+                        "ALCISTA_FUERTE": "TIBURON 5-10%",
+                        "BAJISTA": "KRAKEN 3-5% + SHORTS",
+                        "CRASH": "KRAKEN PANICO 3-5%"
+                    }
+                    mejor = mapa_mejor.get(reg, "RATA 0.8-1.5%")
+                    zona = "CAZANDO 🟢" if rsi<38 else "ZONA 🟡"
+                    ema_txt = "9>20" if ema9>ema20 else "9<20"
+                    # TEXTO IDENTICO A LA WEB - MISMO FORMATO
+                    lineas.append(f"{sym.replace('USDT','')} REGIMEN: {reg} (ADX {adx:.1f}) | Madre: {madre} | RSI {rsi:.1f} {zona} | EMA {ema_txt} | ATR {atr_pct:.2f}% | Vol {vol_ratio:.1f}x {banda_txt} ${precio:.0f} | Mejor: {mejor}")
+                except Exception as e:
+                    continue
             if lineas:
-                texto = f"\U0001f7e2 V50.9 {len(MONEDAS_ACTIVAS)}/20 ({CONTADOR_TP_EXPANSION:.0f}/120) Clima BTC {ESTADO.get('regimen','LINEAL')}\n" + "\n".join(lineas[:8]) + f"\n\U0001f4ca {WEB_URL}"
+                texto = f"🟢 V50.10 {len(MONEDAS_ACTIVAS)}/20 ({CONTADOR_TP_EXPANSION:.0f}/120) Clima BTC {ESTADO.get('regimen','LINEAL')}\n" + "\n".join(lineas) + f"\n📊 {WEB_URL}"
                 try: bot.send_message(uid, texto)
                 except: pass
     except: pass
+# ========== FIN CORRECCION UNICA ==========
+
 def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
     tib_por_moneda = {}; kraken_por_moneda = {}
@@ -750,7 +775,6 @@ def fallback(m):
     except:
         bot.send_message(m.chat.id,"\U0001f981 V50.9",reply_markup=get_menu())
 
-# ==================== SOLO ESTO SE AGREGO - V50.10 DETALLE MERCADO ====================
 @app.route('/api/detalles_mercado')
 def detalles_mercado():
     def info_sym(sym):
@@ -768,7 +792,6 @@ def detalles_mercado():
             reg_full = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
             reg = reg_full.split()[0] if reg_full else "LINEAL"
             zona = "CAZANDO 🟢" if rsi<38 else "ZONA 🟡"
-            # Mapa mejor estrategia por regimen
             mapa_mejor = {
                 "LINEAL_MUERTO": "MOJARRA 0.3% + PIRANA BLANCA 0.5%",
                 "LINEAL": "RATA 0.8-1.5%",
@@ -801,7 +824,6 @@ def detalles_mercado():
 def home():
     html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V50.10 BOLSA UNICA - DETALLE</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{position:relative;background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39;margin-bottom:6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.detalle-box{background:#0e1a15;border-top:1px solid #1e3d2f;color:#a7f3d0;font-family:monospace;font-size:11px;padding:8px 10px;line-height:1.4;min-height:62px}</style></head><body><div class="top" id="info">Cargando V50.10...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS=['BTCUSDT','BNBUSDT'];function createChart(sym){let id='tv_'+sym;let card=document.createElement('div');card.className='card';card.innerHTML=`<div id="${id}" style="height:350px"></div><div class="detalle-box" id="detalle-${sym}">⏳ Cargando detalle ${sym}...</div>`;document.getElementById('charts_grid').appendChild(card);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V50.10 BOLSA UNICA | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}async function loadDetalles(){try{let d=await (await fetch('/api/detalles_mercado')).json();for(let sym of MONEDAS){let info=d[sym];if(!info) continue;document.getElementById('detalle-'+sym).innerHTML=`REGIMEN: ${info.regimen} (ADX ${info.adx}) | Madre: ${info.madre} | RSI ${info.rsi} ${info.zona} | EMA ${info.ema} | ATR ${info.atr}% | Vol ${info.vol}x<br><b>Mejor estrategia: ${info.mejor_estrategia}</b> | ${info.accion} | Si cae: ${info.si_cae} | $${info.precio}`;}}catch(e){}}setInterval(load,3000);load();setInterval(loadDetalles,3000);loadDetalles();</script></body></html>"""
     return render_template_string(html)
-# ==================== FIN AGREGADO V50.10 ====================
 
 @app.route('/api/data')
 def api_data():
