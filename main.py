@@ -264,7 +264,20 @@ def detectar_regimen_sym(symbol):
     elif rent_14d > 0.06 and closes_1h[-1] > ema200: return "ALCISTA_FUERTE", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}% >EMA200"
     elif closes_1h[-1] > ema200 and adx_1h > 20: return "ALCISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}% >EMA200"
     else: return "BAJISTA", f"ADX{adx_1h:.0f} {rent_14d*100:+.1f}% <EMA200"
-def detectar_RATA_sym(symbol):
+
+# === INICIO CORRECCION UNICA V50.11 - VOLUMEN VARIABLE AUTOMATICO ===
+def get_vol_requerido_auto(estrategia, reg_simple, adx, atr_pct=0):
+    if reg_simple!= "LINEAL_MUERTO":
+        return 1.2
+    if estrategia == "MOJARRA":
+        vol = 0.2 + (adx * 0.045)
+        return max(0.4, min(vol, 0.9))
+    if estrategia in ["PIRANA_BLANCA", "PIRANA"]:
+        vol = 0.3 + (adx * 0.05)
+        return max(0.6, min(vol, 1.0))
+    return 1.2
+
+def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
@@ -273,9 +286,15 @@ def detectar_RATA_sym(symbol):
     sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; lower=sma20-2*std
     precio=closes[-1]; vol_prom=sum(d5["vols"][-20:])/20; vol_actual=d5["vols"][-1]
     adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
-    if precio<=lower and rsi<umb["rsi_rata_max"] and vol_actual>vol_prom*1.2:
-        return True,f"[{symbol}] RATA V50.9 {reg.split()[0]} RSI{int(rsi)}<{umb['rsi_rata_max']} BBaja ADX{adx:.0f}", 0.68
-    return False,f"[{symbol}] RATA {reg.split()[0]} esperando RSI{int(rsi)}/{umb['rsi_rata_max']} ADX{adx:.0f}", 0.30
+    atr = atr_calc(d1h,14) if d1h else 0
+    atr_pct = (atr/precio*100) if precio else 0
+    reg_simple = reg.split()[0] if reg else "LINEAL"
+    vol_requerido = get_vol_requerido_auto(estrategia_nombre, reg_simple, adx, atr_pct)
+    if precio<=lower and rsi<umb["rsi_rata_max"] and vol_actual>vol_prom*vol_requerido:
+        return True,f"[{symbol}] {estrategia_nombre} V50.11 AUTO {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']} Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} ADX{adx:.0f}", 0.68
+    return False,f"[{symbol}] {estrategia_nombre} {reg_simple} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/{umb['rsi_rata_max']} ADX{adx:.0f}", 0.30
+# === FIN CORRECCION UNICA V50.11 ===
+
 def detectar_LOBO_sym(symbol):
     d=get_velas(symbol,"1h",100)
     if not d: return False,f"{symbol} Sin velas",0
@@ -440,7 +459,6 @@ def mandar_pensamiento_telegram():
                     mejor = mapa_mejor.get(reg, "RATA 0.8-1.5%")
                     zona = "CAZANDO 🟢" if rsi<38 else "ZONA 🟡"
                     ema_txt = "9>20" if ema9>ema20 else "9<20"
-                    # TEXTO IDENTICO A LA WEB - MISMO FORMATO
                     lineas.append(f"{sym.replace('USDT','')} REGIMEN: {reg} (ADX {adx:.1f}) | Madre: {madre} | RSI {rsi:.1f} {zona} | EMA {ema_txt} | ATR {atr_pct:.2f}% | Vol {vol_ratio:.1f}x {banda_txt} ${precio:.0f} | Mejor: {mejor}")
                 except Exception as e:
                     continue
@@ -480,16 +498,20 @@ def detectar_BI_CEREBRO(regimen):
             if nombre == "KRAKEN" and kraken_en_sym >= 1: continue
             if nombre == "TIBURON" and tib_en_sym >= 1: continue
             if nombre == "TIBURON" and total_tib_global >= 2: continue
-            if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym)
+            # === CORRECCION UNICA V50.11 - PASA NOMBRE PARA VOLUMEN VARIABLE ===
+            if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym, "RATA")
+            elif nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
+            elif nombre in ["PIRANA_BLANCA","PIRANA"]: ok,motivo,wr = detectar_RATA_sym(sym, "PIRANA_BLANCA")
+            elif nombre in ["RATA_NEGRA","PIRANA_NEGRA","MOJARRA_NEGRA","LOBO_NEGRO"]: ok,motivo,wr = detectar_RATA_sym(sym, nombre)
             elif nombre=="LOBO": ok,motivo,wr = detectar_LOBO_sym(sym)
             elif nombre=="TIBURON": ok,motivo,wr = detectar_TIBURON_sym(sym)
-            elif nombre in ["MOJARRA","PIRANA_BLANCA","RATA_NEGRA","PIRANA_NEGRA","MOJARRA_NEGRA","PIRANA","LOBO_NEGRO"]: ok,motivo,wr = detectar_RATA_sym(sym)
             else: ok,motivo,wr = detectar_KRAKEN_sym(sym)
             tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
             if ok and wr > mejor_fuerza and es_rentable(tp_a)[0]:
-                mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym}] {motivo} TP{tp_a}% V50.9"; mejor_sym=sym
+                mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym}] {motivo} TP{tp_a}% V50.11 AUTO"; mejor_sym=sym
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    return False, f"V50.9 ACECHANDO", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V50.11 AUTO ACECHANDO", MONEDAS_ACTIVAS[0], None, 0
+
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
     if u.get("fecha_hoy")!=hoy:
