@@ -63,6 +63,10 @@ MAPA_ANIDADO_V50_9 = {
     "BAJISTA": ["MOJARRA", "LOBO_NEGRO", "PIRANA_NEGRA", "RATA_NEGRA", "KRAKEN"],
     "CRASH": ["KRAKEN", "MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA"]
 }
+MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MOJARRA+PIRANA_BLANCA 0.3-0.8%", "LINEAL": "RATA 0.8-1.5%", "ALCISTA": "LOBO 1.2-2.2%", "ALCISTA_FUERTE": "TIBURON 5-10% BANDA", "CRASH": "KRAKEN PANICO 3-5%", "BAJISTA": "KRAKEN + SHORTS"}
+def estrategia_prevista(regimen_txt):
+    reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
+    return MAPA_ESTRATEGIA.get(reg, "RATA 0.8-1.5%")
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
 RAW_SPLIT = [clean_key(c) for c in PROXY_LIST_RAW.split(",") if clean_key(c)]
 if not RAW_SPLIT: RAW_SPLIT = ["http://ufssgczi:aus6m0vuweru@31.58.9.4:6077","http://ufssgczi:aus6m0vuweru@31.59.20.176:6754"]
@@ -360,7 +364,7 @@ def contar_por_moneda():
             counts[sym] = counts.get(sym, 0) + 1
     return counts
 def banda_txt_display(k,v):
-    base = f"BANDA {k} {v['entrada_tiburon']:.0f}->{v['tope']:.0f} {v['tipo']}"
+    base = f"\U0001f3af BANDA {k} {v['entrada_tiburon']:.0f}->{v['tope']:.0f} {v['tipo']}"
     if v.get("origen_mov"):
         base += f" MOVIL"
     return base
@@ -368,7 +372,9 @@ def banda_txt_api(k,v):
     return f"{k.replace('USDT','')} {v.get('tipo','')}"
 def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
     try:
-        msg = f"{tipo} PRESA CAZADA! Par: {sym} Entrada: ${precio:.2f} Monto: ${usdt:.2f} TP: {tp}% SL: {sl}% Banda: {banda_txt} {motivo[:100]} Exp: {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} {WEB_URL}"
+        emojis = {"RATA":"\U0001f400 RATA 5m","LOBO":"\U0001f43a LOBO 1h","TIBURON":"\U0001f988 TIBURON 1d","KRAKEN":"\U0001f991 KRAKEN","PIRANA":"\U0001f41f PIRA\u00d1A","MOJARRA":"\U0001f41f MOJARRA"}
+        emoji = emojis.get(tipo, "\U0001f3af")
+        msg = f"{emoji} \u00a1PRESA CAZADA!\nPar: {sym}\nEntrada: ${precio:.2f}\nMonto: ${usdt:.2f}\nTP: {tp}% | SL: {sl}%\nBanda: {banda_txt}\n{motivo[:100]}\nExp: {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n\U0001f310 {WEB_URL}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
@@ -376,13 +382,15 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
     except Exception as e: print(f"notif caza err {e}")
 def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es_tp, subtipo=""):
     try:
+        emojis = {"RATA":"\U0001f400","LOBO":"\U0001f43a","TIBURON":"\U0001f988","KRAKEN":"\U0001f991","PIRANA":"\U0001f41f"}
+        emoji = emojis.get(tipo, "\U0001f3af")
         u = USUARIOS.get(ADMINS_IDS[0], {})
         hoy = u.get("neto_hoy",0)
         total = (u.get("balance",0)-u.get("capital_inicial",0))
         if es_tp:
-            msg = f"PRESA DEVORADA {tipo} {sym} ${entrada:.2f} -> ${salida:.2f} +${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%) Hoy: ${hoy:+.2f} Total: ${total:+.2f}"
+            msg = f"\U0001f43a\u2620\ufe0f PRESA DEVORADA \u2620\ufe0f\U0001f43a\n{emoji} {tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n+${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\nExp: {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}"
         else:
-            msg = f"ESCAPO LA PRESA {tipo} {sym} ${entrada:.2f} -> ${salida:.2f} ${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%) Hoy: ${hoy:+.2f} Total: ${total:+.2f}"
+            msg = f"\U0001f3c3\u200d\u2642\ufe0f\U0001f4a8 \u00a1ESCAP\u00d3 LA PRESA! \U0001f4a8\U0001f3c3\n{emoji} {tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\nLa manada la vuelve a oler..."
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
@@ -406,17 +414,20 @@ def mandar_pensamiento_telegram():
                 if banda and banda.get("activa"):
                     tipo = banda.get("tipo","NORMAL")
                     entrada = banda["entrada_tiburon"]; tope = banda["tope"]
-                    lineas.append(f"{sym.replace('USDT','')} RSI{int(rsi)} [{tipo} {entrada:.0f}->{tope:.0f}] ${precio:.0f}")
+                    if tipo=="NORMAL":
+                        estado_rsi = f"\U0001f7e2 CAZANDO RSI{int(rsi):.0f}<38" if rsi<38 else f"\U0001f7e1 ZONA RSI{int(rsi):.0f}"
+                    else:
+                        estado_rsi = f"\U0001f7e2 CAZANDO KRAKEN RSI{int(rsi):.0f}"
+                    lineas.append(f"{sym.replace('USDT','')} {estado_rsi} [{tipo} {entrada:.0f}->{tope:.0f}] ${precio:.0f}")
                 else:
                     lineas.append(f"{sym.replace('USDT','')} {reg} sin banda ${precio:.0f}")
             if lineas:
-                texto = f"V50.9 {len(MONEDAS_ACTIVAS)}/20 ({CONTADOR_TP_EXPANSION:.0f}/120) Clima BTC {ESTADO.get('regimen','LINEAL')}\n" + "\n".join(lineas[:8]) + f"\n{WEB_URL}"
+                texto = f"\U0001f7e2 V50.9 {len(MONEDAS_ACTIVAS)}/20 ({CONTADOR_TP_EXPANSION:.0f}/120) Clima BTC {ESTADO.get('regimen','LINEAL')}\n" + "\n".join(lineas[:8]) + f"\n\U0001f4ca {WEB_URL}"
                 try: bot.send_message(uid, texto)
                 except: pass
     except: pass
 def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
-    counts_moneda = contar_por_moneda()
     tib_por_moneda = {}; kraken_por_moneda = {}
     for uid, lista in POSICIONES_ABIERTAS.items():
         if not isinstance(lista, list): continue
@@ -463,7 +474,7 @@ def get_user_data(uid):
     uid=int(uid)
     with LOCK:
         if uid not in USUARIOS:
-            USUARIOS[uid]={"user_id":uid,"prendido":False,"balance":BALANCE_INICIAL,"capital_inicial":BALANCE_INICIAL,"neto_hoy":0.0,"ops_hoy":0,"ganadas":0,"perdidas":0,"modo":"ESPERANDO","mercado":"Toca PRENDER","ultima_op":{}, "historial":[],"estrategias":{k:{"ops":0,"ganadas":0,"neto":0.0} for k in ESTRATEGIAS_V45},"fecha_hoy":ahora_art().strftime("%Y-%m-%d")}
+            USUARIOS[uid]={"user_id":uid,"prendido":False,"balance":BALANCE_INICIAL,"capital_inicial":BALANCE_INICIAL,"neto_hoy":0.0,"ops_hoy":0,"ganadas":0,"perdidas":0,"modo":"ESPERANDO","mercado":"Toc\u00e1 PRENDER","ultima_op":{}, "historial":[],"estrategias":{k:{"ops":0,"ganadas":0,"neto":0.0} for k in ESTRATEGIAS_V45},"fecha_hoy":ahora_art().strftime("%Y-%m-%d")}
         check_reset_diario(USUARIOS[uid]); return USUARIOS[uid]
 def guardar_datos():
     try:
@@ -570,9 +581,9 @@ def intentar_expandir(user_id_notify=None):
     if len(MONEDAS_ACTIVAS) >= MAX_MONEDAS: return False
     mejor_sym, wr = detectar_mejor_candidata()
     if not mejor_sym: return False
-    msg = f"META {META_TP_PARA_EXPANDIR:.0f} TPs Candidata: {mejor_sym} WR {wr:.2f} Actual {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}"
+    msg = f"\U0001f680 META {META_TP_PARA_EXPANDIR:.0f} TPs\nCandidata: {mejor_sym} WR {wr:.2f}\nActual {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} -> {len(MONEDAS_ACTIVAS)+1}/{MAX_MONEDAS}\n\u00bfAutorizas sumar {mejor_sym}?"
     kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton(f"AUTORIZAR {mejor_sym}", callback_data=f"AUTH_ADD_{mejor_sym}"), types.InlineKeyboardButton(f"RECHAZAR", callback_data=f"REJECT_{mejor_sym}"))
+    kb.add(types.InlineKeyboardButton(f"\u2705 AUTORIZAR {mejor_sym}", callback_data=f"AUTH_ADD_{mejor_sym}"), types.InlineKeyboardButton(f"\u274c RECHAZAR", callback_data=f"REJECT_{mejor_sym}"))
     try:
         targets = ADMINS_IDS if not user_id_notify else [user_id_notify]
         for uid in targets: bot.send_message(uid, msg, reply_markup=kb)
@@ -657,74 +668,74 @@ def motor_v45():
         time.sleep(60)
 def get_menu():
     m=types.ReplyKeyboardMarkup(resize_keyboard=True)
-    m.add("🚀 PRENDER","🧬 EVOLUCIONAR")
-    m.add("📊 BALANCE","📜 HISTORIAL")
-    m.add("💸 RETIRAR GANANCIAS","💸 RETIRAR TODO")
-    m.add("📦 ORDENES")
+    m.add("\U0001f680 PRENDER","\U0001f9ec EVOLUCIONAR")
+    m.add("\U0001f4ca BALANCE","\U0001f4dc HISTORIAL")
+    m.add("\U0001f4b8 RETIRAR GANANCIAS","\U0001f4b8 RETIRAR TODO")
+    m.add("\U0001f4e6 ORDENES")
     return m
 @bot.message_handler(commands=['start'])
 def start(m):
     u=get_user_data(m.chat.id)
-    estado_txt = f"V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
+    estado_txt = f"\U0001f7e2 V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "\U0001f534 APAGADO"
     regs="\n".join([f"{k}:{v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen'].split()[0]
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
     ganancia = u["balance"] - u["capital_inicial"]
-    bot.send_message(m.chat.id,f"V50.9 {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f}\nGan ${ganancia:.2f}\n{WEB_URL}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="📊 BALANCE")
+    bot.send_message(m.chat.id,f"\U0001f981 V50.9 {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f}\nGan ${ganancia:.2f}\n{WEB_URL}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f4ca BALANCE")
 def balance(m):
     u=get_user_data(m.chat.id)
     ganancia_historica = u["balance"]-u["capital_inicial"]
     regs="\n".join([f"{k}: {v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()])
-    pos_txt = "\n".join([f"{p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin pos"
-    bot.send_message(m.chat.id,f"V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{regs}\n{pos_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="🚀 PRENDER")
+    pos_txt = "\n".join([f"\U0001f512 {p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin pos"
+    bot.send_message(m.chat.id,f"\U0001f4b0 V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{regs}\n{pos_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f680 PRENDER")
 def prender(m):
     u=get_user_data(m.chat.id)
     u["prendido"]=True; u["modo"]="CAZANDO V50.9"
     guardar_datos()
-    bot.send_message(m.chat.id,f"MANADA PRENDIDA V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\nMapa: {MAPA_ANIDADO_V50_9.get(ESTADO.get('regimen','LINEAL').split()[0],[])}\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="🧬 EVOLUCIONAR")
+    bot.send_message(m.chat.id,f"\U0001f680 MANADA PRENDIDA V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\nMapa: {MAPA_ANIDADO_V50_9.get(ESTADO.get('regimen','LINEAL').split()[0],[])}\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f9ec EVOLUCIONAR")
 def evolucionar(m):
     u=get_user_data(m.chat.id)
     regs="\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()])
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas V50.9"
-    clima = f"CLIMA BTC {ESTADO.get('regimen','LINEAL')} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} TPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f}"
-    bot.send_message(m.chat.id,f"{clima}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="📜 HISTORIAL")
+    clima = f"\U0001f326\ufe0f CLIMA BTC {ESTADO.get('regimen','LINEAL')} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} TPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f}"
+    bot.send_message(m.chat.id,f"\U0001f9ec {clima}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f4dc HISTORIAL")
 def historial(m):
     u=get_user_data(m.chat.id)
     hist = u.get("historial",[])[-15:]
     txt = "\n".join(hist) or "Sin historial"
-    bot.send_message(m.chat.id,f"HISTORIAL V50.9\n{txt}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="📦 ORDENES")
+    bot.send_message(m.chat.id,f"\U0001f4dc HISTORIAL V50.9\n{txt}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f4e6 ORDENES")
 def ordenes(m):
     lista = POSICIONES_ABIERTAS.get(m.chat.id,[])
     if not lista:
-        bot.send_message(m.chat.id,"Sin ordenes abiertas V50.9",reply_markup=get_menu())
+        bot.send_message(m.chat.id,"\U0001f4e6 Sin ordenes abiertas V50.9",reply_markup=get_menu())
         return
     txt=""
     for p in lista:
         txt+=f"{p['symbol']} {p['estrategia']} ${p['entrada']:.2f} TP{p['tp']}% SL{p['sl']}% ${p['usdt']:.0f}\n"
-    bot.send_message(m.chat.id,f"ORDENES V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{txt}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="💸 RETIRAR GANANCIAS")
+    bot.send_message(m.chat.id,f"\U0001f4e6 ORDENES V50.9 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{txt}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f4b8 RETIRAR GANANCIAS")
 def retirar_gan(m):
     u=get_user_data(m.chat.id)
     gan = u["balance"]-u["capital_inicial"]
     if gan <= 0:
-        bot.send_message(m.chat.id,f"Sin ganancias para retirar. Gan ${gan:.2f}",reply_markup=get_menu())
+        bot.send_message(m.chat.id,f"\U0001f4b8 Sin ganancias para retirar. Gan ${gan:.2f}",reply_markup=get_menu())
         return
     u["balance"]=u["capital_inicial"]
     u["neto_hoy"]=0
     guardar_datos()
-    bot.send_message(m.chat.id,f"GANANCIAS RETIRADAS V50.9 ${gan:.2f}",reply_markup=get_menu())
-@bot.message_handler(func=lambda m: m.text=="💸 RETIRAR TODO")
+    bot.send_message(m.chat.id,f"\U0001f4b8 GANANCIAS RETIRADAS V50.9 ${gan:.2f}\nBolsa unica vuelve a capital inicial ${u['capital_inicial']:.2f}",reply_markup=get_menu())
+@bot.message_handler(func=lambda m: m.text=="\U0001f4b8 RETIRAR TODO")
 def retirar_todo(m):
     u=get_user_data(m.chat.id)
     total=u["balance"]
     u["balance"]=0; u["capital_inicial"]=0
     POSICIONES_ABIERTAS[m.chat.id]=[]
     guardar_datos()
-    bot.send_message(m.chat.id,f"TODO RETIRADO V50.9 ${total:.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"\U0001f4b8 TODO RETIRADO V50.9 ${total:.2f}\nCerraste todo.",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: True)
 def fallback(m):
     try:
@@ -733,14 +744,14 @@ def fallback(m):
             sym = txt.replace(" ","").replace("$","")
             if "USDT" not in sym: sym+="USDT"
             precio=get_precio_robusto(sym)
-            bot.send_message(m.chat.id,f"{sym} ${precio:.2f} V50.9",reply_markup=get_menu())
+            bot.send_message(m.chat.id,f"\U0001f4b2 {sym} ${precio:.2f} V50.9",reply_markup=get_menu())
         else:
-            bot.send_message(m.chat.id,f"V50.9 Comandos: PRENDER, BALANCE, EVOLUCIONAR, HISTORIAL, ORDENES\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} TPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f}\n{WEB_URL}",reply_markup=get_menu())
+            bot.send_message(m.chat.id,f"\U0001f981 V50.9 Comandos: PRENDER, BALANCE, EVOLUCIONAR, HISTORIAL, ORDENES\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} TPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f}\n{WEB_URL}",reply_markup=get_menu())
     except:
-        bot.send_message(m.chat.id,"V50.9",reply_markup=get_menu())
+        bot.send_message(m.chat.id,"\U0001f981 V50.9",reply_markup=get_menu())
 @app.route('/')
 def home():
-    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V50.9 BOLSA UNICA</title><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}</style></head><body><div class="top" id="info">Cargando V50.9...</div><script>async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V50.9 BOLSA UNICA | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ');}setInterval(load,3000);load();</script></body></html>"""
+    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V50.9 BOLSA UNICA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{position:relative;background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}</style></head><body><div class="top" id="info">Cargando V50.9...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS=['BTCUSDT','BNBUSDT'];function createChart(sym){let id='tv_'+sym;let div=document.createElement('div');div.className='card';div.innerHTML=`<div id="${id}" style="height:350px"></div>`;document.getElementById('charts_grid').appendChild(div);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,library_path:'https://s3.tradingview.com/',theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V50.9 BOLSA UNICA | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}setInterval(load,3000);load();</script></body></html>"""
     return render_template_string(html)
 @app.route('/api/data')
 def api_data():
