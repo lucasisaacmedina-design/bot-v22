@@ -749,10 +749,60 @@ def fallback(m):
             bot.send_message(m.chat.id,f"\U0001f981 V50.9 Comandos: PRENDER, BALANCE, EVOLUCIONAR, HISTORIAL, ORDENES\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} TPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f}\n{WEB_URL}",reply_markup=get_menu())
     except:
         bot.send_message(m.chat.id,"\U0001f981 V50.9",reply_markup=get_menu())
+
+# ==================== SOLO ESTO SE AGREGO - V50.10 DETALLE MERCADO ====================
+@app.route('/api/detalles_mercado')
+def detalles_mercado():
+    def info_sym(sym):
+        try:
+            d5 = get_velas(sym,"5m",100)
+            d1h = get_velas(sym,"1h",100)
+            precio = get_precio_robusto(sym)
+            rsi = rsi_calc(d5["closes"],7) if d5 else 50
+            adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
+            atr = atr_calc(d1h,14) if d1h else 0
+            atr_pct = (atr/precio*100) if precio else 0
+            ema9 = ema_calc(d5["closes"][-20:],9) if d5 else 0
+            ema20 = ema_calc(d5["closes"][-20:],20) if d5 else 0
+            vol_ratio = (d5["vols"][-1] / (sum(d5["vols"][-20:])/20)) if d5 and len(d5["vols"])>=20 else 1.0
+            reg_full = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
+            reg = reg_full.split()[0] if reg_full else "LINEAL"
+            zona = "CAZANDO 🟢" if rsi<38 else "ZONA 🟡"
+            # Mapa mejor estrategia por regimen
+            mapa_mejor = {
+                "LINEAL_MUERTO": "MOJARRA 0.3% + PIRANA BLANCA 0.5%",
+                "LINEAL": "RATA 0.8-1.5%",
+                "ALCISTA": "LOBO 1.2-2.2%",
+                "ALCISTA_FUERTE": "TIBURON 5-10%",
+                "BAJISTA": "KRAKEN 3-5% + SHORTS",
+                "CRASH": "KRAKEN PANICO 3-5%"
+            }
+            mejor = mapa_mejor.get(reg, "RATA 0.8-1.5%")
+            accion = "CAZAR AHORA" if rsi<38 else "NO CAZAR - ESPERAR RSI<38"
+            if reg=="LINEAL_MUERTO":
+                si_cae = "MOJARRA 0.3% + PIRANA BLANCA 0.5%"
+            else:
+                si_cae = mejor
+            banda = BANDAS_ACTIVAS.get(sym,{})
+            madre = banda.get("tipo","NORMAL") if banda.get("activa") else "NORMAL"
+            return {
+                "regimen": reg, "reg_detalle": reg_full,
+                "adx": round(adx,1), "rsi": round(rsi,1),
+                "zona": zona, "ema": "9>20" if ema9>ema20 else "9<20",
+                "atr": round(atr_pct,2), "vol": round(vol_ratio,1),
+                "precio": round(precio,2), "madre": madre,
+                "mejor_estrategia": mejor, "accion": accion, "si_cae": si_cae
+            }
+        except Exception as e:
+            return {"regimen":"LINEAL","adx":15,"rsi":50,"zona":"ZONA","ema":"9=20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"RATA","accion":"ESPERAR","si_cae":"RATA","error":str(e)[:80]}
+    return jsonify({ "BTCUSDT": info_sym("BTCUSDT"), "BNBUSDT": info_sym("BNBUSDT"), "BTC": info_sym("BTCUSDT"), "BNB": info_sym("BNBUSDT") })
+
 @app.route('/')
 def home():
-    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V50.9 BOLSA UNICA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{position:relative;background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}</style></head><body><div class="top" id="info">Cargando V50.9...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS=['BTCUSDT','BNBUSDT'];function createChart(sym){let id='tv_'+sym;let div=document.createElement('div');div.className='card';div.innerHTML=`<div id="${id}" style="height:350px"></div>`;document.getElementById('charts_grid').appendChild(div);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,library_path:'https://s3.tradingview.com/',theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V50.9 BOLSA UNICA | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}setInterval(load,3000);load();</script></body></html>"""
+    html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V50.10 BOLSA UNICA - DETALLE</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{position:relative;background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39;margin-bottom:6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.detalle-box{background:#0e1a15;border-top:1px solid #1e3d2f;color:#a7f3d0;font-family:monospace;font-size:11px;padding:8px 10px;line-height:1.4;min-height:62px}</style></head><body><div class="top" id="info">Cargando V50.10...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS=['BTCUSDT','BNBUSDT'];function createChart(sym){let id='tv_'+sym;let card=document.createElement('div');card.className='card';card.innerHTML=`<div id="${id}" style="height:350px"></div><div class="detalle-box" id="detalle-${sym}">⏳ Cargando detalle ${sym}...</div>`;document.getElementById('charts_grid').appendChild(card);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V50.10 BOLSA UNICA | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}async function loadDetalles(){try{let d=await (await fetch('/api/detalles_mercado')).json();for(let sym of MONEDAS){let info=d[sym];if(!info) continue;document.getElementById('detalle-'+sym).innerHTML=`REGIMEN: ${info.regimen} (ADX ${info.adx}) | Madre: ${info.madre} | RSI ${info.rsi} ${info.zona} | EMA ${info.ema} | ATR ${info.atr}% | Vol ${info.vol}x<br><b>Mejor estrategia: ${info.mejor_estrategia}</b> | ${info.accion} | Si cae: ${info.si_cae} | $${info.precio}`;}}catch(e){}}setInterval(load,3000);load();setInterval(loadDetalles,3000);loadDetalles();</script></body></html>"""
     return render_template_string(html)
+# ==================== FIN AGREGADO V50.10 ====================
+
 @app.route('/api/data')
 def api_data():
     target=ADMINS_IDS[0]
@@ -764,7 +814,7 @@ def api_data():
         precios[sym] = get_precio_robusto(sym)
     posiciones = POSICIONES_ABIERTAS.get(target, [])
     ganancia_total = u["balance"]-u["capital_inicial"]
-    return jsonify({"balance":u["balance"],"capital_inicial":u["capital_inicial"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"regimen_btc":ESTADO.get("regimen","LINEAL"),"regimenes":ESTADO.get("regimenes",{}),"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS,"ganancia_total": ganancia_total,"bandas": BANDAS_ACTIVAS, "bandas_txt": bandas_txt, "posiciones": posiciones, "precios": precios, "meta_proxima": META_TP_PARA_EXPANDIR, "tps_actual": CONTADOR_TP_EXPANSION, "mapa_anidado": MAPA_ANIDADO_V50_9, "version": "V50.9 BOLSA UNICA 20 MONEDAS"})
+    return jsonify({"balance":u["balance"],"capital_inicial":u["capital_inicial"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"regimen_btc":ESTADO.get("regimen","LINEAL"),"regimenes":ESTADO.get("regimenes",{}),"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS,"ganancia_total": ganancia_total,"bandas": BANDAS_ACTIVAS, "bandas_txt": bandas_txt, "posiciones": posiciones, "precios": precios, "meta_proxima": META_TP_PARA_EXPANDIR, "tps_actual": CONTADOR_TP_EXPANSION, "mapa_anidado": MAPA_ANIDADO_V50_9, "version": "V50.10 BOLSA UNICA 20 MONEDAS"})
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
     try:
