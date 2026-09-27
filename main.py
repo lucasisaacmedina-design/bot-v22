@@ -37,7 +37,7 @@ TANQUE_BNB_RECARGA = float(os.getenv("TANQUE_BNB_RECARGA", "8.0"))
 TANQUE = TANQUE_BNB_USDT
 COMISION_TOTAL = 0.15
 FILTRO_NETO_MIN = 0.5
-FILTRO_NETO_MIN_MOJARRA = 0.2
+FILTRO_NETO_MIN_MOJARRA = 0.10
 ESTADO_PIRANA = {}
 ESTADO_PIRANA_NEGRA = {}
 BANDAS_TIEMPO_FUERA = {}
@@ -45,7 +45,6 @@ TIEMPO_FUERA_NORMAL = 720
 TIEMPO_FUERA_BAJISTA = 360
 CANDIDATAS_CACHE = {"_ultimo_scan": 0, "_aviso_meta": 0, "proxima": None}
 TIEMPO_ESCANEO_CANDIDATAS = 600
-
 ESTRATEGIAS_V45 = {
     "MOJARRA": {"tf": "5m", "desc": "MOJARRA 0.3-0.5% LONG","rango_tp": (0.3, 0.5), "sl_neto": -1.5, "max_dia": 200,"cooldown": 60, "cooldown_rec": 60,"mercado_ideal": "UNIVERSAL", "tp_fijo_banda": 0.4},
     "PIRANA_BLANCA": {"tf": "5m", "desc": "PIRANA BLANCA 0.5-0.8% LONG","rango_tp": (0.5, 0.8), "sl_neto": -2.5, "max_dia": 150,"cooldown": 90, "cooldown_rec": 90,"mercado_ideal": "UNIVERSAL", "tp_fijo_banda": 0.6},
@@ -100,7 +99,6 @@ if BINANCE_LIB and BINANCE_API_KEY and BINANCE_API_SECRET:
             if b['asset']=='BNB': REAL_BALANCE_BNB=float(b['free'])+float(b['locked'])
         CLIENT_ERROR="OK"
     except Exception as e: CLIENT_ERROR=str(e)[:200]
-# FIX LOBO 10K
 CAPITAL_BASE = 10000.0
 if REAL_BALANCE_USDT < 100:
     REAL_BALANCE_USDT = CAPITAL_BASE
@@ -114,7 +112,7 @@ CONTADOR_FILE=os.path.join(DATA_DIR,"contador_expansion.json")
 os.makedirs(DATA_DIR,exist_ok=True)
 ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regimenes":{},"estrategias_activas":{}}
 USUARIOS={}; LOCK=threading.Lock()
-POSICIONES_ABIERTAS = {}; BANDAS_ACTIVAS = {}; ULTIMO_TRADE = {}; ULTIMO_PENSAMIENTO = 0
+POSICIONES_ABIERTAS = {}; BANDAS_ACTIVAS = {}; ULTIMO_TRADE = {}; ULTIMO_PENSAMIENTO = 0; ULTIMO_CAZANDO = {}
 def ahora_art(): return datetime.now(TZ)
 def get_precio_robusto(symbol):
     try:
@@ -383,14 +381,6 @@ def contar_posiciones_globales():
             counts[key] = counts.get(key, 0) + 1
             if p.get("estrategia") == "TIBURON": total_tib += 1
     return counts, total_tib
-def contar_por_moneda():
-    counts = {}
-    for uid, lista in POSICIONES_ABIERTAS.items():
-        if not isinstance(lista, list): continue
-        for p in lista:
-            sym = p.get("symbol")
-            counts[sym] = counts.get(sym, 0) + 1
-    return counts
 def banda_txt_display(k,v):
     base = f"🎯 BANDA {k} {v['entrada_tiburon']:.0f}->{v['tope']:.0f} {v['tipo']}"
     if v.get("origen_mov"):
@@ -427,6 +417,11 @@ def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es
 def notificar_cazando(sym, regimen):
     try:
         msg = f"👀 CAZANDO {sym} {regimen} V50.12 TESTNET SIN VOL"
+        ahora = time.time()
+        key = f"caz_{sym}"
+        if key in ULTIMO_CAZANDO and ahora - ULTIMO_CAZANDO[key] < 300:
+            return
+        ULTIMO_CAZANDO[key] = ahora
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
@@ -705,12 +700,15 @@ def motor_v45():
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
             if ok and estrategia_elegida:
                 key_lock = f"{symbol_elegido}_{estrategia_elegida}"
+                if key_lock not in ULTIMO_CAZANDO or (time.time() - ULTIMO_CAZANDO.get(key_lock,0)) > 300:
+                    notificar_cazando(symbol_elegido, motivo[:80])
                 if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < ESTRATEGIAS_V45[estrategia_elegida]["cooldown"]: continue
                 usdt_a_usar = max(10, u["balance"]*0.035)
                 if estrategia_elegida == "KRAKEN": usdt_a_usar = max(200, min(300, u["balance"]*0.20))
                 exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
                 if exito:
                     ULTIMO_TRADE[key_lock]=time.time()
+                    ULTIMO_CAZANDO[key_lock]=time.time()
                     pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_adaptativo(symbol_elegido, estrategia_elegida), "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat()}
                     POSICIONES_ABIERTAS[user_id].append(pos)
                     u["modo"]=f"{estrategia_elegida} {symbol_elegido} TP{pos['tp']}%"; u["mercado"]=motivo
@@ -719,8 +717,6 @@ def motor_v45():
                     b = BANDAS_ACTIVAS.get(symbol_elegido,{})
                     banda_txt = f"{b.get('entrada_tiburon',precio*0.97):.0f}->{b.get('tope',precio*1.10):.0f} {b.get('tipo','')}"
                     notificar_caza(symbol_elegido, estrategia_elegida, precio, pos['tp'], ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], banda_txt, usdt_a_usar, motivo)
-                    if IS_TESTNET:
-                        notificar_cazando(symbol_elegido, motivo[:80])
         guardar_datos()
         time.sleep(60)
 def get_menu():
