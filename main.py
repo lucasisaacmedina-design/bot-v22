@@ -593,6 +593,7 @@ def detectar_BI_CEREBRO(regimen):
             elif reg_sym == "LINEAL_MUERTO": orden = ["MOJARRA", "MOJARRITA"]
             else: orden = ["MOJARRA","PIRANA_BLANCA","RATITA","RATA","LOBO","TIBURON","KRAKEN"]
         for nombre in orden:
+            if not candado(nombre, reg_sym): continue
             if rojo and nombre in BLANCAS_SET: continue
             MADRES = ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO"]
             if nombre in MADRES and total_madres_en_sym >= 3: continue
