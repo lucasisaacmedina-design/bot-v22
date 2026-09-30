@@ -68,6 +68,37 @@ ESTRATEGIAS_V45 = {
 }
 ESTRATEGIAS_V45["PIRANA"] = ESTRATEGIAS_V45["PIRANA_BLANCA"]
 ESTRATEGIAS_V45["PIRAÑA_NEGRA"] = ESTRATEGIAS_V45["PIRANA_NEGRA"]
+
+# === INICIO PARCHE CANDADOS + CIERRE MARKET V50.26 ===
+BLANCAS = {"MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATA","RATITA","LOBO","TIBURON"}
+NEGRAS =  {"MOJARRA_NEGRA","PIRANA_NEGRA","PIRAÑA_NEGRA","RATA_NEGRA","LOBO_NEGRO","KRAKEN"}
+REG_ANT = {"v": "LINEAL"}
+
+def candado(est, regimen):
+    r = regimen.split()[0]
+    if est=="LOBO" and r not in ["ALCISTA","ALCISTA_FUERTE"]: return False
+    if est=="TIBURON" and r!="ALCISTA_FUERTE": return False
+    if est=="KRAKEN" and r!="CRASH": return False
+    if est in NEGRAS and r not in ["BAJISTA","CRASH"]: return False
+    if est in BLANCAS and r in ["BAJISTA","CRASH"]: return False
+    return True
+
+def cierre_market_cambio(reg_nuevo):
+    viejo = REG_ANT["v"].split()[0]
+    nuevo = reg_nuevo.split()[0]
+    if viejo==nuevo: return
+    print(f"CAMBIO {viejo}->{nuevo} -> CIERRE MARKET")
+    for uid in list(POSICIONES_ABIERTAS.keys()):
+        for p in POSICIONES_ABIERTAS[uid][:]:
+            if not candado(p["estrategia"], reg_nuevo):
+                lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
+                try: ejecutar_orden_real(p["symbol"], lado, p["usdt"])
+                except: pass
+                try: POSICIONES_ABIERTAS[uid].remove(p)
+                except: pass
+    REG_ANT["v"]=reg_nuevo
+    guardar_datos()
+# === FIN PARCHE ===
 MAPA_ANIDADO_V50_9 = {
     "LINEAL_MUERTO": ["MOJARRA", "MOJARRITA"],
     "LINEAL": ["MOJARRA", "PIRANA_BLANCA", "RATITA", "RATA"],
@@ -735,6 +766,7 @@ def motor_v45():
                 reg, det = detectar_regimen_sym(sym)
                 ESTADO["regimenes"][sym] = f"{reg} {det}"
                 if sym=="BTCUSDT": ESTADO["btc"]=get_precio_robusto(sym); ESTADO["regimen"]=reg
+                if sym=="BTCUSDT": cierre_market_cambio(reg)
                 if sym=="BNBUSDT": ESTADO["bnb"]=get_precio_robusto(sym)
         except: pass
         gestionar_bandas_moviles()
