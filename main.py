@@ -830,7 +830,7 @@ def intentar_expandir(user_id_notify=None):
         targets = ADMINS_IDS if not user_id_notify else [user_id_notify]
         for uid in targets: bot.send_message(uid, msg, reply_markup=kb)
     except: pass
-        CANDIDATAS_CACHE["_aviso_meta"] = time.time()
+    CANDIDATAS_CACHE["_aviso_meta"] = time.time()
     guardar_datos()
     return True
 @bot.callback_query_handler(func=lambda call: True)
