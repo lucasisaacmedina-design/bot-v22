@@ -117,26 +117,46 @@ def candado_evolucion_V51(sym, estrategia, regimen):
     reg_simple = regimen.split()[0]
     nivel = EVOLUCION_NIVEL.get(sym, {}).get(reg_simple, 1)
     cont = CONTADOR_POR_REGIMEN.get(sym, {}).get(reg_simple, {})
-    if nivel == 1:
-        if reg_simple == "LINEAL_MUERTO": return estrategia in ["MOJARRA","MOJARRITA"]
-        if reg_simple == "LINEAL": return estrategia in ["MOJARRA","PIRANA_BLANCA"]
+
     mojarra_count = cont.get("MOJARRA",0) + cont.get("MOJARRITA",0)
+    pirana_count = cont.get("PIRANA_BLANCA",0)
+    ratita_count = cont.get("RATITA",0)
+
+    # CANDADO V52 - CON RATITA PUENTE - SIN RETORNO A MOJARRA
     if mojarra_count >= 2 and nivel == 1:
         EVOLUCION_NIVEL[sym][reg_simple] = 2
-        print(f"V51 EVOLUCION {sym} {reg_simple} Nv1->Nv2 MOJARRA x{mojarra_count}")
+        print(f"V52 EVOLUCION {sym} {reg_simple} Nv1->Nv2 MOJARRA x{mojarra_count} -> PIRANA_BLANCA")
         nivel = 2
-    if nivel == 2:
-        if reg_simple == "LINEAL": return estrategia in ["RATITA","RATA"]
-        if reg_simple == "LINEAL_MUERTO": return estrategia in ["MOJARRA","MOJARRITA","PIRANA_BLANCA"]
-    rata_count = cont.get("RATITA",0) + cont.get("RATA",0)
-    if rata_count >= 2 and nivel == 2:
-        EVOLUCION_NIVEL[sym][reg_simple] = 3
-        print(f"V51 EVOLUCION {sym} {reg_simple} Nv2->Nv3 RATA x{rata_count}")
-        nivel = 3
-    if nivel >= 3:
-        return True
-    return False
 
+    if pirana_count >= 1 and nivel == 2:
+        EVOLUCION_NIVEL[sym][reg_simple] = 3
+        print(f"V52 EVOLUCION {sym} {reg_simple} Nv2->Nv3 PIRANA x{pirana_count} -> RATITA")
+        nivel = 3
+
+    if ratita_count >= 1 and nivel == 3:
+        EVOLUCION_NIVEL[sym][reg_simple] = 4
+        print(f"V52 EVOLUCION {sym} {reg_simple} Nv3->Nv4 RATITA x{ratita_count} -> RATA")
+        nivel = 4
+
+    # IDEA MADRE + RATITA PUENTE
+    if reg_simple == "LINEAL_MUERTO":
+        if nivel == 1: return estrategia in ["MOJARRA","MOJARRITA"]
+        return estrategia == "MOJARRITA"
+
+    if reg_simple == "LINEAL":
+        if nivel == 1: return estrategia == "MOJARRA"
+        if nivel == 2: return estrategia == "PIRANA_BLANCA"
+        if nivel == 3: return estrategia == "RATITA"
+        if nivel >= 4: return estrategia == "RATA"
+
+        # PARA TODOS LOS OTROS REGIMENES (03 ALCISTA, 04 ALCISTA FUERTE, 05 BAJISTA)
+    # Respeta el regimen pero mantiene la evolucion sin retorno
+    if nivel == 1: return estrategia == "MOJARRA"
+    if nivel == 2: return estrategia == "PIRANA_BLANCA"
+    if nivel == 3: return estrategia == "RATITA"
+    if nivel >= 4: return estrategia in ["RATA","LOBO"]
+
+    return False
 def cierre_market_cambio(sym, reg_nuevo):
     viejo = REG_ANT.get(sym, "LINEAL").split()[0] if REG_ANT.get(sym) else "LINEAL"
     nuevo = reg_nuevo.split()[0]
