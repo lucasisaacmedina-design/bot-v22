@@ -1026,6 +1026,11 @@ if True:
     t = threading.Thread(target=motor_v45, daemon=True); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=True).start()
     print("V51 BLINDADA lista - MOJARRA 0.2 vs 0.3 + EVOLUCION BLINDADA")
+        try:
+        bot.delete_webhook(drop_pending_updates=True)
+        print("V51 Webhook borrado - polling unico")
+        time.sleep(2)
+    except: pass
     try:
         bot.infinity_polling(timeout=20, long_polling_timeout=20)
     except Exception as e:
