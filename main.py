@@ -96,11 +96,7 @@ def reset_si_cambio_regimen(sym, reg_nuevo):
     reg_nuevo_simple = reg_nuevo.split()[0]
     reg_ant = REG_ANT.get(sym, "")
     if reg_ant!= reg_nuevo_simple and reg_ant!= "":
-        if sym in CONTADOR_POR_REGIMEN and reg_ant in CONTADOR_POR_REGIMEN[sym]:
-            CONTADOR_POR_REGIMEN[sym][reg_ant] = {}
-        if sym in EVOLUCION_NIVEL and reg_ant in EVOLUCION_NIVEL[sym]:
-            EVOLUCION_NIVEL[sym][reg_ant] = 1
-        print(f"V51 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
+       print(f"V51 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
     REG_ANT[sym] = reg_nuevo_simple
 
 def registrar_caza_V51(sym, estrategia, regimen):
