@@ -619,13 +619,21 @@ def mandar_pensamiento_telegram():
         regs_txt = "\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO.get("regimen","LINEAL")
         bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
         ok, motivo, sym, est, fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
-        if ok: texto = f"PENSAMIENTO LOBO V51 BLINDADA\n{regs_txt}\n{bandas_txt}\nEstrategia: {est} en {sym} ({fuerza:.2f})\n{motivo[:120]}"
-        else: texto = f"MERCADO EN LECTURA V51 BLINDADA\n{regs_txt}\n{bandas_txt}\nAcechando... {motivo[:100]}\nTPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f} Tanque 20"
+
+        monedas_txt = f"{len(MONEDAS_ACTIVAS)}/20 ({','.join([m.replace('USDT','') for m in MONEDAS_ACTIVAS])})"
+        tanque_txt = f"TPs {CONTADOR_TP_EXPANSION:.0f}/{META_TP_PARA_EXPANDIR:.0f} Tanque {monedas_txt}"
+
+        if ok:
+            texto = f"PENSAMIENTO LOBO V51 BLINDADA\n{regs_txt}\n{bandas_txt}\nEstrategia: {est} en {sym} ({fuerza:.2f})\n{motivo[:120]}\n{tanque_txt}\n📊 Dashboard: {WEB_URL}"
+        else:
+            texto = f"MERCADO EN LECTURA V51 BLINDADA\n{regs_txt}\n{bandas_txt}\nAcechando... {motivo[:100]}\n{tanque_txt}\n📊 Dashboard: {WEB_URL}"
+
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, texto)
                 except: pass
-    except: pass
+    except Exception as e:
+        print(f"Error pensamiento: {e}")        
 def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
     tib_por_moneda = {}; kraken_por_moneda = {}
