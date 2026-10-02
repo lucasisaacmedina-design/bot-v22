@@ -601,7 +601,7 @@ def notificar_cazando(sym, regimen):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
                 except: pass
-    except: pass
+           
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     try:
@@ -623,7 +623,8 @@ def mandar_pensamiento_telegram():
                 except: pass
     except Exception as e:
         print(f"Error pensamiento: {e}")
- def detectar_BI_CEREBRO(regimen):
+
+def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
     tib_por_moneda = {}; kraken_por_moneda = {}
     for uid, lista in POSICIONES_ABIERTAS.items():
