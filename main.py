@@ -1063,8 +1063,13 @@ def detalles_mercado():
             mapa_mejor = {"LINEAL_MUERTO": "V51 MANADA LIBRE x6","LINEAL": "V51 MOJARRA 0.2% + RATA","ALCISTA": "V51 LOBO 1.7% JEFE","ALCISTA_FUERTE": "V51 LOBO+TIBURON","BAJISTA": "V51 LOBO_NEGRO SHORT","CRASH": "V51 LOBO_NEGRO+KRAKEN"}
             mejor = mapa_mejor.get(reg, "V51 MANADA LIBRE")
             banda = BANDAS_ACTIVAS.get(sym,{}); madre = banda.get("tipo","NORMAL") if banda.get("activa") else "NORMAL"
-            return {"regimen": reg, "reg_detalle": reg_full,"adx": round(adx,1), "rsi": round(rsi,1),"ema": "9>20" if ema9>ema20 else "9<20","atr": round(atr_pct,2), "vol": round(vol_ratio,1),"precio": round(precio,2), "madre": madre,"mejor_estrategia": mejor, "cambio24": round(get_cambio_24h(sym),2), "v51_contador": cont, "v51_nivel": nivel}
-            except Exception as e: return {"regimen":"LINEAL","adx":15,"rsi":50,"ema":"9=20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"V51","error":str(e)[:80]}
+            return {
+            "regimen": reg, "reg_detalle": reg_full, "adx": round(adx,1), "rsi": round(rsi,1), "ema": "9>20" if ema9>ema20 else "9<20",
+            "atr": round(atr_pct,2), "vol": round(vol_ratio,2), "precio": precio, "madre": madre, "mejor_estrategia": mejor,
+            "banda_inf": banda.get("low",0) if banda else 0, "banda_sup": banda.get("high",0) if banda else 0
+        }
+except Exception as e:
+          return {"regimen":"LINEAL","adx":15,"rsi":50,"ema":"9>20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"V51","error":str(e)[:80]}
 @app.route('/api/mercado')
 def api_mercado():
            return jsonify({ sym: info_sym(sym) for sym in MONEDAS_ACTIVAS })
