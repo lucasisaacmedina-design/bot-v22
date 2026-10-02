@@ -122,6 +122,20 @@ def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
                 except: pass
     guardar_datos()
 
+def cierre_forzado_por_candado():
+    for uid in list(POSICIONES_ABIERTAS.keys()):
+        for p in POSICIONES_ABIERTAS[uid][:]:
+            sym = p.get("symbol")
+            reg_actual = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
+            if not candado(p["estrategia"], reg_actual):
+                lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
+                print(f"FIX 1.1 CIERRE FORZADO {sym} {p['estrategia']} Reg:{reg_actual.split()[0]} -> MARKET")
+                try: ejecutar_orden_real(sym, lado, p["usdt"])
+                except: pass
+                try: POSICIONES_ABIERTAS[uid].remove(p)
+                except: pass
+    guardar_datos()
+
 def reset_si_cambio_regimen(sym, reg_nuevo):
     global CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, REG_ANT
     reg_nuevo_simple = reg_nuevo.split()[0]
@@ -911,6 +925,7 @@ def motor_v45():
                 ESTADO["regimenes"][sym] = f"{reg} {det}"
                 if sym=="BTCUSDT": ESTADO["btc"]=get_precio_robusto(sym); ESTADO["regimen"]=reg
                 if sym=="BNBUSDT": ESTADO["bnb"]=get_precio_robusto(sym)
+            cierre_forzado_por_candado()
         except: pass
         gestionar_bandas_moviles()
         verificar_tanque_bnb()
