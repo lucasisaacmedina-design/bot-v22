@@ -601,7 +601,7 @@ def notificar_cazando(sym, regimen):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
                 except: pass
-           
+    except: pass       
 def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     try:
