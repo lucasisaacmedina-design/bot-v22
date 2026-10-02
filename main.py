@@ -1076,8 +1076,32 @@ def info_sym(sym):
 @app.route('/api/mercado')
 def api_mercado():
     return jsonify({sym: info_sym(sym) for sym in MONEDAS_ACTIVAS})
-def api_mercado():
-           return jsonify({ sym: info_sym(sym) for sym in MONEDAS_ACTIVAS })
+
+@app.route('/api/detalles_mercado')
+def api_detalles_mercado():
+    res = {}
+    for sym in MONEDAS_ACTIVAS:
+        try:
+            inf = info_sym(sym)
+            res[sym] = {
+                "regimen": inf.get("regimen","LINEAL"),
+                "cambio24": 0,
+                "adx": inf.get("adx",15),
+                "madre": inf.get("madre","NORMAL"),
+                "rsi": inf.get("rsi",50),
+                "ema": inf.get("ema","9>20"),
+                "atr": inf.get("atr",0),
+                "vol": inf.get("vol",1),
+                "mejor_estrategia": inf.get("mejor_estrategia","V51"),
+                "v51_nivel": 1,
+                "v51_contador": {"L":0,"S":0},
+                "precio": inf.get("precio",0),
+                "banda_inf": inf.get("banda_inf",0),
+                "banda_sup": inf.get("banda_sup",0)
+            }
+        except:
+            res[sym] = {"regimen":"LINEAL","cambio24":0,"adx":15,"madre":"NORMAL","rsi":50,"ema":"9>20","atr":0,"vol":1,"mejor_estrategia":"V51","v51_nivel":1,"v51_contador":{"L":0,"S":0},"precio":0,"banda_inf":1,"banda_sup":2}
+    return jsonify(res)
 @app.route('/')
 def home():
     html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>V51 BLINDADA</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39;margin-bottom:6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.detalle-box{background:#0e1a15;border-top:1px solid #1e3d2f;color:#a7f3d0;font-family:monospace;font-size:11px;padding:8px 10px;line-height:1.4;min-height:62px}</style></head><body><div class="top" id="info">Cargando V51 BLINDADA...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS={{ monedas | tojson }};function createChart(sym){let id='tv_'+sym;let card=document.createElement('div');card.className='card';card.innerHTML=`<div id="${id}" style="height:350px"></div><div class="detalle-box" id="detalle-${sym}">Cargando ${sym}...</div>`;document.getElementById('charts_grid').appendChild(card);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V51 BLINDADA x6 | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}async function loadDetalles(){try{let d=await (await fetch('/api/detalles_mercado')).json();for(let sym of MONEDAS){let info=d[sym];if(!info) continue;document.getElementById('detalle-'+sym).innerHTML=`REGIMEN: ${info.regimen} (${info.cambio24}%) (ADX ${info.adx}) | Madre: ${info.madre} | RSI ${info.rsi} | EMA ${info.ema} | ATR ${info.atr}% | Vol ${info.vol}x<br><b>Mejor: ${info.mejor_estrategia}</b> | Nv${info.v51_nivel} ${JSON.stringify(info.v51_contador)} | $${info.precio}`;}}catch(e){}}setInterval(load,3000);load();setInterval(loadDetalles,3000);loadDetalles();</script></body></html>"""
