@@ -587,7 +587,7 @@ def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es
                 try: bot.send_message(uid, msg)
                 except: pass
     except: pass
-        def notificar_cazando(sym, regimen):
+def notificar_cazando(sym, regimen):
     try:
         msg = f"CAZANDO {sym} {regimen} V52 BLINDADA"
         ahora = time.time(); key = f"caz_{sym}"
