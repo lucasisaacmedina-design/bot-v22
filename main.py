@@ -1068,10 +1068,10 @@ def info_sym(sym):
         return {
             "regimen": reg, "reg_detalle": reg_full, "adx": round(adx,1), "rsi": round(rsi,1), "ema": "9>20" if ema9>ema20 else "9<20",
             "atr": round(atr_pct,2), "vol": round(vol_ratio,2), "precio": precio, "madre": madre, "mejor_estrategia": mejor,
-            "banda_inf": banda.get("low",0) if banda else 0, "banda_sup": banda.get("high",0) if banda else 0
+            "banda_inf": banda.get("low",0) or (precio*0.97 if precio else 0), "banda_sup": banda.get("high",0) or (precio*1.03 if precio else 0),
         }
     except Exception as e:
-        return {"regimen":"LINEAL","adx":15,"rsi":50,"ema":"9>20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"V51","banda_inf":0,"banda_sup":0}
+        return {"regimen":"LINEAL","adx":15,"rsi":50,"ema":"9>20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"V51","banda_inf":1,"banda_sup":2}
 
 @app.route('/api/mercado')
 def api_mercado():
