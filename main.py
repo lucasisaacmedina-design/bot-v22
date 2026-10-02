@@ -1049,28 +1049,33 @@ def fallback(m):
     except: bot.send_message(m.chat.id,"V51",reply_markup=get_menu())
 @app.route('/api/detalles_mercado')
 def detalles_mercado():
-    def info_sym(sym):
-        try:
-            d5 = get_velas(sym,"5m",100); d1h = get_velas(sym,"1h",100)
-            precio = get_precio_robusto(sym); rsi = rsi_calc(d5["closes"],7) if d5 else 50
-            adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
-            atr = atr_calc(d1h,14) if d1h else 0; atr_pct = (atr/precio*100) if precio else 0
-            ema9 = ema_calc(d5["closes"][-20:],9) if d5 else 0; ema20 = ema_calc(d5["closes"][-20:],20) if d5 else 0
-            vol_ratio = (d5["vols"][-1] / (sum(d5["vols"][-20:])/20)) if d5 and len(d5["vols"])>=20 else 1.0
-            reg_full = ESTADO.get("regimenes",{}).get(sym,"LINEAL"); reg = reg_full.split()[0] if reg_full else "LINEAL"
-            cont = CONTADOR_POR_REGIMEN.get(sym,{}).get(reg,{})
-            nivel = EVOLUCION_NIVEL.get(sym,{}).get(reg,1)
-            mapa_mejor = {"LINEAL_MUERTO": "V51 MANADA LIBRE x6","LINEAL": "V51 MOJARRA 0.2% + RATA","ALCISTA": "V51 LOBO 1.7% JEFE","ALCISTA_FUERTE": "V51 LOBO+TIBURON","BAJISTA": "V51 LOBO_NEGRO SHORT","CRASH": "V51 LOBO_NEGRO+KRAKEN"}
-            mejor = mapa_mejor.get(reg, "V51 MANADA LIBRE")
-            banda = BANDAS_ACTIVAS.get(sym,{}); madre = banda.get("tipo","NORMAL") if banda.get("activa") else "NORMAL"
-            return {
+    return jsonify({"status": "ok"})
+
+def info_sym(sym):
+    try:
+        d5 = get_velas(sym,"5m",100); d1h = get_velas(sym,"1h",100)
+        precio = get_precio_robusto(sym); rsi = rsi_calc(d5["closes"],7) if d5 else 50
+        adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
+        atr = atr_calc(d1h,14) if d1h else 0; atr_pct = (atr/precio*100) if precio else 0
+        ema9 = ema_calc(d5["closes"][-20:],9) if d5 else 0; ema20 = ema_calc(d5["closes"][-20:],20) if d5 else 0
+        vol_ratio = (d5["vols"][-1] / (sum(d5["vols"][-20:])/20)) if d5 and len(d5["vols"])>=20 else 1.0
+        reg_full = ESTADO.get("regimenes",{}).get(sym,"LINEAL"); reg = reg_full.split()[0] if reg_full else "LINEAL"
+        cont = CONTADOR_POR_REGIMEN.get(sym,{}).get(reg,{})
+        nivel = EVOLUCION_NIVEL.get(sym,{}).get(reg,1)
+        mapa_mejor = {"LINEAL_MUERTO": "V51 MANADA LIBRE x6","LINEAL": "V51 MOJARRA 0.2% + RATA","ALCISTA": "V51 LOBO 1.7% JEFE","BAJISTA": "V51 OSO 1.7% JEFE"}
+        mejor = mapa_mejor.get(reg, "V51 MANADA LIBRE")
+        banda = BANDAS_ACTIVAS.get(sym,{}); madre = banda.get("tipo","NORMAL") if banda.get("activa") else "NORMAL"
+        return {
             "regimen": reg, "reg_detalle": reg_full, "adx": round(adx,1), "rsi": round(rsi,1), "ema": "9>20" if ema9>ema20 else "9<20",
             "atr": round(atr_pct,2), "vol": round(vol_ratio,2), "precio": precio, "madre": madre, "mejor_estrategia": mejor,
             "banda_inf": banda.get("low",0) if banda else 0, "banda_sup": banda.get("high",0) if banda else 0
         }
-except Exception as e:
-          return {"regimen":"LINEAL","adx":15,"rsi":50,"ema":"9>20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"V51","error":str(e)[:80]}
+    except Exception as e:
+        return {"regimen":"LINEAL","adx":15,"rsi":50,"ema":"9>20","atr":0,"vol":1,"precio":0,"madre":"NORMAL","mejor_estrategia":"V51","banda_inf":0,"banda_sup":0}
+
 @app.route('/api/mercado')
+def api_mercado():
+    return jsonify({sym: info_sym(sym) for sym in MONEDAS_ACTIVAS})
 def api_mercado():
            return jsonify({ sym: info_sym(sym) for sym in MONEDAS_ACTIVAS })
 @app.route('/')
