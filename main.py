@@ -760,7 +760,17 @@ def cargar_datos():
                 if pj.get("v51_reg_ant"): REG_ANT.update(pj.get("v51_reg_ant"))
                 if pj.get("v51_contadores"): CONTADOR_POR_REGIMEN.update(pj.get("v51_contadores"))
                 if pj.get("v51_niveles"): EVOLUCION_NIVEL.update(pj.get("v51_niveles"))
+        # MIGRACION V51.1: Si el contador es viejo (1 TP) y el balance real es 46.05, corregirlo solo
+        if CONTADOR_TP_EXPANSION < 10:
+            try:
+                for uu in USUARIOS.values():
+                    profit_real = uu.get("balance",0) - uu.get("capital_inicial",0)
+                    if profit_real > CONTADOR_TP_EXPANSION:
+                        print(f"MIGRACION CONTADOR {CONTADOR_TP_EXPANSION} -> {profit_real:.2f} desde balance real")
+                        CONTADOR_TP_EXPANSION = profit_real
+            except: pass   
     except Exception as e: print(f"cargar error {e}")
+                
 def limpiar_pos_viejas(): pass
 def verificar_tanque_bnb():
     global REAL_BALANCE_BNB
