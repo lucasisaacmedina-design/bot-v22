@@ -102,18 +102,41 @@ def candado(est, regimen):
     if est in NEGRAS and r not in ["BAJISTA","CRASH"]: return False
     if est in BLANCAS and r in ["BAJISTA","CRASH"]: return False
     return True
+
+# ========= FIX 1 - CIERRE MARKET ANTES DE RESET =========
+def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
+    viejo = (reg_viejo_override or REG_ANT.get(sym, "LINEAL")).split()[0] if REG_ANT.get(sym, "LINEAL") else "LINEAL"
+    if reg_viejo_override:
+        viejo = reg_viejo_override.split()[0]
+    nuevo = reg_nuevo.split()[0]
+    if viejo==nuevo: return
+    print(f"CAMBIO {sym} {viejo}->{nuevo} -> CIERRE MARKET FIX1")
+    for uid in list(POSICIONES_ABIERTAS.keys()):
+        for p in POSICIONES_ABIERTAS[uid][:]:
+            if p.get("symbol")!=sym: continue
+            if not candado(p["estrategia"], reg_nuevo):
+                lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
+                try: ejecutar_orden_real(p["symbol"], lado, p["usdt"])
+                except: pass
+                try: POSICIONES_ABIERTAS[uid].remove(p)
+                except: pass
+    guardar_datos()
+
 def reset_si_cambio_regimen(sym, reg_nuevo):
     global CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, REG_ANT
     reg_nuevo_simple = reg_nuevo.split()[0]
     reg_ant = REG_ANT.get(sym, "")
     if reg_ant and reg_ant!= reg_nuevo_simple:
-       print(f"V52 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
+       print(f"V53 FIX1 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
+       # FIX 1: CIERRE ANTES DE BORRAR CONTADORES
+       cierre_market_cambio(sym, reg_nuevo_simple, reg_viejo_override=reg_ant)
        if sym in EVOLUCION_NIVEL and reg_ant in EVOLUCION_NIVEL[sym]:
            del EVOLUCION_NIVEL[sym][reg_ant]
        if sym in CONTADOR_POR_REGIMEN and reg_ant in CONTADOR_POR_REGIMEN[sym]:
            del CONTADOR_POR_REGIMEN[sym][reg_ant]
        EVOLUCION_NIVEL.setdefault(sym, {})[reg_nuevo_simple] = 1
     REG_ANT[sym] = reg_nuevo_simple
+
 def registrar_caza_V51(sym, estrategia, regimen):
     global CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL
     if sym not in CONTADOR_POR_REGIMEN: CONTADOR_POR_REGIMEN[sym] = {}
@@ -157,20 +180,7 @@ def candado_evolucion_V51(sym, estrategia, regimen):
     if nivel == 3: return estrategia == "RATITA"
     if nivel >= 4: return estrategia in ["RATA","LOBO"]
     return False
-def cierre_market_cambio(sym, reg_nuevo):
-    viejo = REG_ANT.get(sym, "LINEAL").split()[0] if REG_ANT.get(sym) else "LINEAL"
-    nuevo = reg_nuevo.split()[0]
-    if viejo==nuevo: return
-    print(f"CAMBIO {sym} {viejo}->{nuevo} -> CIERRE MARKET")
-    for uid in list(POSICIONES_ABIERTAS.keys()):
-        for p in POSICIONES_ABIERTAS[uid][:]:
-            if not candado(p["estrategia"], reg_nuevo):
-                lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
-                try: ejecutar_orden_real(p["symbol"], lado, p["usdt"])
-                except: pass
-                try: POSICIONES_ABIERTAS[uid].remove(p)
-                except: pass
-    guardar_datos()
+
 MAPA_ANIDADO_V50_9 = {
     "LINEAL_MUERTO": ["MOJARRA", "MOJARRITA"],
     "LINEAL": ["MOJARRA", "PIRANA_BLANCA", "RATITA", "RATA"],
@@ -437,12 +447,18 @@ def get_vol_requerido_auto(estrategia, reg_simple, adx, atr_pct=0):
     if estrategia == "MOJARRA": return 0.10
     if estrategia in ["PIRANA_BLANCA", "PIRANA", "MOJARRA", "MOJARRITA", "RATITA"]: return 0.25
     return 1.2
+
+# ========= FIX 2 - EMERGENCIA RSI <20 PARA MOJARRA/MOJARRITA =========
 def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
     umb = get_umbral_adaptativo(reg)
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
+    # FIX 2 EMERGENCIA - Si RSI < 20 caza MOJARRA/MOJARRITA si o si
+    if estrategia_nombre in ["MOJARRA","MOJARRITA"] and rsi < 20:
+        return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA", 0.99
+
     sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; lower=sma20-2*std
     precio=closes[-1]; vol_prom=sum(d5["vols"][-20:])/20; vol_actual=d5["vols"][-1]
     adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
@@ -458,6 +474,7 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     else: check_vol = vol_actual>vol_prom*vol_requerido
     if precio<=lower and rsi<umb["rsi_rata_max"] and check_vol: return True,f"[{symbol}] {estrategia_nombre} V51 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']} Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} ADX{adx:.0f}", 0.68
     return False,f"[{symbol}] {estrategia_nombre} {reg_simple} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/{umb['rsi_rata_max']} ADX{adx:.0f}", 0.30
+
 def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
@@ -634,7 +651,6 @@ def mandar_pensamiento_telegram():
                 except: pass
     except Exception as e:
         print(f"Error pensamiento: {e}")
-
 def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
     tib_por_moneda = {}; kraken_por_moneda = {}
@@ -881,18 +897,19 @@ def escanear_candidatas_y_proponer():
     if CONTADOR_TP_EXPANSION < META_PROFIT_PARA_EXPANDIR * 0.8: return
     mejor, wr = detectar_mejor_candidata()
     if mejor: CANDIDATAS_CACHE["proxima"] = mejor
+
 def motor_v45():
     global CONTADOR_TP_EXPANSION
-    print(f">>> MOTOR V53 TRAILING BLINDADA x6 MOJARRA 0.2 vs 0.3 + EVOLUCION + MADRES LIBRES {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
+    print(f">>> MOTOR V53.1 FIX1+FIX2 TRAILING x6 MOJARRA 0.2 vs 0.3 + EVOLUCION {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
     time.sleep(5)
     while True:
         try:
             for sym in list(MONEDAS_ACTIVAS):
                 reg, det = detectar_regimen_sym(sym)
+                # FIX 1: reset_si_cambio_regimen YA CIERRA A MARKET ANTES DE BORRAR
                 reset_si_cambio_regimen(sym, reg)
                 ESTADO["regimenes"][sym] = f"{reg} {det}"
                 if sym=="BTCUSDT": ESTADO["btc"]=get_precio_robusto(sym); ESTADO["regimen"]=reg
-                cierre_market_cambio(sym, reg)
                 if sym=="BNBUSDT": ESTADO["bnb"]=get_precio_robusto(sym)
         except: pass
         gestionar_bandas_moviles()
@@ -1002,7 +1019,6 @@ def motor_v45():
                 exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
                 if exito:
                     ULTIMO_TRADE[key_lock]=time.time(); ULTIMO_CAZANDO[key_lock]=time.time()
-                    # V53 - Con campos de trailing
                     pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_adaptativo(symbol_elegido, estrategia_elegida), "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat(), "max_pnl": 0.0, "max_precio": precio}
                     POSICIONES_ABIERTAS[user_id].append(pos)
                     reg_simple = ESTADO.get("regimenes",{}).get(symbol_elegido,"LINEAL").split()[0]
@@ -1186,7 +1202,7 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL")
     t = threading.Thread(target=motor_v45, daemon=True); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=True).start()
-    print("V53 TRAILING lista - MADRES LIBRES + TANQUE 50 + TRAILING 1.5%/0.8%")
+    print("V53.1 FIX1+FIX2 lista - CIERRE MARKET + EMERGENCIA RSI<20")
     try:
         bot.delete_webhook(drop_pending_updates=True)
         print("V53 Webhook borrado - polling unico")
