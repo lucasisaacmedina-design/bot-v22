@@ -37,7 +37,7 @@ TANQUE_BNB_USDT = 50.0
 TANQUE_BNB_MIN = 5.0
 TANQUE_BNB_RECARGA = 8.0
 TANQUE = TANQUE_BNB_USDT
-# V53 TRAILING BLINDADO - Solo TIBURON y RATAS/LOBOS
+# V53.2 TRAILING BLINDADO - Solo TIBURON y RATAS/LOBOS - MOJARRITA FONDO DE MOJARRA
 TRAILING_CONFIG = {
     "TIBURON": {"activacion": 2.5, "trailing": 1.5, "activo": True},
     "LOBO": {"activacion": 1.0, "trailing": 0.8, "activo": True},
@@ -76,8 +76,8 @@ CONTADOR_POR_REGIMEN = {}
 EVOLUCION_NIVEL = {}
 REG_ANT = {}
 ESTRATEGIAS_V45 = {
-    "MOJARRA": {"tf": "1m", "desc": "MOJARRA 0.2-0.4% LONG","rango_tp": (0.2, 0.4), "sl_neto": -2.5, "max_dia": 300,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.2},
-    "MOJARRITA": {"tf": "5m", "desc": "MOJARRITA 0.2-0.3% LONG BOOSTER","rango_tp": (0.2, 0.3), "sl_neto": -1.5, "max_dia": 200,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL_MUERTO", "tp_fijo_banda": 0.2},
+    "MOJARRA": {"tf": "1m", "desc": "MOJARRA 0.3-0.5% LONG - PARTE ALTA LINEAL_MUERTO","rango_tp": (0.3, 0.5), "sl_neto": -2.5, "max_dia": 300,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.3},
+    "MOJARRITA": {"tf": "5m", "desc": "MOJARRITA 0.3-0.5% LONG BOOSTER - FONDO DE MOJARRA","rango_tp": (0.3, 0.5), "sl_neto": -1.5, "max_dia": 200,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL_MUERTO", "tp_fijo_banda": 0.3},
     "PIRANA_BLANCA": {"tf": "3m", "desc": "PIRANA BLANCA 0.5-0.8% LONG","rango_tp": (0.5, 0.8), "sl_neto": -2.8, "max_dia": 150,"cooldown": 90, "cooldown_rec": 90,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.5},
     "RATITA": {"tf": "5m", "desc": "RATITA 0.6-1.0% LONG NEW","rango_tp": (0.6, 1.0), "sl_neto": -3.0, "max_dia": 40,"cooldown": 120, "cooldown_rec": 120,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.8},
     "RATA": {"tf": "5m", "desc": "Madre RATA 0.8-1.2% LONG","rango_tp": (0.8, 1.2), "sl_neto": -3.0, "max_dia": 30,"cooldown": 180, "cooldown_rec": 180,"mercado_ideal": "LINEAL", "tp_fijo_banda": 1.0},
@@ -142,7 +142,6 @@ def reset_si_cambio_regimen(sym, reg_nuevo):
     reg_ant = REG_ANT.get(sym, "")
     if reg_ant and reg_ant!= reg_nuevo_simple:
        print(f"V53 FIX1 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
-       # FIX 1: CIERRE ANTES DE BORRAR CONTADORES
        cierre_market_cambio(sym, reg_nuevo_simple, reg_viejo_override=reg_ant)
        if sym in EVOLUCION_NIVEL and reg_ant in EVOLUCION_NIVEL[sym]:
            del EVOLUCION_NIVEL[sym][reg_ant]
@@ -182,6 +181,7 @@ def candado_evolucion_V51(sym, estrategia, regimen):
         print(f"V52 EVOLUCION {sym} {reg_simple} Nv3->Nv4 RATITA x{ratita_count} -> RATA")
         nivel = 4
     if reg_simple == "LINEAL_MUERTO":
+        # V53.2 CORREGIDO - MOJARRITA CAZA FONDO DE MOJARRA - Evolucion cerrada
         if nivel == 1: return estrategia in ["MOJARRA","MOJARRITA"]
         return estrategia == "MOJARRITA"
     if reg_simple == "LINEAL":
@@ -203,7 +203,7 @@ MAPA_ANIDADO_V50_9 = {
     "BAJISTA": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO"],
     "CRASH": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO", "KRAKEN"]
 }
-MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6", "LINEAL": "MOJARRA 0.2% + RATA DIST 0.10%", "ALCISTA": "REGIMEN 3 LOBO 1.7% JEFE V50.23", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.7% + TIBURON 5-10% V50.23", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.7% JEFE V50.23", "CRASH": "REGIMEN 6 CRASH LOBO_NEGRO 1.7% + KRAKEN V50.23"}
+MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6 FONDO", "LINEAL": "MOJARRA 0.3% + RATA DIST 0.10%", "ALCISTA": "REGIMEN 3 LOBO 1.7% JEFE V50.23", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.7% + TIBURON 5-10% V50.23", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.7% JEFE V50.23", "CRASH": "REGIMEN 6 CRASH LOBO_NEGRO 1.7% + KRAKEN V50.23"}
 def estrategia_prevista(regimen_txt):
     reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
     return MAPA_ESTRATEGIA.get(reg, "MANADA LIBRE")
@@ -462,14 +462,14 @@ def get_vol_requerido_auto(estrategia, reg_simple, adx, atr_pct=0):
     if estrategia in ["PIRANA_BLANCA", "PIRANA", "MOJARRA", "MOJARRITA", "RATITA"]: return 0.25
     return 1.2
 
-# ========= FIX 2 - EMERGENCIA RSI <20 PARA MOJARRA/MOJARRITA =========
+# ========= FIX 2 - V53.2 MOJARRITA FONDO DE MOJARRA =========
 def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
     umb = get_umbral_adaptativo(reg)
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
-    # FIX 2 EMERGENCIA - Si RSI < 20 caza MOJARRA/MOJARRITA si o si
+    # EMERGENCIA RSI<20
     if estrategia_nombre in ["MOJARRA","MOJARRITA"] and rsi < 20:
         return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA", 0.99
 
@@ -478,12 +478,46 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
     reg_simple = reg.split()[0] if reg else "LINEAL"
     vol_requerido = get_vol_requerido_auto(estrategia_nombre, reg_simple, adx, 0)
+
     if estrategia_nombre in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "RATITA"]:
+        if estrategia_nombre == "MOJARRA":
+            # PARTE ALTA
+            if IS_TESTNET:
+                if rsi <= 35: return True,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}<=35 ALTA {reg_simple}", 0.85
+                return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/35 {reg_simple}", 0.30
+            if rsi <= 35 and vol_actual > vol_prom*vol_requerido: return True,f"[{symbol}] {estrategia_nombre} ALTA RSI{int(rsi)}<=35 Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} {reg_simple}", 0.85
+            return False,f"[{symbol}] {estrategia_nombre} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/35 {reg_simple}", 0.30
+
+        if estrategia_nombre == "MOJARRITA":
+            # V53.2 CORREGIDO - CAZA FONDO DE MOJARRA
+            tiene_mojarra = False
+            precio_prom_mojarra = 0
+            count_mojarra = 0
+            try:
+                for uid, lista in POSICIONES_ABIERTAS.items():
+                    for p in lista:
+                        if p.get("symbol") == symbol and p.get("estrategia") == "MOJARRA":
+                            tiene_mojarra = True
+                            count_mojarra += 1
+                            precio_prom_mojarra = p.get("entrada", precio) if precio_prom_mojarra==0 else (precio_prom_mojarra + p.get("entrada",0))/2
+            except: pass
+            if not tiene_mojarra:
+                return False,f"[{symbol}] MOJARRITA BLOQUEADA No hay MOJARRA abierta FONDO {reg_simple}", 0.10
+            precio_fondo_ok = precio < (precio_prom_mojarra * 0.997) if precio_prom_mojarra>0 else True
+            rsi_fondo_ok = rsi <= 25
+            if IS_TESTNET:
+                if rsi_fondo_ok and precio_fondo_ok: return True,f"[{symbol}] MOJARRITA FONDO TESTNET RSI{int(rsi)}<=25 {precio:.2f}<{precio_prom_mojarra*0.997:.2f} x{count_mojarra} {reg_simple}", 0.90
+                return False,f"[{symbol}] MOJARRITA FONDO RSI{int(rsi)}/25 Fondo:{precio_fondo_ok} {reg_simple}", 0.30
+            if rsi_fondo_ok and precio_fondo_ok and vol_actual > vol_prom*vol_requerido:
+                return True,f"[{symbol}] MOJARRITA FONDO RSI{int(rsi)}<=25 {precio:.2f}<{precio_prom_mojarra*0.997:.2f} FONDO MOJARRA Vol{vol_actual/vol_prom:.1f} {reg_simple}", 0.90
+            return False,f"[{symbol}] MOJARRITA FONDO RSI{int(rsi)}/25 Fondo:{precio_fondo_ok} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} {reg_simple}", 0.30
+
         if IS_TESTNET:
             if rsi <= 35: return True,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}<=35 {reg_simple}", 0.85
             return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/35 {reg_simple}", 0.30
         if rsi <= 35 and vol_actual > vol_prom*vol_requerido: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=35 Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} {reg_simple}", 0.85
         return False,f"[{symbol}] {estrategia_nombre} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/35 {reg_simple}", 0.30
+
     if IS_TESTNET: check_vol = True
     else: check_vol = vol_actual>vol_prom*vol_requerido
     if precio<=lower and rsi<umb["rsi_rata_max"] and check_vol: return True,f"[{symbol}] {estrategia_nombre} V51 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']} Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} ADX{adx:.0f}", 0.68
@@ -616,7 +650,7 @@ def banda_txt_display(k,v):
 def banda_txt_api(k,v): return f"{k.replace('USDT','')} {v.get('tipo','')}"
 def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
     try:
-        msg = f"V53 {tipo} CAZADA!\nPar: {sym}\nEntrada: ${precio:.2f}\nMonto: ${usdt:.2f}\nTP: {tp:.1f}% | SL: {sl:.1f}%\nBanda: {banda_txt}\n{motivo[:100]}\nExp: PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{WEB_URL}"
+        msg = f"V53.2 {tipo} CAZADA FONDO!\nPar: {sym}\nEntrada: ${precio:.2f}\nMonto: ${usdt:.2f}\nTP: {tp:.1f}% | SL: {sl:.1f}%\nBanda: {banda_txt}\n{motivo[:100]}\nExp: PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{WEB_URL}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
@@ -626,8 +660,8 @@ def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es
     try:
         u = USUARIOS.get(ADMINS_IDS[0], {})
         hoy = u.get("neto_hoy",0); total = (u.get("balance",0)-u.get("capital_inicial",0))
-        if es_tp: msg = f"V53 PRESA DEVORADA\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n+${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}"
-        else: msg = f"V53 ESCAPO!\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}"
+        if es_tp: msg = f"V53.2 PRESA DEVORADA\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n+${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}"
+        else: msg = f"V53.2 ESCAPO!\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
@@ -635,7 +669,7 @@ def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es
     except: pass
 def notificar_cazando(sym, regimen):
     try:
-        msg = f"CAZANDO {sym} {regimen} V53 TRAILING"
+        msg = f"CAZANDO {sym} {regimen} V53.2 FONDO"
         ahora = time.time(); key = f"caz_{sym}"
         if key in ULTIMO_CAZANDO and ahora - ULTIMO_CAZANDO[key] < 300: return
         ULTIMO_CAZANDO[key] = ahora
@@ -656,9 +690,9 @@ def mandar_pensamiento_telegram():
         monedas_txt = f"{len(MONEDAS_ACTIVAS)}/20 ({','.join([m.replace('USDT','') for m in MONEDAS_ACTIVAS])})"
         tanque_txt = f"PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque {monedas_txt}"
         if ok:
-            texto = f"PENSAMIENTO LOBO V53 TRAILING\n{regs_txt}\n{bandas_txt}\nEstrategia: {est} en {sym} ({fuerza:.2f})\n{motivo[:120]}\n{tanque_txt}\nDashboard: {WEB_URL}"
+            texto = f"PENSAMIENTO LOBO V53.2 FONDO\n{regs_txt}\n{bandas_txt}\nEstrategia: {est} en {sym} ({fuerza:.2f})\n{motivo[:120]}\n{tanque_txt}\nDashboard: {WEB_URL}"
         else:
-            texto = f"MERCADO EN LECTURA V53 TRAILING\n{regs_txt}\n{bandas_txt}\nAcechando... {motivo[:100]}\n{tanque_txt}\nDashboard: {WEB_URL}"
+            texto = f"MERCADO EN LECTURA V53.2 FONDO\n{regs_txt}\n{bandas_txt}\nAcechando... {motivo[:100]}\n{tanque_txt}\nDashboard: {WEB_URL}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, texto)
@@ -722,10 +756,10 @@ def detectar_BI_CEREBRO(regimen):
             else: ok,motivo,wr = detectar_KRAKEN_sym(sym)
             tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
             if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
-                mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V53 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
+                mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V53.2 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     if rojo: return False, f"CANDADO 3-NIVELES {motivo_rojo}", MONEDAS_ACTIVAS[0], None, 0
-    return False, f"V53 BLINDADA MANADA LIBRE x6", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V53.2 BLINDADA MANADA LIBRE FONDO", MONEDAS_ACTIVAS[0], None, 0
 
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
@@ -914,13 +948,12 @@ def escanear_candidatas_y_proponer():
 
 def motor_v45():
     global CONTADOR_TP_EXPANSION
-    print(f">>> MOTOR V53.1 FIX1+FIX2 TRAILING x6 MOJARRA 0.2 vs 0.3 + EVOLUCION {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
+    print(f">>> MOTOR V53.2 FIX FONDO x6 MOJARRA ALTA + MOJARRITA FONDO 0.3% {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
     time.sleep(5)
     while True:
         try:
             for sym in list(MONEDAS_ACTIVAS):
                 reg, det = detectar_regimen_sym(sym)
-                # FIX 1: reset_si_cambio_regimen YA CIERRA A MARKET ANTES DE BORRAR
                 reset_si_cambio_regimen(sym, reg)
                 ESTADO["regimenes"][sym] = f"{reg} {det}"
                 if sym=="BTCUSDT": ESTADO["btc"]=get_precio_robusto(sym); ESTADO["regimen"]=reg
@@ -934,37 +967,30 @@ def motor_v45():
         for user_id in list(USUARIOS.keys()):
             u=USUARIOS[user_id]
             if user_id not in POSICIONES_ABIERTAS: POSICIONES_ABIERTAS[user_id] = []
-            # V53 TRAILING - CIERRE BLINDADO
             for pos in POSICIONES_ABIERTAS[user_id][:]:
                 try:
                     precio_actual = get_precio_robusto(pos["symbol"])
                     if precio_actual == 0: continue
                     es_short = pos.get("estrategia") in NEGRAS
-
                     if not es_short:
                         pnl_pct_actual = (precio_actual - pos["entrada"]) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
                     else:
                         pnl_pct_actual = (pos["entrada"] - precio_actual) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
-
                     if "max_pnl" not in pos:
                         pos["max_pnl"] = pnl_pct_actual
                         pos["max_precio"] = precio_actual
-
                     if pnl_pct_actual > pos["max_pnl"]:
                         pos["max_pnl"] = pnl_pct_actual
                         pos["max_precio"] = precio_actual
-
                     tp_price = pos["entrada"] * (1 + pos["tp"]/100) if not es_short else pos["entrada"] * (1 - pos["tp"]/100)
                     sl_price = pos["entrada"] * (1 + pos["sl"]/100) if not es_short else pos["entrada"] * (1 - pos["sl"]/100)
                     cerrar = None
                     motivo_cierre = ""
-
                     cfg = TRAILING_CONFIG.get(pos["estrategia"], {"activo": False})
                     if cfg.get("activo") and pos["max_pnl"] >= cfg["activacion"]:
                         if pnl_pct_actual <= (pos["max_pnl"] - cfg["trailing"]):
                             cerrar = "TP"
-                            motivo_cierre = f"TRAILING V53 {pos['estrategia']} Max{pos['max_pnl']:.2f}% -> Actual{pnl_pct_actual:.2f}% Trail{cfg['trailing']}%"
-
+                            motivo_cierre = f"TRAILING V53.2 {pos['estrategia']} Max{pos['max_pnl']:.2f}% -> Actual{pnl_pct_actual:.2f}% Trail{cfg['trailing']}%"
                     if not cerrar:
                         if not es_short:
                             if precio_actual >= tp_price: cerrar = "TP"
@@ -972,7 +998,6 @@ def motor_v45():
                         else:
                             if precio_actual <= tp_price: cerrar = "TP"
                             elif precio_actual >= sl_price: cerrar = "SL"
-
                     if cerrar:
                         exito = True
                         if client:
@@ -998,11 +1023,11 @@ def motor_v45():
                         u["estrategias"][estr]["ops"]+=1; u["estrategias"][estr]["neto"]+=pnl
                         u["ops_hoy"]+=1
                         extra = f" {motivo_cierre}" if motivo_cierre else ""
-                        u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar}{extra} ${pnl:+.2f} TP:{pos['tp']:.1f}% V53")
+                        u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar}{extra} ${pnl:+.2f} TP:{pos['tp']:.1f}% V53.2")
                         notificar_cierre(pos["symbol"], estr, pos["entrada"], precio_actual, pnl, pnl_pct, es_tp, pos.get("subtipo","")+extra)
                         POSICIONES_ABIERTAS[user_id].remove(pos)
                         guardar_datos()
-                except Exception as e: print(f"Error cierre V53 {e}")
+                except Exception as e: print(f"Error cierre V53.2 {e}")
             if not u.get("prendido", False): continue
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
             if ok and estrategia_elegida:
@@ -1057,11 +1082,11 @@ def get_menu():
 @bot.message_handler(commands=['start'])
 def start(m):
     u=get_user_data(m.chat.id)
-    estado_txt = f"V53 TRAILING {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
+    estado_txt = f"V53.2 FONDO {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
     regs="\n".join([f"{k}:{v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen'].split()[0]
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
     ganancia = u["balance"] - u["capital_inicial"]
-    bot.send_message(m.chat.id,f"V53 TRAILING CEREBRO {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f}\nGan ${ganancia:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"V53.2 FONDO CEREBRO {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f}\nGan ${ganancia:.2f}\n{WEB_URL}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="BALANCE")
 def balance(m):
     u=get_user_data(m.chat.id)
@@ -1069,44 +1094,44 @@ def balance(m):
     regs="\n".join([f"{k}: {v.split()[0]} ({get_cambio_24h(k):+.1f}%)" for k,v in ESTADO.get("regimenes",{}).items()])
     pos_txt = "\n".join([f"{p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']:.1f}% Max{p.get('max_pnl',0):.1f}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin pos"
     kraken_estado = f"KRAKEN BLOQ hasta {int((KRAKEN_BLOQUEO_HASTA-time.time())/3600)}h SL:{KRAKEN_SL_COUNT}" if time.time() < KRAKEN_BLOQUEO_HASTA else f"KRAKEN OK SL:{KRAKEN_SL_COUNT}"
-    v51_txt = "\n".join([f"{sym} {reg}: {cnt}" for sym, d in CONTADOR_POR_REGIMEN.items() for reg, cnt in d.items()]) or "V53 contadores vacios"
+    v51_txt = "\n".join([f"{sym} {reg}: {cnt}" for sym, d in CONTADOR_POR_REGIMEN.items() for reg, cnt in d.items()]) or "V53.2 contadores vacios"
     nivel_txt = "\n".join([f"{sym} {reg}: Nv{lv}" for sym, d in EVOLUCION_NIVEL.items() for reg, lv in d.items()]) or ""
-    bot.send_message(m.chat.id,f"V53 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} Tanque 50 TRAILING\n{regs}\n{pos_txt}\n{kraken_estado}\n{v51_txt}\n{nivel_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"V53.2 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} Tanque 50 FONDO\n{regs}\n{pos_txt}\n{kraken_estado}\n{v51_txt}\n{nivel_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="PRENDER")
 def prender(m):
-    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V53 TRAILING"; guardar_datos()
-    bot.send_message(m.chat.id,f"MANADA PRENDIDA V53 TRAILING x6 TANQUE 50\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
+    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V53.2 FONDO"; guardar_datos()
+    bot.send_message(m.chat.id,f"MANADA PRENDIDA V53.2 FONDO x6 TANQUE 50\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="EVOLUCIONAR")
 def evolucionar(m):
     u=get_user_data(m.chat.id)
     regs="\n".join([f"{k}: {v} {get_cambio_24h(k):+.1f}%" for k,v in ESTADO.get("regimenes",{}).items()])
-    bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas V53"
+    bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas V53.2"
     rojo, motivo = mercado_esta_rojo()
-    clima = f"CLIMA BTC {ESTADO.get('regimen','LINEAL')} CANDADO:{rojo} {motivo} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} V53 TRAILING KRAKEN:{KRAKEN_SL_COUNT}"
+    clima = f"CLIMA BTC {ESTADO.get('regimen','LINEAL')} CANDADO:{rojo} {motivo} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} V53.2 FONDO KRAKEN:{KRAKEN_SL_COUNT}"
     bot.send_message(m.chat.id,f"{clima}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="HISTORIAL")
 def historial(m):
     u=get_user_data(m.chat.id); hist = u.get("historial",[])[-15:]; txt = "\n".join(hist) or "Sin historial"
-    bot.send_message(m.chat.id,f"HISTORIAL V53\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"HISTORIAL V53.2\n{txt}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="ORDENES")
 def ordenes(m):
     lista = POSICIONES_ABIERTAS.get(m.chat.id,[])
-    if not lista: bot.send_message(m.chat.id,"Sin ordenes abiertas V53",reply_markup=get_menu()); return
+    if not lista: bot.send_message(m.chat.id,"Sin ordenes abiertas V53.2",reply_markup=get_menu()); return
     txt="".join([f"{p['symbol']} {p['estrategia']} ${p['entrada']:.2f} TP{p['tp']:.1f}% SL{p['sl']:.1f}% Max{p.get('max_pnl',0):.1f}% ${p['usdt']:.0f}\n" for p in lista])
-    bot.send_message(m.chat.id,f"ORDENES V53 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"ORDENES V53.2 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{txt}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="RETIRAR GANANCIAS")
 def retirar_gan(m):
     u=get_user_data(m.chat.id); gan = u["balance"]-u["capital_inicial"]
     if gan <= 0: bot.send_message(m.chat.id,f"Sin ganancias para retirar. Gan ${gan:.2f}",reply_markup=get_menu()); return
     u["balance"]=BALANCE_INICIAL; u["capital_inicial"]=BALANCE_INICIAL; u["neto_hoy"]=0; guardar_datos()
-    bot.send_message(m.chat.id,f"GANANCIAS RETIRADAS V53 ${gan:.2f}\nBolsa unica vuelve a ${u['capital_inicial']:.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"GANANCIAS RETIRADAS V53.2 ${gan:.2f}\nBolsa unica vuelve a ${u['capital_inicial']:.2f}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: m.text=="RETIRAR TODO")
 def retirar_todo(m):
     u=get_user_data(m.chat.id); total=u["balance"]; gan = total - u["capital_inicial"]
     u["balance"]=BALANCE_INICIAL; u["capital_inicial"]=BALANCE_INICIAL; u["neto_hoy"]=0; u["ganadas"]=0; u["perdidas"]=0; u["ops_hoy"]=0
     u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} RETIRO TOTAL ${total:.2f} Gan ${gan:.2f} -> RESET 10k")
     POSICIONES_ABIERTAS[m.chat.id]=[]; guardar_datos()
-    bot.send_message(m.chat.id,f"TODO RETIRADO V53 ${total:.2f} (Gan ${gan:.2f})\nReseteada a ${BALANCE_INICIAL:.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"TODO RETIRADO V53.2 ${total:.2f} (Gan ${gan:.2f})\nReseteada a ${BALANCE_INICIAL:.2f}",reply_markup=get_menu())
 @bot.message_handler(func=lambda m: True)
 def fallback(m):
     try:
@@ -1115,9 +1140,9 @@ def fallback(m):
             sym = txt.replace(" ","").replace("$","")
             if "USDT" not in sym: sym+="USDT"
             precio=get_precio_robusto(sym)
-            bot.send_message(m.chat.id,f"{sym} ${precio:.2f} V53",reply_markup=get_menu())
-        else: bot.send_message(m.chat.id,f"V53 TRAILING Comandos: PRENDER, BALANCE, EVOLUCIONAR\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque 50\n{WEB_URL}",reply_markup=get_menu())
-    except: bot.send_message(m.chat.id,"V53",reply_markup=get_menu())
+            bot.send_message(m.chat.id,f"{sym} ${precio:.2f} V53.2",reply_markup=get_menu())
+        else: bot.send_message(m.chat.id,f"V53.2 FONDO Comandos: PRENDER, BALANCE, EVOLUCIONAR\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque 50\n{WEB_URL}",reply_markup=get_menu())
+    except: bot.send_message(m.chat.id,"V53.2",reply_markup=get_menu())
 
 def info_sym(sym):
     try:
@@ -1149,7 +1174,7 @@ def info_sym(sym):
             "vol": float(round(vol_ratio,2)),
             "precio": float(precio or 0.0),
             "madre": str(madre),
-            "mejor_estrategia": f"V53 Nv{nivel} {cont}",
+            "mejor_estrategia": f"V53.2 Nv{nivel} {cont}",
             "banda_inf": float(banda.get("entrada_tiburon",0) or (precio*0.97 if precio else 1.0)),
             "banda_sup": float(banda.get("tope",0) or (precio*1.03 if precio else 2.0)),
             "v51_nivel": int(nivel),
@@ -1157,7 +1182,7 @@ def info_sym(sym):
         }
     except Exception as e:
         print(f"info_sym error {sym}: {e}")
-        return {"regimen":"LINEAL","cambio24":0.0,"adx":15.0,"rsi":50.0,"ema":"9>20","atr":0.0,"vol":1.0,"precio":0.0,"madre":"NORMAL","mejor_estrategia":"V53","banda_inf":1.0,"banda_sup":2.0,"v51_nivel":1,"v51_contador":{}}
+        return {"regimen":"LINEAL","cambio24":0.0,"adx":15.0,"rsi":50.0,"ema":"9>20","atr":0.0,"vol":1.0,"precio":0.0,"madre":"NORMAL","mejor_estrategia":"V53.2","banda_inf":1.0,"banda_sup":2.0,"v51_nivel":1,"v51_contador":{}}
 
 @app.route('/api/mercado')
 def api_mercado():
@@ -1181,7 +1206,7 @@ def api_detalles_mercado():
                 "ema": str(inf.get("ema","9>20")),
                 "atr": float(inf.get("atr",0.0)),
                 "vol": float(inf.get("vol",1.0)),
-                "mejor_estrategia": str(inf.get("mejor_estrategia","V53")),
+                "mejor_estrategia": str(inf.get("mejor_estrategia","V53.2")),
                 "v51_nivel": int(inf.get("v51_nivel",1)),
                 "v51_contador": inf.get("v51_contador",{}),
                 "precio": float(inf.get("precio",0.0)),
@@ -1195,7 +1220,7 @@ def api_detalles_mercado():
 
 @app.route('/')
 def home():
-    html = '''<!DOCTYPE html><html><head><meta charset="utf-8"><title>V53 TRAILING</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39;margin-bottom:6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.detalle-box{background:#0e1a15;border-top:1px solid #1e3d2f;color:#a7f3d0;font-family:monospace;font-size:11px;padding:8px 10px;line-height:1.4;min-height:62px}</style></head><body><div class="top" id="info">Cargando V53 TRAILING...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS={{ monedas | tojson }};function createChart(sym){let id='tv_'+sym;let card=document.createElement('div');card.className='card';card.innerHTML=`<div id="${id}" style="height:350px"></div><div class="detalle-box" id="detalle-${sym}">Cargando ${sym}...</div>`;document.getElementById('charts_grid').appendChild(card);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){try{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V53 TRAILING x6 | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}catch(e){}}async function loadDetalles(){try{let r=await fetch('/api/detalles_mercado');let d=await r.json();for(let sym of MONEDAS){let info=d[sym];if(!info) continue;let det=document.getElementById('detalle-'+sym);if(det) det.innerHTML=`REGIMEN: ${info.regimen} (${info.cambio24}%) (ADX ${info.adx}) | Madre: ${info.madre} | RSI ${info.rsi} | EMA ${info.ema} | ATR ${info.atr}% | Vol ${info.vol}x<br><b>Mejor: ${info.mejor_estrategia}</b> | Nv${info.v51_nivel} ${JSON.stringify(info.v51_contador)} | $${info.precio}`;}}catch(e){}}setInterval(load,3000);load();setInterval(loadDetalles,3000);loadDetalles();</script></body></html>'''
+    html = '''<!DOCTYPE html><html><head><meta charset="utf-8"><title>V53.2 FONDO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39;margin-bottom:6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.detalle-box{background:#0e1a15;border-top:1px solid #1e3d2f;color:#a7f3d0;font-family:monospace;font-size:11px;padding:8px 10px;line-height:1.4;min-height:62px}</style></head><body><div class="top" id="info">Cargando V53.2 FONDO...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS={{ monedas | tojson }};function createChart(sym){let id='tv_'+sym;let card=document.createElement('div');card.className='card';card.innerHTML=`<div id="${id}" style="height:350px"></div><div class="detalle-box" id="detalle-${sym}">Cargando ${sym}...</div>`;document.getElementById('charts_grid').appendChild(card);new TradingView.widget({autosize:true,symbol:'BINANCE:'+sym,interval:'5',container_id:id,theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){try{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V53.2 FONDO x6 | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}catch(e){}}async function loadDetalles(){try{let r=await fetch('/api/detalles_mercado');let d=await r.json();for(let sym of MONEDAS){let info=d[sym];if(!info) continue;let det=document.getElementById('detalle-'+sym);if(det) det.innerHTML=`REGIMEN: ${info.regimen} (${info.cambio24}%) (ADX ${info.adx}) | Madre: ${info.madre} | RSI ${info.rsi} | EMA ${info.ema} | ATR ${info.atr}% | Vol ${info.vol}x<br><b>Mejor: ${info.mejor_estrategia}</b> | Nv${info.v51_nivel} ${JSON.stringify(info.v51_contador)} | $${info.precio}`;}}catch(e){}}setInterval(load,3000);load();setInterval(loadDetalles,3000);loadDetalles();</script></body></html>'''
     return render_template_string(html, monedas=MONEDAS_ACTIVAS)
 
 @app.route('/api/data')
@@ -1217,14 +1242,14 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL")
     t = threading.Thread(target=motor_v45, daemon=True); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=True).start()
-    print("V53.1 FIX1+FIX2 lista - CIERRE MARKET + EMERGENCIA RSI<20")
+    print("V53.2 MOJARRITA FONDO lista - 0.3% abajo")
     try:
         bot.delete_webhook(drop_pending_updates=True)
-        print("V53 Webhook borrado - polling unico")
+        print("V53.2 Webhook borrado - polling unico")
         time.sleep(2)
     except: pass
     try:
         bot.infinity_polling(timeout=20, long_polling_timeout=20)
     except Exception as e:
-        print(f"Bot polling error V53 {e}")
+        print(f"Bot polling error V53.2 {e}")
         time.sleep(10)        
