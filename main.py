@@ -107,16 +107,28 @@ def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
     if reg_viejo_override: viejo = reg_viejo_override.split()[0]
     nuevo = reg_nuevo.split()[0]
     if viejo==nuevo: return
-    print(f"CAMBIO {sym} {viejo}->{nuevo} -> CIERRE MARKET FIX1")
+    print(f"V55.2 CAMBIO {sym} {viejo}->{nuevo} -> EVALUANDO CIERRE INTELIGENTE")
+    precio_actual = get_precio_robusto(sym)
     for uid in list(POSICIONES_ABIERTAS.keys()):
         for p in POSICIONES_ABIERTAS[uid][:]:
             if p.get("symbol")!=sym: continue
             if not candado(p["estrategia"], reg_nuevo):
-                lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
-                try: ejecutar_orden_real(p["symbol"], lado, p["usdt"])
-                except: pass
-                try: POSICIONES_ABIERTAS[uid].remove(p)
-                except: pass
+                entrada = p.get("entrada",0)
+                if entrada==0: continue
+                if p["estrategia"] in NEGRAS:
+                    pnl_actual = (entrada - precio_actual)/entrada*100
+                else:
+                    pnl_actual = (precio_actual - entrada)/entrada*100
+                max_pnl = p.get("max_pnl", pnl_actual)
+                if pnl_actual <= -1.5 or max_pnl <= -1.5:
+                    lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
+                    print(f"V55.2 CIERRE SEGURO {sym} {p['estrategia']} PnL:{pnl_actual:.2f}% Max:{max_pnl:.2f}% -> MARKET")
+                    try: ejecutar_orden_real(p["symbol"], lado, p["usdt"])
+                    except: pass
+                    try: POSICIONES_ABIERTAS[uid].remove(p)
+                    except: pass
+                else:
+                    print(f"V55.2 HOLD {sym} {p['estrategia']} PnL:{pnl_actual:.2f}% -> SE DEJA HASTA TP")
     guardar_datos()
 
 def cierre_forzado_por_candado():
@@ -125,12 +137,17 @@ def cierre_forzado_por_candado():
             sym = p.get("symbol")
             reg_actual = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
             if not candado(p["estrategia"], reg_actual):
-                lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
-                print(f"FIX 1.1 CIERRE FORZADO {sym} {p['estrategia']} Reg:{reg_actual.split()[0]} -> MARKET")
-                try: ejecutar_orden_real(sym, lado, p["usdt"])
-                except: pass
-                try: POSICIONES_ABIERTAS[uid].remove(p)
-                except: pass
+                precio_actual = get_precio_robusto(sym)
+                entrada = p.get("entrada",0)
+                if entrada==0: continue
+                pnl = (precio_actual - entrada)/entrada*100 if p["estrategia"] not in NEGRAS else (entrada - precio_actual)/entrada*100
+                if pnl <= -1.5:
+                    lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
+                    print(f"V55.2 FORZADO SEGURO {sym} {p['estrategia']} {pnl:.2f}% -> MARKET")
+                    try: ejecutar_orden_real(sym, lado, p["usdt"])
+                    except: pass
+                    try: POSICIONES_ABIERTAS[uid].remove(p)
+                    except: pass
     guardar_datos()
 
 def reset_si_cambio_regimen(sym, reg_nuevo):
@@ -138,15 +155,16 @@ def reset_si_cambio_regimen(sym, reg_nuevo):
     reg_nuevo_simple = reg_nuevo.split()[0]
     reg_ant = REG_ANT.get(sym, "")
     if reg_ant and reg_ant!= reg_nuevo_simple:
-       print(f"V54 FIX BUG#1 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
+       print(f"V55.2 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
        cierre_market_cambio(sym, reg_nuevo_simple, reg_viejo_override=reg_ant)
        if sym in EVOLUCION_NIVEL and reg_ant in EVOLUCION_NIVEL[sym]:
            nivel_viejo = EVOLUCION_NIVEL[sym][reg_ant]
-           del EVOLUCION_NIVEL[sym][reg_ant]
            if {reg_ant, reg_nuevo_simple} <= {"LINEAL", "LINEAL_MUERTO"}:
                EVOLUCION_NIVEL.setdefault(sym, {})[reg_nuevo_simple] = max(nivel_viejo, EVOLUCION_NIVEL.get(sym, {}).get(reg_nuevo_simple, 1))
+           del EVOLUCION_NIVEL[sym][reg_ant]
        if sym in CONTADOR_POR_REGIMEN and reg_ant in CONTADOR_POR_REGIMEN[sym]:
-           del CONTADOR_POR_REGIMEN[sym][reg_ant]
+           if not ({reg_ant, reg_nuevo_simple} <= {"LINEAL", "LINEAL_MUERTO"}):
+               del CONTADOR_POR_REGIMEN[sym][reg_ant]
        EVOLUCION_NIVEL.setdefault(sym, {})[reg_nuevo_simple] = EVOLUCION_NIVEL.get(sym, {}).get(reg_nuevo_simple, 1)
     REG_ANT[sym] = reg_nuevo_simple
 
@@ -519,7 +537,6 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     else: check_vol = vol_actual>vol_prom*vol_requerido
     if precio<=lower and rsi<umb["rsi_rata_max"] and check_vol: return True,f"[{symbol}] {estrategia_nombre} V53.3 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']} Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} ADX{adx:.0f}", 0.68
     return False,f"[{symbol}] {estrategia_nombre} {reg_simple} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/{umb['rsi_rata_max']} ADX{adx:.0f}", 0.30
-
 def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
@@ -696,6 +713,7 @@ def mandar_pensamiento_telegram():
                 except: pass
     except Exception as e:
         print(f"Error pensamiento: {e}")
+
 def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
     tib_por_moneda = {}; kraken_por_moneda = {}
@@ -831,7 +849,6 @@ def cargar_datos():
 
         # --- INICIO FIX V55.1 BLINDADO AUTO-LIMPIEZA ---
         try:
-            # 1. Elimina doble regimen LINEAL + LINEAL_MUERTO
             for sym in list(EVOLUCION_NIVEL.keys()):
                 ev_sym = EVOLUCION_NIVEL.get(sym,{})
                 if isinstance(ev_sym, dict) and "LINEAL" in ev_sym and "LINEAL_MUERTO" in ev_sym:
@@ -839,7 +856,6 @@ def cargar_datos():
                     if isinstance(reg_actual, str): reg_actual = reg_actual.split()[0]
                     if reg_actual not in ev_sym:
                         reg_actual = "LINEAL_MUERTO" if "LINEAL_MUERTO" in ev_sym else "LINEAL"
-                    # Borra el regimen viejo
                     for k in list(ev_sym.keys()):
                         if k!= reg_actual:
                             del ev_sym[k]
@@ -848,8 +864,6 @@ def cargar_datos():
                             if k!= reg_actual:
                                 del CONTADOR_POR_REGIMEN[sym][k]
                     print(f"V55.1 AUTO-FIX LIMPIEZA {sym} -> solo {reg_actual}")
-
-            # 2. Reset mojarritas bug 9 -> 0 y nivel a 1
             for sym in list(CONTADOR_POR_REGIMEN.keys()):
                 for reg in list(CONTADOR_POR_REGIMEN[sym].keys()):
                     cnt = CONTADOR_POR_REGIMEN[sym][reg]
@@ -1009,7 +1023,7 @@ def escanear_candidatas_y_proponer():
 
 def motor_v45():
     global CONTADOR_TP_EXPANSION
-    print(f">>> MOTOR V54 AUTO-EVOLUTIVO 100% AUTONOMO x6 MOJARRA AUTO-ATR {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
+    print(f">>> MOTOR V55.2 BLINDADO x2 OPCIONES HOLD + SEGURO -1.5% {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
     time.sleep(5)
     while True:
         try:
@@ -1305,14 +1319,14 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL")
     t = threading.Thread(target=motor_v45, daemon=True); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=True).start()
-    print("V54 AUTO-EVOLUTIVO 100% AUTONOMO - IDEA MADRE ORIGINAL + FIX 3 BUGS")
+    print("V55.2 AUTO-EVOLUTIVO 100% AUTONOMO - IDEA MADRE ORIGINAL + FIX 3 BUGS + HOLD/ANTI-KRAKEN")
     try:
         bot.delete_webhook(drop_pending_updates=True)
-        print("V54 Webhook borrado - polling unico")
+        print("V55.2 Webhook borrado - polling unico")
         time.sleep(2)
     except: pass
     try:
         bot.infinity_polling(timeout=20, long_polling_timeout=20)
     except Exception as e:
-        print(f"Bot polling error V54 {e}")
-        time.sleep(10)
+        print(f"Bot polling error V55.2 {e}")
+        time.sleep(10)    
