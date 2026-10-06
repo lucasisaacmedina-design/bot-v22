@@ -828,6 +828,40 @@ def cargar_datos():
                 if pj.get("v51_reg_ant"): REG_ANT.update(pj.get("v51_reg_ant"))
                 if pj.get("v51_contadores"): CONTADOR_POR_REGIMEN.update(pj.get("v51_contadores"))
                 if pj.get("v51_niveles"): EVOLUCION_NIVEL.update(pj.get("v51_niveles"))
+
+        # --- INICIO FIX V55.1 BLINDADO AUTO-LIMPIEZA ---
+        try:
+            # 1. Elimina doble regimen LINEAL + LINEAL_MUERTO
+            for sym in list(EVOLUCION_NIVEL.keys()):
+                ev_sym = EVOLUCION_NIVEL.get(sym,{})
+                if isinstance(ev_sym, dict) and "LINEAL" in ev_sym and "LINEAL_MUERTO" in ev_sym:
+                    reg_actual = REG_ANT.get(sym, "LINEAL_MUERTO")
+                    if isinstance(reg_actual, str): reg_actual = reg_actual.split()[0]
+                    if reg_actual not in ev_sym:
+                        reg_actual = "LINEAL_MUERTO" if "LINEAL_MUERTO" in ev_sym else "LINEAL"
+                    # Borra el regimen viejo
+                    for k in list(ev_sym.keys()):
+                        if k!= reg_actual:
+                            del ev_sym[k]
+                    if sym in CONTADOR_POR_REGIMEN:
+                        for k in list(CONTADOR_POR_REGIMEN[sym].keys()):
+                            if k!= reg_actual:
+                                del CONTADOR_POR_REGIMEN[sym][k]
+                    print(f"V55.1 AUTO-FIX LIMPIEZA {sym} -> solo {reg_actual}")
+
+            # 2. Reset mojarritas bug 9 -> 0 y nivel a 1
+            for sym in list(CONTADOR_POR_REGIMEN.keys()):
+                for reg in list(CONTADOR_POR_REGIMEN[sym].keys()):
+                    cnt = CONTADOR_POR_REGIMEN[sym][reg]
+                    if isinstance(cnt, dict) and cnt.get("MOJARRITA",0) > 3:
+                        print(f"V55.1 RESET MOJARRITA {sym} {reg} {cnt.get('MOJARRITA')} -> 0 Nv1")
+                        cnt["MOJARRITA"] = 0
+                        if sym in EVOLUCION_NIVEL and reg in EVOLUCION_NIVEL[sym]:
+                            EVOLUCION_NIVEL[sym][reg] = 1
+        except Exception as e:
+            print(f"Fix limpieza error {e}")
+        # --- FIN FIX V55.1 ---
+
         if CONTADOR_TP_EXPANSION < 10:
             try:
                 for uu in USUARIOS.values():
