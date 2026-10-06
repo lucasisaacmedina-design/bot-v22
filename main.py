@@ -138,17 +138,16 @@ def reset_si_cambio_regimen(sym, reg_nuevo):
     reg_nuevo_simple = reg_nuevo.split()[0]
     reg_ant = REG_ANT.get(sym, "")
     if reg_ant and reg_ant!= reg_nuevo_simple:
-       if {reg_ant, reg_nuevo_simple} <= {"LINEAL", "LINEAL_MUERTO"}:
-           print(f"V53.3 NO RESET {sym} {reg_ant}->{reg_nuevo_simple} conserva contadores")
-           REG_ANT[sym] = reg_nuevo_simple
-           return
-       print(f"V53.3 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
+       print(f"V54 FIX BUG#1 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
        cierre_market_cambio(sym, reg_nuevo_simple, reg_viejo_override=reg_ant)
        if sym in EVOLUCION_NIVEL and reg_ant in EVOLUCION_NIVEL[sym]:
+           nivel_viejo = EVOLUCION_NIVEL[sym][reg_ant]
            del EVOLUCION_NIVEL[sym][reg_ant]
+           if {reg_ant, reg_nuevo_simple} <= {"LINEAL", "LINEAL_MUERTO"}:
+               EVOLUCION_NIVEL.setdefault(sym, {})[reg_nuevo_simple] = max(nivel_viejo, EVOLUCION_NIVEL.get(sym, {}).get(reg_nuevo_simple, 1))
        if sym in CONTADOR_POR_REGIMEN and reg_ant in CONTADOR_POR_REGIMEN[sym]:
            del CONTADOR_POR_REGIMEN[sym][reg_ant]
-       EVOLUCION_NIVEL.setdefault(sym, {})[reg_nuevo_simple] = 1
+       EVOLUCION_NIVEL.setdefault(sym, {})[reg_nuevo_simple] = EVOLUCION_NIVEL.get(sym, {}).get(reg_nuevo_simple, 1)
     REG_ANT[sym] = reg_nuevo_simple
 
 def registrar_caza_V51(sym, estrategia, regimen):
@@ -182,18 +181,10 @@ def candado_evolucion_V51(sym, estrategia, regimen):
         print(f"V53.3 EVOLUCION {sym} {reg_simple} Nv3->Nv4 RATITA x{ratita_count} -> RATA")
         nivel = 4
     if reg_simple == "LINEAL_MUERTO":
-        tiene_mojarra_abierta = False
-        try:
-            for uid, lista in POSICIONES_ABIERTAS.items():
-                for p in lista:
-                    if p.get("symbol")==sym and p.get("estrategia")=="MOJARRA":
-                        tiene_mojarra_abierta = True
-                        break
-        except: pass
-        if nivel >= 2 and not tiene_mojarra_abierta:
+        if nivel == 1:
             return estrategia in ["MOJARRA","MOJARRITA"]
-        if nivel == 1: return estrategia in ["MOJARRA","MOJARRITA"]
-        return estrategia == "MOJARRITA"
+        else:
+            return estrategia == "MOJARRITA"
     if reg_simple == "LINEAL":
         if nivel == 1: return estrategia == "MOJARRA"
         if nivel == 2: return estrategia == "PIRANA_BLANCA"
@@ -897,9 +888,7 @@ def detectar_mejor_candidata():
         except: continue
     return mejor, mejor_wr
 
-# ========= V54 AUTO-ESTRATEGIA - MODULO EVOLUTIVO 100% AUTONOMO =========
 def inicializar_moneda_nueva_AUTO(sym):
-    """V54 AUTO - Calcula bandas y niveles solo según precio y volatilidad de la moneda nueva - IDEA MADRE"""
     try:
         precio = get_precio_robusto(sym)
         if precio == 0: precio = 100
@@ -957,7 +946,6 @@ def handle_callback(call):
             nueva = data.replace("AUTH_ADD_", "")
             if nueva not in MONEDAS_ACTIVAS and len(MONEDAS_ACTIVAS) < MAX_MONEDAS:
                 MONEDAS_ACTIVAS.append(nueva)
-                # V54 AUTO - YA NO MAS SETEO MANUAL, CALCULA SOLO
                 inicializar_moneda_nueva_AUTO(nueva)
                 ESTADO["regimenes"].setdefault(nueva, "LINEAL Iniciada por evolucion AUTO V54")
                 CONTADOR_TP_EXPANSION = 0
@@ -1069,6 +1057,8 @@ def motor_v45():
             if not u.get("prendido", False): continue
             ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
             if ok and estrategia_elegida:
+                counts_global, _ = contar_posiciones_globales()
+                key_global = (symbol_elegido, estrategia_elegida)
                 existentes = [p for p in POSICIONES_ABIERTAS.get(user_id,[]) if p.get('symbol')==symbol_elegido and p.get('estrategia')==estrategia_elegida]
                 key_lock = f"{symbol_elegido}_{estrategia_elegida}"
                 if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < ESTRATEGIAS_V45[estrategia_elegida]["cooldown"]: continue
@@ -1079,6 +1069,7 @@ def motor_v45():
                     else: max_permitido = MAX_PIRANA_POR_MONEDA; dist_requerida = DISTANCIA_PIRANA_PCT
                 elif estrategia_elegida in ["PIRANA_NEGRA"]: max_permitido = MAX_PIRANA_POR_MONEDA; dist_requerida = DISTANCIA_PIRANA_NEGRA_PCT
                 else: max_permitido = 1; dist_requerida = 0.10
+                if counts_global.get(key_global, 0) >= max_permitido: continue
                 if len(existentes) >= max_permitido: continue
                 precio_actual_tmp = get_precio_robusto(symbol_elegido)
                 muy_cerca = False
@@ -1280,7 +1271,7 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL")
     t = threading.Thread(target=motor_v45, daemon=True); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=True).start()
-    print("V54 AUTO-EVOLUTIVO 100% AUTONOMO - IDEA MADRE ORIGINAL")
+    print("V54 AUTO-EVOLUTIVO 100% AUTONOMO - IDEA MADRE ORIGINAL + FIX 3 BUGS")
     try:
         bot.delete_webhook(drop_pending_updates=True)
         print("V54 Webhook borrado - polling unico")
@@ -1290,4 +1281,4 @@ if True:
         bot.infinity_polling(timeout=20, long_polling_timeout=20)
     except Exception as e:
         print(f"Bot polling error V54 {e}")
-        time.sleep(10)        
+        time.sleep(10)
