@@ -124,13 +124,13 @@ ESTRATEGIAS_V45 = {
     "PIRANA_BLANCA": {"tf": "3m", "desc": "PIRANA BLANCA 0.5-0.8% LONG","rango_tp": (0.5, 0.8), "sl_neto": -2.8, "max_dia": 150,"cooldown": 90, "cooldown_rec": 90,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.5},
     "RATITA": {"tf": "5m", "desc": "RATITA 0.6-1.0% LONG NEW","rango_tp": (0.6, 1.0), "sl_neto": -3.0, "max_dia": 40,"cooldown": 120, "cooldown_rec": 120,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.8},
     "RATA": {"tf": "5m", "desc": "Madre RATA 0.8-1.2% LONG","rango_tp": (0.8, 1.2), "sl_neto": -3.0, "max_dia": 30,"cooldown": 180, "cooldown_rec": 180,"mercado_ideal": "LINEAL", "tp_fijo_banda": 1.0},
-    "LOBO": {"tf": "1h", "desc": "Madre LOBO 1.7% LONG JEFE V50.23","rango_tp": (1.2, 2.2), "sl_neto": -5.0, "max_dia": 100,"cooldown": 300, "cooldown_rec": 300,"mercado_ideal": "ALCISTA", "tp_fijo_banda": 1.7},
+    "LOBO": {"tf": "1h", "desc": "Madre LOBO 1.2% LONG JEFE V56.3","rango_tp": (1.2, 2.2), "sl_neto": -5.0, "max_dia": 100,"cooldown": 300, "cooldown_rec": 300,"mercado_ideal": "ALCISTA", "tp_fijo_banda": 1.2},
     "TIBURON": {"tf": "1d", "desc": "Madre TIBURON 5-10% LONG JEFE FUERTE V50.23","rango_tp": (5.0, 10.0), "sl_neto": -8.0, "max_dia": 2,"cooldown": 14400, "cooldown_rec": 14400,"mercado_ideal": "ALCISTA_FUERTE"},
     "KRAKEN": {"tf": "1h", "desc": "Madre KRAKEN 3-5% LONG REBOTE CRASH V50.23","rango_tp": (3.0, 5.0), "sl_neto": -8.0, "max_dia": 2,"cooldown": 3600, "cooldown_rec": 3600,"mercado_ideal": "CRASH"},
     "MOJARRA_NEGRA": {"tf": "5m", "desc": "MOJARRA NEGRA 0.3-0.5% SHORT REBOTE V50.23","rango_tp": (0.3, 0.5), "sl_neto": -1.5, "max_dia": 200,"cooldown": 60, "cooldown_rec": 60,"mercado_ideal": "BAJISTA", "tp_fijo_banda": 0.3},
     "PIRANA_NEGRA": {"tf": "5m", "desc": "PIRANA NEGRA 0.5-0.8% SHORT REBOTE V50.23","rango_tp": (0.5, 0.8), "sl_neto": -3.5, "max_dia": 100,"cooldown": 600, "cooldown_rec": 600,"mercado_ideal": "BAJISTA", "tp_fijo_banda": 0.5},
     "RATA_NEGRA": {"tf": "5m", "desc": "RATA NEGRA 0.8-1.5% SHORT REBOTE V50.23","rango_tp": (0.8, 1.5), "sl_neto": -4.0, "max_dia": 100,"cooldown": 180, "cooldown_rec": 180,"mercado_ideal": "BAJISTA", "tp_fijo_banda": 0.8},
-    "LOBO_NEGRO": {"tf": "1h", "desc": "LOBO NEGRO 1.7% JEFE SHORT V50.23","rango_tp": (1.2, 2.2), "sl_neto": -5.0, "max_dia": 100,"cooldown": 300, "cooldown_rec": 300,"mercado_ideal": "BAJISTA", "tp_fijo_banda": 1.7},
+    "LOBO_NEGRO": {"tf": "1h", "desc": "LOBO NEGRO 1.2% JEFE SHORT V56.3","rango_tp": (1.2, 2.2), "sl_neto": -5.0, "max_dia": 100,"cooldown": 300, "cooldown_rec": 300,"mercado_ideal": "BAJISTA", "tp_fijo_banda": 1.2},
 }
 ESTRATEGIAS_V45["PIRANA"] = ESTRATEGIAS_V45["PIRANA_BLANCA"]
 ESTRATEGIAS_V45["PIRAÑA_NEGRA"] = ESTRATEGIAS_V45["PIRANA_NEGRA"]
@@ -274,7 +274,7 @@ MAPA_ANIDADO_V50_9 = {
     "BAJISTA": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO"],
     "CRASH": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO", "KRAKEN"]
 }
-MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6 FONDO V53.3", "LINEAL": "MOJARRA 0.3% + RATA DIST 0.10%", "ALCISTA": "REGIMEN 3 LOBO 1.7% JEFE V50.23", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.7% + TIBURON 5-10% V50.23", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.7% JEFE V50.23", "CRASH": "REGIMEN 6 CRASH LOBO_NEGRO 1.7% + KRAKEN V50.23"}
+MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6 FONDO V53.3", "LINEAL": "MOJARRA 0.3% + RATA DIST 0.10%", "ALCISTA": "REGIMEN 3 LOBO 1.2% JEFE V56.3", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.2% + TIBURON 5-10% V50.23", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.2% JEFE V56.3", "CRASH": "REGIMEN 6 CRASH LOBO_NEGRO 1.2% + KRAKEN V50.23"}
 def estrategia_prevista(regimen_txt):
     reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
     return MAPA_ESTRATEGIA.get(reg, "MANADA LIBRE")
@@ -411,7 +411,7 @@ def tp_adaptativo(symbol, estrategia):
     try:
         rango = ESTRATEGIAS_V45[estrategia]["rango_tp"]
         if estrategia in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "MOJARRA_NEGRA"]: return rango[0]
-        if estrategia == "LOBO" or estrategia == "LOBO_NEGRO": return 1.7
+        if estrategia == "LOBO" or estrategia == "LOBO_NEGRO": return 1.2
         d1h = get_velas(symbol,"1h",100)
         if not d1h: return rango[0]
         adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14)
@@ -652,8 +652,8 @@ def detectar_LOBO_sym(symbol):
     retroceso_ok = abs(closes[-1]-ema20)/ema20 < 0.035 if ema20!=0 else False
     tendencia_ok = closes[-1] > ema20 and ema20 > ema50
     momentum_ok = macd > 0 and rsi >= umb["rsi_lobo_min"] and adx >= 18
-    if tendencia_ok and momentum_ok and retroceso_ok: return True,f"[{symbol}] LOBO V56.1 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} RET3.5% TP1.7%", 0.75
-    if tendencia_ok and rsi >= 55 and adx >= 20: return True,f"[{symbol}] LOBO V56.1 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} DIRECTO TP1.7%", 0.68
+    if tendencia_ok and momentum_ok and retroceso_ok: return True,f"[{symbol}] LOBO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} RET3.5% TP1.2%", 0.75
+    if tendencia_ok and rsi >= 55 and adx >= 20: return True,f"[{symbol}] LOBO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} DIRECTO TP1.2%", 0.68
     return False,f"[{symbol}] LOBO {reg_simple} ADX{adx:.0f} RSI{int(rsi)} esperando",0.35
 
 def detectar_LOBO_NEGRO_sym(symbol):
@@ -670,8 +670,8 @@ def detectar_LOBO_NEGRO_sym(symbol):
     retroceso_ok = abs(closes[-1]-ema20)/ema20 < 0.035 if ema20!=0 else False
     tendencia_ok = closes[-1] < ema20 and ema20 < ema50
     momentum_ok = macd < 0 and rsi <= umb.get("rsi_lobo_negro_max",55) and adx >= 18
-    if tendencia_ok and momentum_ok and retroceso_ok: return True,f"[{symbol}] LOBO_NEGRO V56.1 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} RET3.5% TP1.7%", 0.75
-    if tendencia_ok and rsi <= 45 and adx >= 20: return True,f"[{symbol}] LOBO_NEGRO V56.1 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} DIRECTO TP1.7%", 0.68
+    if tendencia_ok and momentum_ok and retroceso_ok: return True,f"[{symbol}] LOBO_NEGRO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} RET3.5% TP1.2%", 0.75
+    if tendencia_ok and rsi <= 45 and adx >= 20: return True,f"[{symbol}] LOBO_NEGRO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} DIRECTO TP1.2%", 0.68
     return False,f"[{symbol}] LOBO_NEGRO {reg_simple} ADX{adx:.0f} RSI{int(rsi)} esperando",0.35
 
 def detectar_TIBURON_sym(symbol):
@@ -747,7 +747,7 @@ def banda_txt_display(k,v):
 def banda_txt_api(k,v): return f"{k.replace('USDT','')} {v.get('tipo','')}"
 def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
     try:
-        msg = f"V56.2 AUTO {tipo} CAZADA!\nPar: {sym}\nEntrada: ${precio:.2f}\nMonto: ${usdt:.2f}\nTP: {tp:.1f}% | SL: {sl:.1f}%\nBanda: {banda_txt}\n{motivo[:100]}\nExp: PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{WEB_URL}"
+        msg = f"V56.3 AUTO {tipo} CAZADA!\nPar: {sym}\nEntrada: ${precio:.2f}\nMonto: ${usdt:.2f}\nTP: {tp:.1f}% | SL: {sl:.1f}%\nBanda: {banda_txt}\n{motivo[:100]}\nExp: PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{WEB_URL}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
