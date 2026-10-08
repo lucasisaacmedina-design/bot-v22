@@ -1144,14 +1144,18 @@ def motor_v45():
                     else:
                         pnl_pct_actual = (pos["entrada"] - precio_actual) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
                     if pnl_pct_actual <= -3.5:
-                        if hay_pausa_global(): continue
-                        if btc_crash_15m(): continue
-                        ok_cerebro,_,_,_,_ = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
-                        if ok_cerebro or False:
-                            try:
-                                lado_cierre = "BUY" if es_short else "SELL"
-                                ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
-                            except: pass
+                                # 🛑 STOP LOSS DURO - CIERRA SI O SI PARA NO LIQUIDAR
+                                try:
+                                    lado_cierre = "BUY" if es_short else "SELL"
+                                    ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
+                                    pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
+                                    comision = pos["usdt"] * COMISION_TOTAL/100
+                                    pnl = pnl_bruto - comision
+                                    u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
+                                    u["posiciones"].remove(pos)
+                                    continue
+                                except:
+                                    pass
                             pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
                             comision = pos["usdt"] * COMISION_TOTAL/100
                             pnl = pnl_bruto - comision
