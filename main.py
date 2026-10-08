@@ -328,7 +328,7 @@ DATA_FILE=os.path.join(DATA_DIR,"manada_v40.json")
 POS_FILE=os.path.join(DATA_DIR,"posiciones_abiertas.json")
 BANDA_FILE=os.path.join(DATA_DIR,"bandas_v45.json")
 CONTADOR_FILE=os.path.join(DATA_DIR,"contador_expansion.json")
-os.makedirs(DATA_DIR,exist_ok=False)
+os.makedirs(DATA_DIR,exist_ok=True)
 ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regimenes":{},"estrategias_activas":{}}
 USUARIOS={}; LOCK=threading.Lock()
 POSICIONES_ABIERTAS = {}; BANDAS_ACTIVAS = {}; ULTIMO_TRADE = {}; ULTIMO_PENSAMIENTO = 0; ULTIMO_CAZANDO = {}
