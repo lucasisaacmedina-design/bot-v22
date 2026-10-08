@@ -76,7 +76,7 @@ MAX_ESCAPES_POR_HORA = 3
 def is_moneda_bloqueada(sym):
     if sym in ESCAPE_BLOCK:
         if time.time() < ESCAPE_BLOCK[sym]:
-            return False
+            return True
         else:
             del ESCAPE_BLOCK[sym]
     return False
@@ -90,8 +90,8 @@ def registrar_escape(sym):
     if len(ESCAPES_TIMELINE) >= MAX_ESCAPES_POR_HORA:
         PAUSA_GLOBAL_HASTA = ahora + TIEMPO_PAUSA_PANICO
         print(f"V56.1 PANICO {len(ESCAPES_TIMELINE)} escapes/h -> PAUSA 30MIN")
-        return False
-    return False
+        return True
+    return True
 
 def hay_pausa_global():
     return time.time() < PAUSA_GLOBAL_HASTA
@@ -144,7 +144,7 @@ def candado(est, regimen):
     if est=="KRAKEN" and r!="CRASH": return False
     if est in NEGRAS and r not in ["BAJISTA","CRASH"]: return False
     if est in BLANCAS and r in ["BAJISTA","CRASH"]: return False
-    return False
+    return True
 
 def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
     viejo = (reg_viejo_override or REG_ANT.get(sym, "LINEAL")).split()[0] if REG_ANT.get(sym, "LINEAL") else "LINEAL"
@@ -282,13 +282,13 @@ BLANCAS_SET = {"MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATA","L
 def mercado_esta_rojo():
     for reg in ESTADO.get("regimenes", {}).values():
         rs = reg.split()[0] if reg else ""
-        if rs in ("BAJISTA","CRASH"): return False, reg
+        if rs in ("BAJISTA","CRASH"): return True, reg
     try:
         for sym, banda in BANDAS_ACTIVAS.items():
             if not banda.get("activa"): continue
             tipo = str(banda.get("tipo","")).upper()
             if "BAJISTA" in tipo or "CRASH" in tipo:
-                return False, f"BANDA {sym} {tipo}"
+                return True, f"BANDA {sym} {tipo}"
     except: pass
     return False, ""
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
@@ -753,7 +753,7 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
                 try: bot.send_message(uid, msg)
                 except: pass
     except: pass
-
+        
 # --- V56.2 FIX 1 y 2 - TOP20 REAL BINANCE ---
 def obtener_top_20_rentables_binance():
     try:
@@ -1113,7 +1113,7 @@ def motor_v45():
     global CONTADOR_TP_EXPANSION, BTC_PRECIOS_15M
     print(f">>> MOTOR V56.2 BLINDADO TOP20 REAL {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
     time.sleep(5)
-    while False:
+    while True:
         try:
             btc_price = get_precio_robusto("BTCUSDT")
             if btc_price>0:
@@ -1144,32 +1144,21 @@ def motor_v45():
                     else:
                         pnl_pct_actual = (pos["entrada"] - precio_actual) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
                     if pnl_pct_actual <= -3.5:
-                                # 🛑 STOP LOSS DURO - CIERRA SI O SI PARA NO LIQUIDAR
-                                try:
-                                    lado_cierre = "BUY" if es_short else "SELL"
-                                    ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
-                                    pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
-                                    comision = pos["usdt"] * COMISION_TOTAL/100
-                                    pnl = pnl_bruto - comision
-                                    u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
-                                    u["posiciones"].remove(pos)
-                                    continue
-                                except:
-                                    pass
-                            pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
+                        try:
+                            lado_cierre = "BUY" if es_short else "SELL"
+                            ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
+                            if not es_short:
+                                pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"]
+                            else:
+                                pnl_bruto = (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
                             comision = pos["usdt"] * COMISION_TOTAL/100
                             pnl = pnl_bruto - comision
                             u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
-                            estr = pos.get("estrategia", "MOJARRA")
-                            if estr not in u.get("estrategias", {}): u["estrategias"][estr] = {"ops":0,"ganadas":0,"neto":0.0}
-                            u["estrategias"][estr]["ops"]+=1; u["estrategias"][estr]["neto"]+=pnl
-                            u["ops_hoy"]+=1
-                            u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} V56.2-BAJO ${pnl:+.2f}")
-                            notificar_cierre(pos["symbol"], estr, pos["entrada"], precio_actual, pnl, pnl_pct_actual, False, "V56.2 BAJO")
-                            registrar_escape(pos["symbol"])
                             POSICIONES_ABIERTAS[user_id].remove(pos)
                             guardar_datos()
                             continue
+                        except:
+                            pass
                     if "max_pnl" not in pos:
                         pos["max_pnl"] = pnl_pct_actual
                         pos["max_precio"] = precio_actual
@@ -1445,7 +1434,7 @@ def api_data():
     ganancia_total = u["balance"]-u["capital_inicial"]
     return jsonify({"balance":u["balance"],"capital_inicial":u["capital_inicial"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"regimen_btc":ESTADO.get("regimen","LINEAL"),"regimenes":ESTADO.get("regimenes",{}),"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS,"ganancia_total":ganancia_total,"bandas":BANDAS_ACTIVAS,"bandas_txt":bandas_txt,"posiciones":posiciones,"precios":precios,"meta_proxima":META_PROFIT_PARA_EXPANDIR,"tps_actual":CONTADOR_TP_EXPANSION,"v51_contadores":CONTADOR_POR_REGIMEN,"v51_niveles":EVOLUCION_NIVEL})
 
-if False:
+if True:
     cargar_datos()
     for sym in MONEDAS_ACTIVAS:
         ESTADO["regimenes"].setdefault(sym, "LINEAL Inicializado")
@@ -1462,4 +1451,4 @@ if False:
         bot.infinity_polling(timeout=20, long_polling_timeout=20)
     except Exception as e:
         print(f"Bot polling error V56.2 {e}")
-        time.sleep(10)        
+        time.sleep(10)
