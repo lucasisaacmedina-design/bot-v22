@@ -753,7 +753,6 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
                 try: bot.send_message(uid, msg)
                 except: pass
     except: pass
-        
 # --- V56.2 FIX 1 y 2 - TOP20 REAL BINANCE ---
 def obtener_top_20_rentables_binance():
     try:
