@@ -1422,8 +1422,23 @@ def home():
       document.getElementById('grid').appendChild(c);
       new TradingView.widget({autosize:true,symbol:"BINANCE:"+sym,interval:"5",container_id:id,theme:"dark",style:"1",locale:"es"});
     });
-    async function load(){try{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML=`V56.2 AUTO | $${a.balance.toFixed(2)} | ${a.bandas_txt||''}`;}catch(e){} try{let d=await (await fetch('/api/detalles_mercado')).json();for(let k in d){let el=document.getElementById('det-'+k);if(el&&d[k]) el.innerHTML=`${d[k].regimen} | $${d[k].precio} | ${d[k].mejor_estrategia}`;}}catch(e){}}
-    load();setInterval(load,5000);
+    async function load(){
+  try{let a=await (await fetch('/api/data')).json();
+    document.getElementById('info').innerHTML=`V56.2 AUTO | $${a.balance?.toFixed(2)||''} | ${a.bandas_txt||''} | ${Object.entries(a.regimenes||{}).map(e=>e[0].replace('USDT','')+':'+e[1]).join(' | ')}`;
+  }catch(e){}
+  try{
+    let d=await (await fetch('/api/detalles_mercado')).json();
+    for(let k in d){
+      let el=document.getElementById('det-'+k);
+      if(el&&d[k]){
+        let x=d[k];
+        let cambio=(x.cambio24>=0?'+':'')+Number(x.cambio24).toFixed(2)+'%';
+        el.innerHTML=`REGIMEN: ${x.regimen} (${cambio}) (ADX ${Number(x.adx).toFixed(1)}) | Madre: ${x.madre} | RSI ${Number(x.rsi).toFixed(1)} | ${x.ema} | ATR ${Number(x.atr).toFixed(2)}% | Vol ${Number(x.vol).toFixed(2)}x<br>Mejor: ${x.mejor_estrategia} | Nv1 ${JSON.stringify(x.v51_contador||{})} | $${Number(x.precio).toFixed(2)}`;
+      }
+    }
+  }catch(e){}
+}
+load();setInterval(load,5000);
     </script></body></html>'''
     return render_template_string(html, monedas=MONEDAS_ACTIVAS)
 @app.route('/api/data')
