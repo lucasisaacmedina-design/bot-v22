@@ -685,11 +685,12 @@ def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     check_vol = False if IS_TESTNET else vol_actual>vol_prom*vol_requerido
     if estrategia_nombre == "MOJARRA_NEGRA":
         if IS_TESTNET:
-            if rsi >= 65: return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}>=65 SHORT {reg_simple}", 0.85
-            return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/65 {reg_simple}", 0.30
-        if precio>=upper*0.998 and rsi>=55 and check_vol: return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=55 >=UPPER {reg_simple} SHORT", 0.85
-        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/55 {reg_simple}", 0.30
-    if estrategia_nombre == "PIRANA_NEGRA":
+            if rsi >= 58: return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}>=58 SHORT {reg_simple} V56.4.1", 0.85
+            return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/58 {reg_simple}", 0.30
+        # V56.4.1 STRADIVARIUS - FIX BAJISTA REAL
+        if rsi >= 58 and precio >= sma20*1.003 and check_vol: return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=58 >=SMA20 {reg_simple} SHORT V56.4.1", 0.85
+        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/58 {reg_simple}", 0.30    
+     if estrategia_nombre == "PIRANA_NEGRA":
         if precio>=upper*0.997 and rsi>=umb.get("rsi_pirana_negra",35) and check_vol: return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}>={umb.get('rsi_pirana_negra')} >=UPPER ADX{adx:.0f}", 0.68
         return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb.get('rsi_pirana_negra')} ADX{adx:.0f}", 0.30
     if estrategia_nombre == "RATA_NEGRA":
