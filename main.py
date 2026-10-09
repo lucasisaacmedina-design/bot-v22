@@ -1195,7 +1195,9 @@ def motor_v45():
                         if es_tp:
                             if pos.get("estrategia") == "KRAKEN": kraken_reset_si_tp()
                             u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["ganadas"]+=1
-                            if pnl > 0: CONTADOR_TP_EXPANSION += pnl
+                            # FIX V56.3 - $120 solo cuenta si estás en verde real
+                            ganancia_real_total = u["balance"] - BALANCE_INICIAL
+                            CONTADOR_TP_EXPANSION = max(0.0, ganancia_real_total)
                             if CONTADOR_TP_EXPANSION >= META_PROFIT_PARA_EXPANDIR: intentar_expandir(user_id)
                         else:
                             if pos.get("estrategia") == "KRAKEN": kraken_registrar_sl()
