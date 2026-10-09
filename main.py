@@ -1409,9 +1409,23 @@ def api_detalles_mercado():
 
 @app.route('/')
 def home():
-    html = '''<!DOCTYPE html><html><head><meta charset="utf-8"><title>V56.2 AUTO</title><script src="https://s3.tradingview.com/tv.js"></script><style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:10px;background:#1e222d;position:sticky;top:0;z-index:20;font-size:13px;border-bottom:2px solid #00ff88}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39;margin-bottom:6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.detalle-box{background:#0e1a15;border-top:1px solid #1e3d2f;color:#a7f3d0;font-family:monospace;font-size:11px;padding:8px 10px;line-height:1.4;min-height:62px}</style></head><body><div class="top" id="info">Cargando V56.2 AUTO...</div><div class="grid" id="charts_grid"></div><script>const MONEDAS={{ monedas | tojson }};function createChart(sym){let id='tv_'+sym;let card=document.createElement('div');card.className='card';card.innerHTML=`<div id="${id}" style="height:350px"></div><div class="detalle-box" id="detalle-${sym}">Cargando ${sym}...</div>`;document.getElementById('charts_grid').appendChild(card);new TradingView.widget({autosize:False,symbol:'BINANCE:'+sym,interval:'5',container_id:id,theme:'dark',style:'1',locale:'es'});}MONEDAS.forEach(s=>createChart(s));async function load(){try{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML='<b>V56.2 AUTO 100% AUTONOMO | Bal $'+a.balance.toFixed(2)+' Gan $'+a.ganancia_total.toFixed(2)+'</b> | '+Object.entries(a.regimenes).map(e=>e[0].replace('USDT','')+':'+e[1].split(' ')[0]).join(' | ')+' | '+a.bandas_txt;}catch(e){}}async function loadDetalles(){try{let r=await fetch('/api/detalles_mercado');let d=await r.json();for(let sym of MONEDAS){let info=d[sym];if(!info) continue;let det=document.getElementById('detalle-'+sym);if(det) det.innerHTML=`REGIMEN: ${info.regimen} (${info.cambio24}%) (ADX ${info.adx}) | Madre: ${info.madre} | RSI ${info.rsi} | EMA ${info.ema} | ATR ${info.atr}% | Vol ${info.vol}x<br><b>Mejor: ${info.mejor_estrategia}</b> | Nv${info.v51_nivel} ${JSON.stringify(info.v51_contador)} | $${info.precio}`;}}catch(e){}}setInterval(load,3000);load();setInterval(loadDetalles,3000);loadDetalles();</script></body></html>'''
+    from flask import render_template_string
+    html = '''<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>V56.2 AUTO</title><script src="https://s3.tradingview.com/tv.js"></script>
+    <style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:12px;background:#1e222d;position:sticky;top:0;z-index:20;border-bottom:2px solid #00ff88;font-size:13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.det{font-family:monospace;font-size:11px;padding:6px;background:#0e1a15;color:#a7f3d0}</style>
+    </head><body><div class="top" id="info">V56.2 AUTO - Cargando...</div><div class="grid" id="grid"></div>
+    <script>
+    const MONEDAS=["BTCUSDT","BNBUSDT","AVAXUSDT","XRPUSDT"];
+    MONEDAS.forEach(sym=>{
+      let id='tv_'+sym;let c=document.createElement('div');c.className='card';
+      c.innerHTML=`<div id="${id}" style="height:350px"></div><div class="det" id="det-${sym}">${sym}...</div>`;
+      document.getElementById('grid').appendChild(c);
+      new TradingView.widget({autosize:true,symbol:"BINANCE:"+sym,interval:"5",container_id:id,theme:"dark",style:"1",locale:"es"});
+    });
+    async function load(){try{let a=await (await fetch('/api/data')).json();document.getElementById('info').innerHTML=`V56.2 AUTO | $${a.balance.toFixed(2)} | ${a.bandas_txt||''}`;}catch(e){} try{let d=await (await fetch('/api/detalles_mercado')).json();for(let k in d){let el=document.getElementById('det-'+k);if(el&&d[k]) el.innerHTML=`${d[k].regimen} | $${d[k].precio} | ${d[k].mejor_estrategia}`;}}catch(e){}}
+    load();setInterval(load,5000);
+    </script></body></html>'''
     return render_template_string(html, monedas=MONEDAS_ACTIVAS)
-
 @app.route('/api/data')
 def api_data():
     try:
