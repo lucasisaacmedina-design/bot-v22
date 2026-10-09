@@ -1346,34 +1346,50 @@ def fallback(m):
 # --- FIX DASHBOARD - NO BORRA NADA, SOLO USA CACHE ---
 def info_sym(sym):
     try:
-        precio = ESTADO.get("btc",0) if "BTC" in sym else ESTADO.get("bnb",0) if "BNB" in sym else ESTADO.get("btc",0) or 0
-        if precio==0: precio = 100.0
+        precio = get_precio_robusto(sym)
+        if precio==0: precio = ESTADO.get("btc",0) or 100.0
+        cambio24 = get_cambio_24h(sym)
+        d1h = get_velas(sym, "1h", 50)
+        d5 = get_velas(sym, "5m", 50)
+        adx_real = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15.0
+        rsi_real = rsi_calc(d5["closes"], 7) if d5 else 50.0
+        atr_val = atr_calc(d1h, 14) if d1h else 0
+        atr_pct = (atr_val/precio*100) if precio!=0 else 0
+        vol_txt = 1.0
+        if d1h and len(d1h["vols"])>=20:
+            prom = sum(d1h["vols"][-20:])/20
+            vol_txt = d1h["vols"][-1]/prom if prom else 1.0
         reg_full = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
         reg = reg_full.split()[0] if reg_full else "LINEAL"
         cont = CONTADOR_POR_REGIMEN.get(sym,{}).get(reg,{})
         nivel = EVOLUCION_NIVEL.get(sym,{}).get(reg,1)
         banda = BANDAS_ACTIVAS.get(sym,{})
         madre = banda.get("tipo","NORMAL")
+        ema_txt = "9>20"
+        if d1h:
+            ema20 = sum(d1h["closes"][-20:])/20
+            ema50 = sum(d1h["closes"][-50:])/50 if len(d1h["closes"])>=50 else ema20
+            ema_txt = "20>50" if ema20>ema50 else "20<50"
         return {
             "regimen": str(reg),
             "reg_detalle": str(reg_full),
-            "cambio24": 0.0,
-            "adx": 15.0,
-            "rsi": 50.0,
-            "ema": "9>20",
-            "atr": 0.5,
-            "vol": 1.0,
+            "cambio24": float(cambio24),
+            "adx": float(adx_real),
+            "rsi": float(rsi_real),
+            "ema": str(ema_txt),
+            "atr": float(atr_pct),
+            "vol": float(vol_txt),
             "precio": float(precio),
             "madre": str(madre),
-            "mejor_estrategia": f"V56.2 Nv{nivel} {cont}",
+            "mejor_estrategia": f"V56.3 Nv{nivel} {cont}",
             "banda_inf": float(banda.get("entrada_tiburon",precio*0.97)),
             "banda_sup": float(banda.get("tope",precio*1.03)),
             "v51_nivel": int(nivel),
             "v51_contador": cont
         }
-    except:
+    except Exception as e:
+        print(f"info_sym error {sym}: {e}")
         return {"regimen":"LINEAL","cambio24":0.0,"adx":15.0,"rsi":50.0,"ema":"9>20","atr":0.0,"vol":1.0,"precio":0.0,"madre":"NORMAL","mejor_estrategia":"V56.2","banda_inf":1.0,"banda_sup":2.0,"v51_nivel":1,"v51_contador":{}}
-
 @app.route('/api/mercado')
 def api_mercado():
     try:
