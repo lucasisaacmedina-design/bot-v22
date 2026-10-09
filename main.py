@@ -479,6 +479,20 @@ def ema_calc(closes, period):
 def tp_adaptativo(symbol, estrategia):
     try:
         rango = ESTRATEGIAS_V45[estrategia]["rango_tp"]
+        reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
+        reg_simple = reg.split()[0] if reg else "LINEAL"
+        # === FIX V56.4.1 TP INTELIGENTE - SOLO ESTE BLOQUE NUEVO - SEGUN IMAGEN ECOSISTEMA ===
+        if reg_simple == "LINEAL_MUERTO":
+            if estrategia in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "MOJARRA_NEGRA"]:
+                return rango[0]
+            return 0.5
+        if reg_simple == "LINEAL":
+            if estrategia in ["RATITA", "RATA"]:
+                return 0.8
+            if estrategia in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "MOJARRA_NEGRA"]:
+                return rango[0]
+            return 0.8
+        # === FIN FIX - ABAJO TODO ORIGINAL ===
         if estrategia in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "MOJARRA_NEGRA"]: return rango[0]
         if estrategia == "LOBO" or estrategia == "LOBO_NEGRO": return 1.2
         d1h = get_velas(symbol,"1h",100)
