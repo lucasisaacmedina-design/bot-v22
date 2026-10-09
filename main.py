@@ -687,16 +687,18 @@ def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
         if IS_TESTNET:
             if rsi >= 58: return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}>=58 SHORT {reg_simple} V56.4.1", 0.85
             return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/58 {reg_simple}", 0.30
-        # V56.4.1 STRADIVARIUS - FIX BAJISTA REAL
         if rsi >= 58 and precio >= sma20*1.003 and check_vol: return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=58 >=SMA20 {reg_simple} SHORT V56.4.1", 0.85
-        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/58 {reg_simple}", 0.30    
-     if estrategia_nombre == "PIRANA_NEGRA":
+        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/58 {reg_simple}", 0.30
+
+    if estrategia_nombre == "PIRAÑA_NEGRA":
         if precio>=upper*0.997 and rsi>=umb.get("rsi_pirana_negra",35) and check_vol: return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}>={umb.get('rsi_pirana_negra')} >=UPPER ADX{adx:.0f}", 0.68
         return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb.get('rsi_pirana_negra')} ADX{adx:.0f}", 0.30
+
     if estrategia_nombre == "RATA_NEGRA":
-        if precio>=upper and rsi>=umb.get("rsi_rata_negra_min",55) and check_vol: return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}>={umb.get('rsi_rata_negra_min')} >=UPPER ADX{adx:.0f}", 0.68
+        if precio>=upper and rsi>=umb.get("rsi_rata_negra_min",55) and check_vol: return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}>={umb.get('rsi_rata_negra_min')} >=UPPER ADX{adx:.0f}", 0.75
         return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb.get('rsi_rata_negra_min')} ADX{adx:.0f}", 0.30
-    return False,f"{symbol} {estrategia_nombre} no mapeado",0
+
+    return False,f"[{symbol}] {estrategia_nombre} no mapeado",0
 def detectar_LOBO_sym(symbol):
     d=get_velas(symbol,"1h",100)
     if not d: return False,f"{symbol} Sin velas",0
