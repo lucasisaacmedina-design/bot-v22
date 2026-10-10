@@ -781,7 +781,7 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
                 except: pass
     except: pass
         
-# --- V57 FIX CAZA REAL - 4 MONEDAS - FAMILIA NEGRA + TIBURON NEGRO + RATITA BLANCA/NEGRA ---
+# --- V57 FIX CAZA REAL - 4 MONEDAS - FAMILIA NEGRA + TIBURON NEGRO + RATITA BLANCA/NEGRA - DESTREBE DEFINITIVO ---
 def obtener_top_20_rentables_binance():
     try:
         r = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=8)
@@ -937,7 +937,7 @@ def detectar_BI_CEREBRO(regimen):
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     if hay_pausa_global(): return False, f"V57 PAUSA PANICO {int((PAUSA_GLOBAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
     if es_bloqueo_long_total(): return False, f"V57 BAJISTA_PROFUNDO BLOQUEO LONG GLOBAL {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
-    return False, f"V57 BLINDADA - esperando RSI", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V57 CAZANDO MOJARRA - RSI bajo detectado esperando senal V57", MONEDAS_ACTIVAS[0], None, 0
 
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
@@ -969,64 +969,33 @@ def guardar_datos():
             with open(POS_FILE,"w") as f: json.dump(POSICIONES_ABIERTAS,f,indent=2)
             with open(BANDA_FILE,"w") as f: json.dump(BANDAS_ACTIVAS,f,indent=2)
             with open(CONTADOR_FILE,"w") as f: json.dump({"tps": CONTADOR_TP_EXPANSION, "monedas": MONEDAS_ACTIVAS, "tanque": TANQUE_BNB_USDT}, f, indent=2)
-            with open(os.path.join(DATA_DIR,"pirana_v50.json"),"w") as f: json.dump({"estado": ESTADO_PIRANA, "estado_negra": ESTADO_PIRANA_NEGRA, "cache": CANDIDATAS_CACHE, "bandas_tiempo": BANDAS_TIEMPO_FUERA, "kraken": {"sl_count": KRAKEN_SL_COUNT, "bloqueo_hasta": KRAKEN_BLOQUEO_HASTA}, "v51_reg_ant": REG_ANT, "v51_contadores": CONTADOR_POR_REGIMEN, "v51_niveles": EVOLUCION_NIVEL, "v57": {"escape_block": ESCAPE_BLOCK, "escapes": ESCAPES_TIMELINE, "pausa": PAUSA_GLOBAL_HASTA, "bajista_profundo": BAJISTA_PROFUNDO_HASTA, "bloqueo_long": BLOQUEO_LONG_TOTAL_HASTA, "bajista_profundo_por_moneda": BAJISTA_PROFUNDO_POR_MONEDA, "bloqueo_long_por_moneda": BLOQUEO_LONG_POR_MONEDA, "evol_negra": EVOLUCION_NIVEL_NEGRA, "cont_negra": CONTADOR_NEGRA_POR_REGIMEN, "sl_negra_seguidos": CONTADOR_SL_NEGRA_SEGUIDOS}},f,indent=2)
+            # V57 FIX - YA NO GUARDA PIRANA VIEJA
+            try:
+                pf = os.path.join(DATA_DIR,"pirana_v50.json")
+                if os.path.exists(pf): os.remove(pf)
+            except: pass
     except: pass
 
 def cargar_datos():
     global MONEDAS_ACTIVAS, POSICIONES_ABIERTAS, BANDAS_ACTIVAS, ESTADO_PIRANA, ESTADO_PIRANA_NEGRA, CANDIDATAS_CACHE, BANDAS_TIEMPO_FUERA, CONTADOR_TP_EXPANSION, TANQUE_BNB_USDT, KRAKEN_SL_COUNT, KRAKEN_BLOQUEO_HASTA, REG_ANT, CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, ESCAPE_BLOCK, ESCAPES_TIMELINE, PAUSA_GLOBAL_HASTA, BAJISTA_PROFUNDO_HASTA, BLOQUEO_LONG_TOTAL_HASTA, BAJISTA_PROFUNDO_POR_MONEDA, BLOQUEO_LONG_POR_MONEDA, EVOLUCION_NIVEL_NEGRA, CONTADOR_NEGRA_POR_REGIMEN, CONTADOR_SL_NEGRA_SEGUIDOS
     try:
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE,"r") as f:
-                data=json.load(f)
-                for k,v in data.items():
-                    if isinstance(v, dict):
-                        if v.get("balance",0) < 100: v["balance"] = BALANCE_INICIAL
-                        if v.get("capital_inicial",0) < 100: v["capital_inicial"] = BALANCE_INICIAL
-                        if "estrategias" not in v or not isinstance(v.get("estrategias"), dict): v["estrategias"] = {}
-                        for ek in ESTRATEGIAS_V45:
-                            if ek not in v["estrategias"]: v["estrategias"][ek] = {"ops":0,"ganadas":0,"neto":0.0}
-                    USUARIOS[int(k)]=v
-        if os.path.exists(os.path.join(DATA_DIR,"monedas_activas.json")):
-            with open(os.path.join(DATA_DIR,"monedas_activas.json"),"r") as f: MONEDAS_ACTIVAS=json.load(f)
-        if os.path.exists(POS_FILE):
-            with open(POS_FILE,"r") as f:
-                raw=json.load(f)
-                for k,v in raw.items():
-                    try: POSICIONES_ABIERTAS[int(k)]=v
-                    except: POSICIONES_ABIERTAS[k]=v
-        if os.path.exists(BANDA_FILE):
-            with open(BANDA_FILE,"r") as f: BANDAS_ACTIVAS=json.load(f)
-        if os.path.exists(CONTADOR_FILE):
-            with open(CONTADOR_FILE,"r") as f:
-                d=json.load(f)
-                CONTADOR_TP_EXPANSION = float(d.get("tps",0))
-                if d.get("monedas"): MONEDAS_ACTIVAS = d.get("monedas")
-        if os.path.exists(os.path.join(DATA_DIR,"pirana_v50.json")):
-            with open(os.path.join(DATA_DIR,"pirana_v50.json"),"r") as f:
-                pj=json.load(f)
-                ESTADO_PIRANA=pj.get("estado",{})
-                ESTADO_PIRANA_NEGRA=pj.get("estado_negra",{})
-                BANDAS_TIEMPO_FUERA=pj.get("bandas_tiempo",{})
-                kr = pj.get("kraken",{})
-                KRAKEN_SL_COUNT = kr.get("sl_count",0)
-                KRAKEN_BLOQUEO_HASTA = kr.get("bloqueo_hasta",0)
-                c = pj.get("cache")
-                if c: CANDIDATAS_CACHE.update(c)
-                if pj.get("v51_reg_ant"): REG_ANT.update(pj.get("v51_reg_ant"))
-                if pj.get("v51_contadores"): CONTADOR_POR_REGIMEN.update(pj.get("v51_contadores"))
-                if pj.get("v51_niveles"): EVOLUCION_NIVEL.update(pj.get("v51_niveles"))
-                v57 = pj.get("v57",{}) or pj.get("v56",{})
-                if v57:
-                    ESCAPE_BLOCK = v57.get("escape_block",{})
-                    ESCAPES_TIMELINE = v57.get("escapes",[])
-                    PAUSA_GLOBAL_HASTA = v57.get("pausa",0)
-                    BAJISTA_PROFUNDO_HASTA = v57.get("bajista_profundo",0)
-                    BLOQUEO_LONG_TOTAL_HASTA = v57.get("bloqueo_long",0)
-                    BAJISTA_PROFUNDO_POR_MONEDA = v57.get("bajista_profundo_por_moneda",{})
-                    BLOQUEO_LONG_POR_MONEDA = v57.get("bloqueo_long_por_moneda",{})
-                    EVOLUCION_NIVEL_NEGRA = v57.get("evol_negra",{})
-                    CONTADOR_NEGRA_POR_REGIMEN = v57.get("cont_negra",{})
-                    CONTADOR_SL_NEGRA_SEGUIDOS = v57.get("sl_negra_seguidos",0)
+        # V57 DESTREBE DEFINITIVO - FORZA Nv1 Y BORRA TODO LO VIEJO
+        try:
+            for _fn in ["pirana_v50.json","manada_v40.json","bandas_v45.json","contador_expansion.json","posiciones_abiertas.json"]:
+                _p = os.path.join(DATA_DIR, _fn)
+                if os.path.exists(_p): os.remove(_p)
+                print(f"V57 FIX DEFINITIVO BORRADO {_p}")
+        except: pass
+        EVOLUCION_NIVEL = {sym: {"LINEAL":1,"LINEAL_MUERTO":1,"ALCISTA":1,"ALCISTA_FUERTE":1,"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
+        CONTADOR_POR_REGIMEN = {}
+        EVOLUCION_NIVEL_NEGRA = {sym: {"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
+        CONTADOR_NEGRA_POR_REGIMEN = {}
+        CONTADOR_TP_EXPANSION = 0.0
+        ESCAPE_BLOCK = {}
+        ESCAPES_TIMELINE = []
+        PAUSA_GLOBAL_HASTA = 0
+        print("V57 FIX CAZA - EVOLUCION FORZADA Nv1 TODAS - BLINDAJE ELIMINADO")
+        return
     except Exception as e: print(f"V57 cargar error {e}")
 
 def limpiar_pos_viejas(): pass
@@ -1345,9 +1314,9 @@ def balance(m):
     pausa_txt = f"V57 PAUSA {int((PAUSA_GLOBAL_HASTA-time.time())/60)}min" if hay_pausa_global() else "V57 OK"
     bloqueos_txt = f"BLOQ: {','.join([f'{k[:3]} {int((v-time.time())/60)}m' for k,v in ESCAPE_BLOCK.items()])}" if ESCAPE_BLOCK else "Sin bloqueos"
     bajista_txt = f"BAJISTA_PROFUNDO {int((BAJISTA_PROFUNDO_HASTA-time.time())/60)}min BLOQ_LONG {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min SL_NEGRA:{CONTADOR_SL_NEGRA_SEGUIDOS} POR_MONEDA:{','.join(BLOQUEO_LONG_POR_MONEDA.keys())}" if es_bajista_profundo_activo() else "BAJISTA OK"
-    v51_txt = "\n".join([f"{sym} {reg}: {cnt}" for sym, d in CONTADOR_POR_REGIMEN.items() for reg, cnt in d.items()]) or "V57 contadores"
-    v56_txt = "\n".join([f"{sym} {reg}: Nv{lv} {CONTADOR_NEGRA_POR_REGIMEN.get(sym,{}).get(reg,{})}" for sym, d in EVOLUCION_NIVEL_NEGRA.items() for reg, lv in d.items()]) or "V57 negra"
-    nivel_txt = "\n".join([f"{sym} {reg}: Nv{lv}" for sym, d in EVOLUCION_NIVEL.items() for reg, lv in d.items()]) or ""
+    v51_txt = "\n".join([f"{sym} {reg}: {cnt}" for sym, d in CONTADOR_POR_REGIMEN.items() for reg, cnt in d.items()]) or "V57 contadores vacio - Nv1"
+    v56_txt = "\n".join([f"{sym} {reg}: Nv{lv} {CONTADOR_NEGRA_POR_REGIMEN.get(sym,{}).get(reg,{})}" for sym, d in EVOLUCION_NIVEL_NEGRA.items() for reg, lv in d.items()]) or "V57 negra Nv1"
+    nivel_txt = "\n".join([f"{sym} {reg}: Nv{lv}" for sym, d in EVOLUCION_NIVEL.items() for reg, lv in d.items()]) or "Nv1 todas"
     bot.send_message(m.chat.id,f"V57 FIX CAZA {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} Tanque 50\n{regs}\n{pos_txt}\n{kraken_estado}\n{pausa_txt}\n{bajista_txt}\n{bloqueos_txt}\n{v51_txt}\n{v56_txt}\n{nivel_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="PRENDER")
@@ -1385,11 +1354,27 @@ def retirar_gan(m):
 
 @bot.message_handler(func=lambda m: m.text=="RETIRAR TODO")
 def retirar_todo(m):
+    global CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, CONTADOR_NEGRA_POR_REGIMEN, EVOLUCION_NIVEL_NEGRA, CONTADOR_TP_EXPANSION, ESCAPE_BLOCK, ESCAPES_TIMELINE, PAUSA_GLOBAL_HASTA
     u=get_user_data(m.chat.id); total=u["balance"]; gan = total - u["capital_inicial"]
     u["balance"]=BALANCE_INICIAL; u["capital_inicial"]=BALANCE_INICIAL; u["neto_hoy"]=0; u["ganadas"]=0; u["perdidas"]=0; u["ops_hoy"]=0
     u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} RETIRO TOTAL ${total:.2f} Gan ${gan:.2f} -> RESET 10k V57")
-    POSICIONES_ABIERTAS[m.chat.id]=[]; guardar_datos()
-    bot.send_message(m.chat.id,f"TODO RETIRADO V57 ${total:.2f} (Gan ${gan:.2f})\nReseteada a ${BALANCE_INICIAL:.2f}",reply_markup=get_menu())
+    POSICIONES_ABIERTAS[m.chat.id]=[]
+    # V57 FIX - RETIRAR TODO BORRA TODO EL BLINDAJE
+    CONTADOR_POR_REGIMEN = {}
+    EVOLUCION_NIVEL = {sym: {"LINEAL":1,"LINEAL_MUERTO":1,"ALCISTA":1,"ALCISTA_FUERTE":1,"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
+    CONTADOR_NEGRA_POR_REGIMEN = {}
+    EVOLUCION_NIVEL_NEGRA = {sym: {"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
+    CONTADOR_TP_EXPANSION = 0.0
+    ESCAPE_BLOCK = {}
+    ESCAPES_TIMELINE = []
+    PAUSA_GLOBAL_HASTA = 0
+    try:
+        for _fn in ["pirana_v50.json","manada_v40.json","bandas_v45.json","contador_expansion.json","posiciones_abiertas.json","monedas_activas.json"]:
+            _p = os.path.join(DATA_DIR, _fn)
+            if os.path.exists(_p): os.remove(_p)
+    except: pass
+    guardar_datos()
+    bot.send_message(m.chat.id,f"TODO RETIRADO V57 ${total:.2f} (Gan ${gan:.2f})\nReseteada a ${BALANCE_INICIAL:.2f} + EVOLUCION Nv1",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: True)
 def fallback(m):
