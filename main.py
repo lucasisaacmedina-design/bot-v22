@@ -859,7 +859,13 @@ def mandar_pensamiento_telegram():
         ULTIMO_PENSAMIENTO = ahora
         regs_txt = "\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO.get("regimen","LINEAL")
         bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
-        ok, motivo, sym, est, fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
+        try:
+            ok, motivo, sym, est, fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
+        except Exception as e_cerebro:
+            print(f"Error cerebro interno V57 (no critico): {e_cerebro}")
+            ok = False
+            motivo = f"Recalibrando: {e_cerebro}"
+            sym, est, fuerza = "", "", 0.0
         monedas_txt = f"{len(MONEDAS_ACTIVAS)}/20 ({','.join([m.replace('USDT','') for m in MONEDAS_ACTIVAS])})"
         tanque_txt = f"PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque {monedas_txt}"
         if ok:
@@ -872,7 +878,7 @@ def mandar_pensamiento_telegram():
                 except: pass
     except Exception as e:
         print(f"Error pensamiento V57: {e}")
-
+        
 # V57.1 - CEREBRO SIN CANDADO GLOBAL - SOLO POR REGIMEN
 def detectar_BI_CEREBRO(regimen):
     counts_global, total_tib_global = contar_posiciones_globales()
