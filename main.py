@@ -765,7 +765,7 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
                 except: pass
     except: pass
         
-# --- V57 FIX CAZA REAL - FAMILIA NEGRA + TIBURON NEGRO + RATITA BLANCA/NEGRA - TOP20 REAL BINANCE ---
+# --- V57 FIX CAZA REAL - 4 MONEDAS - FAMILIA NEGRA + TIBURON NEGRO + RATITA BLANCA/NEGRA ---
 def obtener_top_20_rentables_binance():
     try:
         r = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=8)
@@ -918,7 +918,6 @@ def detectar_BI_CEREBRO(regimen):
             tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
             if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
                 mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V57 Nv{EVOLUCION_NIVEL_NEGRA.get(sym,{}).get(reg_sym,1) if nombre in NEGRAS else EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
-    # V57 FIX: ahora devuelve True cuando encuentra caza
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     if hay_pausa_global(): return False, f"V57 PAUSA PANICO {int((PAUSA_GLOBAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
     if es_bloqueo_long_total(): return False, f"V57 BAJISTA_PROFUNDO BLOQUEO LONG GLOBAL {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
@@ -1144,7 +1143,7 @@ def escanear_candidatas_y_proponer():
 
 def motor_v45():
     global CONTADOR_TP_EXPANSION, BTC_PRECIOS_15M, CONTADOR_SL_NEGRA_SEGUIDOS
-    print(f">>> MOTOR V57 FIX CAZA REAL MOJARRA TRUE {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} - ESPERANDO CAZA")
+    print(f">>> MOTOR V57 FIX CAZA REAL 4 MONEDAS {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}")
     time.sleep(5)
     while True:
         try:
@@ -1338,7 +1337,7 @@ def balance(m):
 @bot.message_handler(func=lambda m: m.text=="PRENDER")
 def prender(m):
     u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V57"; guardar_datos()
-    bot.send_message(m.chat.id,f"MANADA PRENDIDA V57 FIX CAZA\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"MANADA PRENDIDA V57 FIX CAZA 4 MONEDAS\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="EVOLUCIONAR")
 def evolucionar(m):
@@ -1385,7 +1384,7 @@ def fallback(m):
             if "USDT" not in sym: sym+="USDT"
             precio=get_precio_robusto(sym)
             bot.send_message(m.chat.id,f"{sym} ${precio:.2f} V57",reply_markup=get_menu())
-        else: bot.send_message(m.chat.id,f"V57 FIX CAZA Comandos: PRENDER, BALANCE, EVOLUCIONAR\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque 50\n{WEB_URL}",reply_markup=get_menu())
+        else: bot.send_message(m.chat.id,f"V57 FIX CAZA 4 MONEDAS Comandos: PRENDER, BALANCE, EVOLUCIONAR\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque 50\n{WEB_URL}",reply_markup=get_menu())
     except: bot.send_message(m.chat.id,"V57",reply_markup=get_menu())
 
 def info_sym(sym):
@@ -1468,39 +1467,47 @@ def api_detalles_mercado():
             }
         return jsonify(res)
     except: return jsonify({}), 200
+
+# V57 FIX DASHBOARD 4 MONEDAS - DINAMICO
 @app.route('/')
 def home():
     html = '''<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>V57 FIX CAZA REAL</title><script src="https://s3.tradingview.com/tv.js"></script>
-    <style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:12px;background:#1e222d;position:sticky;top:0;z-index:20;border-bottom:2px solid #44ff88;font-size:13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.det{font-family:monospace;font-size:11px;padding:6px;background:#0e1a0e;color:#a5fca5}</style>
-    </head><body><div class="top" id="info">V57 FIX CAZA REAL - Cargando...</div><div class="grid" id="grid"></div>
+    <title>V57 FIX CAZA 4/20</title><script src="https://s3.tradingview.com/tv.js"></script>
+    <style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:12px;background:#1e222d;position:sticky;top:0;z-index:20;border-bottom:2px solid #44ff88;font-size:12px;white-space:nowrap;overflow:auto}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.det{font-family:monospace;font-size:11px;padding:6px;background:#0e1a0e;color:#a5fca5}</style>
+    </head><body><div class="top" id="info">V57 FIX CAZA 4/20 - Cargando...</div><div class="grid" id="grid"></div>
     <script>
-    const MONEDAS=["BTCUSDT","BNBUSDT","AVAXUSDT"];
-    MONEDAS.forEach(sym=>{
-      let id='tv_'+sym;let c=document.createElement('div');c.className='card';
-      c.innerHTML=`<div id="${id}" style="height:350px"></div><div class="det" id="det-${sym}">${sym}...</div>`;
-      document.getElementById('grid').appendChild(c);
-      new TradingView.widget({autosize:true,symbol:"BINANCE:"+sym,interval:"5",container_id:id,theme:"dark",style:"1",locale:"es"});
-    });
-    async function load(){
-  try{let a=await (await fetch('/api/data')).json();
-    document.getElementById('info').innerHTML=`V57 FIX CAZA | $${a.balance?.toFixed(2)||''} | ${a.bandas_txt||''} | ${Object.entries(a.regimenes||{}).map(e=>e[0].replace('USDT','')+':'+e[1]).join(' | ')}`;
-  }catch(e){}
-  try{
-    let d=await (await fetch('/api/detalles_mercado')).json();
-    for(let k in d){
-      let el=document.getElementById('det-'+k);
-      if(el&&d[k]){
-        let x=d[k];
-        let cambio=(x.cambio24>=0?'+':'')+Number(x.cambio24).toFixed(2)+'%';
-        el.innerHTML=`REGIMEN: ${x.regimen} (${cambio}) (ADX ${Number(x.adx).toFixed(1)}) | Madre: ${x.madre} | RSI ${Number(x.rsi).toFixed(1)} | ${x.ema} | ATR ${Number(x.atr).toFixed(2)}% | Vol ${Number(x.vol).toFixed(2)}x<br>Mejor: ${x.mejor_estrategia} | Nv ${x.v51_nivel} Negra Nv${x.v56_nivel_negra} | $${Number(x.precio).toFixed(2)}`;
-      }
+    async function init(){
+      let a = await (await fetch('/api/data')).json();
+      let MONEDAS = a.monedas || ["BTCUSDT","BNBUSDT","AVAXUSDT","XRPUSDT"];
+      document.getElementById('grid').innerHTML = "";
+      MONEDAS.forEach(sym=>{
+        let id='tv_'+sym;let c=document.createElement('div');c.className='card';
+        c.innerHTML=`<div id="${id}" style="height:340px"></div><div class="det" id="det-${sym}">${sym}...</div>`;
+        document.getElementById('grid').appendChild(c);
+        new TradingView.widget({autosize:true,symbol:"BINANCE:"+sym,interval:"5",container_id:id,theme:"dark",style:"1",locale:"es"});
+      });
+      load();
     }
-  }catch(e){}
-}
-load();setInterval(load,5000);
+    async function load(){
+      try{let a=await (await fetch('/api/data')).json();
+        document.getElementById('info').innerHTML=`V57 FIX CAZA 4/20 | $${a.balance?.toFixed(2)||''} | ${a.bandas_txt||''} | ${Object.entries(a.regimenes||{}).map(e=>e[0].replace('USDT','')+':'+e[1]).join(' | ')} | ${a.monedas.length}/20`;
+      }catch(e){}
+      try{
+        let d=await (await fetch('/api/detalles_mercado')).json();
+        for(let k in d){
+          let el=document.getElementById('det-'+k);
+          if(el&&d[k]){
+            let x=d[k];
+            let cambio=(x.cambio24>=0?'+':'')+Number(x.cambio24).toFixed(2)+'%';
+            el.innerHTML=`REGIMEN: ${x.regimen} (${cambio}) (ADX ${Number(x.adx).toFixed(1)}) | Madre: ${x.madre} | RSI ${Number(x.rsi).toFixed(1)} | ${x.ema} | ATR ${Number(x.atr).toFixed(2)}% | Vol ${Number(x.vol).toFixed(2)}x<br>Mejor: ${x.mejor_estrategia} | Nv ${x.v51_nivel} Negra Nv${x.v56_nivel_negra} | $${Number(x.precio).toFixed(2)}`;
+          }
+        }
+      }catch(e){}
+    }
+    init();setInterval(load,5000);
     </script></body></html>'''
     return render_template_string(html, monedas=MONEDAS_ACTIVAS)
+
 @app.route('/api/data')
 def api_data():
     try:
@@ -1520,7 +1527,7 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL")
     t = threading.Thread(target=motor_v45, daemon=False); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=False).start()
-    print("V57 FIX CAZA REAL - COMPLETA - RATITA_BLANCA + RATITA_NEGRA + MOJARRA TRUE")
+    print("V57 FIX CAZA REAL 4 MONEDAS - COMPLETA")
     try:
         bot.delete_webhook(drop_pending_updates=False)
         print("V57 Webhook borrado - polling unico")
