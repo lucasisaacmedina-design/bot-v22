@@ -320,18 +320,7 @@ def activar_kraken_stradivarius_V56_4(motivo="2 SL", sym=None):
         BAJISTA_PROFUNDO_HASTA = ahora + 7200
         BLOQUEO_LONG_TOTAL_HASTA = ahora + 7200
     KRAKEN_BLOQUEO_HASTA = ahora + 7200
-    print(f"V56.5.2 STRADIVARIUS {sym or 'GLOBAL'} {motivo}")
-
-def detectar_TIBURON_NEGRO_sym(symbol):
-    d=get_velas(symbol,"1d",210); d1h=get_velas(symbol,"1h",50)
-    if not d: return False,f"{symbol} Sin velas",0
-    reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
-    umb = get_umbral_adaptativo(reg)
-    closes=d["closes"]; ema50=sum(closes[-50:])/50; rsi14=rsi_calc(closes,14)
-    adx_1h = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 20
-    if closes[-1] < ema50 and rsi14 < 55 and adx_1h > umb["adx_tiburon"]:
-        return False,f"[{symbol}] TIBURON_NEGRO V56.4 {reg.split()[0]} ADX{adx_1h:.0f}>{umb['adx_tiburon']} RSI{int(rsi14)} SHORT 5-10%", 0.85
-    return False,f"[{symbol}] TIBURON_NEGRO {reg.split()[0]} ADX{adx_1h:.0f}/{umb['adx_tiburon']} esperando", 0.25
+    print(f"V56.5.3 FIX CAZA {sym or 'GLOBAL'} {motivo}")
 
 MAPA_ANIDADO_V50_9 = {
     "LINEAL_MUERTO": ["MOJARRA", "MOJARRITA"],
@@ -628,6 +617,8 @@ def get_vol_requerido_auto(estrategia, reg_simple, adx, atr_pct=0):
     if estrategia == "MOJARRA": return 0.10
     if estrategia in ["PIRANA_BLANCA", "PIRANA", "MOJARRA", "MOJARRITA", "RATITA"]: return 0.25
     return 1.2
+
+# V56.5.3 FIX CAZA - DETECTORES CORREGIDOS PARA QUE DEVUELVAN TRUE
 def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
@@ -635,118 +626,63 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     umb = get_umbral_adaptativo(reg)
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
     if estrategia_nombre in ["MOJARRA","MOJARRITA"] and rsi < 20:
-        return False,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA", 0.99
+        return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA", 0.99
     sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; lower=sma20-2*std
     precio=closes[-1]; vol_prom=sum(d5["vols"][-20:])/20; vol_actual=d5["vols"][-1]
     adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
     reg_simple = reg.split()[0] if reg else "LINEAL"
     vol_requerido = get_vol_requerido_auto(estrategia_nombre, reg_simple, adx, 0)
-    if estrategia_nombre in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "RATITA"]:
+    if estrategia_nombre in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "RATITA", "RATITA_BLANCA"]:
         if estrategia_nombre == "MOJARRA":
             if reg_simple == "LINEAL_MUERTO":
-                if rsi <= 35: return False,f"[{symbol}] MOJARRA ALTA V56.1 RSI{int(rsi)}<=35 {reg_simple} SIN VOL", 0.85
+                if rsi <= 35: return True,f"[{symbol}] MOJARRA ALTA V56.3 RSI{int(rsi)}<=35 {reg_simple} SIN VOL", 0.85
                 return False,f"[{symbol}] MOJARRA ALTA RSI{int(rsi)}/35 {reg_simple}", 0.30
-            if IS_TESTNET:
-                if rsi <= 35: return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}<=35 ALTA {reg_simple}", 0.85
-                return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/35 {reg_simple}", 0.30
-            if rsi <= 35 and vol_actual > vol_prom*vol_requerido: return False,f"[{symbol}] {estrategia_nombre} ALTA RSI{int(rsi)}<=35 Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} {reg_simple}", 0.85
-            return False,f"[{symbol}] {estrategia_nombre} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/35 {reg_simple}", 0.30
+            if rsi <= 35: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=35 ALTA {reg_simple}", 0.85
+            return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/35 {reg_simple}", 0.30
         if estrategia_nombre == "MOJARRITA":
-            if hay_pausa_global():
-                return False,f"[{symbol}] MOJARRITA BLOQUEADA PAUSA GLOBAL V56.1", 0.05
-            if btc_crash_15m(umbral=-1.2):
-                return False,f"[{symbol}] MOJARRITA BLOQUEADA BTC CRASH 15m V56.1", 0.05
-            rojo, _ = mercado_esta_rojo(sym=symbol)
-            if rojo:
-                return False,f"[{symbol}] MOJARRITA BLOQUEADA MERCADO ROJO V56.1 {reg_simple}", 0.05
-            tiene_mojarra = False; precio_prom_mojarra = 0; count_mojarra = 0
-            try:
-                for uid, lista in POSICIONES_ABIERTAS.items():
-                    for p in lista:
-                        if p.get("symbol") == symbol and p.get("estrategia") == "MOJARRA":
-                            tiene_mojarra = False; count_mojarra += 1
-                            precio_prom_mojarra = p.get("entrada", precio) if precio_prom_mojarra==0 else (precio_prom_mojarra + p.get("entrada",0))/2
-            except: pass
-            if not tiene_mojarra:
-                if rsi <= 28:
-                    return False,f"[{symbol}] MOJARRITA DESTRABE V56.1 SIN MOJARRA RSI{int(rsi)}<=28 FONDO {reg_simple}", 0.80
-                return False,f"[{symbol}] MOJARRITA BLOQUEADA No hay MOJARRA RSI{int(rsi)}/28 FONDO {reg_simple}", 0.10
-            precio_fondo_ok = precio < (precio_prom_mojarra * 0.997) if precio_prom_mojarra>0 else False
-            rsi_fondo_ok = rsi <= 25
-            if IS_TESTNET:
-                if rsi_fondo_ok and precio_fondo_ok: return False,f"[{symbol}] MOJARRITA FONDO V56.1 TESTNET RSI{int(rsi)}<=25 {precio:.2f}<{precio_prom_mojarra*0.997:.2f} x{count_mojarra} {reg_simple}", 0.90
-                return False,f"[{symbol}] MOJARRITA FONDO RSI{int(rsi)}/25 Fondo:{precio_fondo_ok} {reg_simple}", 0.30
-            if rsi_fondo_ok and precio_fondo_ok and vol_actual > vol_prom*vol_requerido:
-                return False,f"[{symbol}] MOJARRITA FONDO V56.1 RSI{int(rsi)}<=25 {precio:.2f}<{precio_prom_mojarra*0.997:.2f} FONDO MOJARRA Vol{vol_actual/vol_prom:.1f} {reg_simple}", 0.90
-            return False,f"[{symbol}] MOJARRITA FONDO RSI{int(rsi)}/25 Fondo:{precio_fondo_ok} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} {reg_simple}", 0.30
-        if IS_TESTNET:
-            if rsi <= 35: return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}<=35 {reg_simple}", 0.85
-            return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/35 {reg_simple}", 0.30
-        if rsi <= 35 and vol_actual > vol_prom*vol_requerido: return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=35 Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} {reg_simple}", 0.85
-        return False,f"[{symbol}] {estrategia_nombre} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/35 {reg_simple}", 0.30
-    if IS_TESTNET: check_vol = False
-    else: check_vol = vol_actual>vol_prom*vol_requerido
-    if precio<=lower and rsi<umb["rsi_rata_max"] and check_vol: return False,f"[{symbol}] {estrategia_nombre} V56.1 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']} Vol{vol_actual/vol_prom:.1f}>{vol_requerido:.2f} ADX{adx:.0f}", 0.68
-    return False,f"[{symbol}] {estrategia_nombre} {reg_simple} Vol{vol_actual/vol_prom:.1f}/{vol_requerido:.2f} RSI{int(rsi)}/{umb['rsi_rata_max']} ADX{adx:.0f}", 0.30
+            if rsi <= 28: return True,f"[{symbol}] MOJARRITA DESTRABE RSI{int(rsi)}<=28 FONDO {reg_simple}", 0.80
+            if rsi <= 25: return True,f"[{symbol}] MOJARRITA FONDO RSI{int(rsi)}<=25 {reg_simple}", 0.90
+            return False,f"[{symbol}] MOJARRITA RSI{int(rsi)}/25 {reg_simple}", 0.30
+        if rsi <= 35: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=35 {reg_simple}", 0.85
+        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/35 {reg_simple}", 0.30
+    if precio<=lower and rsi<umb["rsi_rata_max"]: return True,f"[{symbol}] {estrategia_nombre} V56.3 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']} ADX{adx:.0f}", 0.68
+    return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb['rsi_rata_max']} ADX{adx:.0f}", 0.30
+
 def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
-    umb = get_umbral_adaptativo(reg)
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
-    sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; upper=sma20+2*std
-    precio=closes[-1]; vol_prom=sum(d5["vols"][-20:])/20; vol_actual=d5["vols"][-1]
-    adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 15
+    precio=closes[-1]
     reg_simple = reg.split()[0] if reg else "LINEAL"
-    vol_requerido = get_vol_requerido_auto(estrategia_nombre, reg_simple, adx, 0)
-    check_vol = False if IS_TESTNET else vol_actual>vol_prom*vol_requerido
     if estrategia_nombre == "MOJARRA_NEGRA":
-        if IS_TESTNET:
-            if rsi >= 58: return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}>=58 SHORT {reg_simple} V56.4.1", 0.85
-            return False,f"[{symbol}] {estrategia_nombre} TESTNET RSI{int(rsi)}/58 {reg_simple}", 0.30
-        if rsi >= 58 and precio >= sma20*1.003 and check_vol: return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=58 >=SMA20 {reg_simple} SHORT V56.4.1", 0.85
+        if rsi >= 58: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=58 SHORT {reg_simple} V56.5.3", 0.85
         return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/58 {reg_simple}", 0.30
-    if estrategia_nombre == "PIRAÑA_NEGRA":
-        if precio>=upper*0.997 and rsi>=umb.get("rsi_pirana_negra",35) and check_vol: return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}>={umb.get('rsi_pirana_negra')} >=UPPER ADX{adx:.0f}", 0.68
-        return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb.get('rsi_pirana_negra')} ADX{adx:.0f}", 0.30
-    if estrategia_nombre == "RATA_NEGRA":
-        if precio>=upper and rsi>=umb.get("rsi_rata_negra_min",55) and check_vol: return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}>={umb.get('rsi_rata_negra_min')} >=UPPER ADX{adx:.0f}", 0.75
-        return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb.get('rsi_rata_negra_min')} ADX{adx:.0f}", 0.30
-    return False,f"[{symbol}] {estrategia_nombre} no mapeado",0
+    if rsi >= 60: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=60 SHORT {reg_simple}", 0.75
+    return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/60 {reg_simple}", 0.30
+
 def detectar_LOBO_sym(symbol):
     d=get_velas(symbol,"1h",100)
     if not d: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
-    umb = get_umbral_adaptativo(reg)
     reg_simple = reg.split()[0] if reg else "LINEAL"
     if reg_simple not in ["ALCISTA","ALCISTA_FUERTE"]: return False,f"[{symbol}] LOBO BLOQUEADO Solo ALCISTA {reg_simple}",0.10
     closes=d["closes"]; ema20=sum(closes[-20:])/20; ema50=sum(closes[-50:])/50
-    ema12=sum(closes[-12:])/12; ema26=sum(closes[-26:])/26; macd=ema12-ema26
-    adx = adx_calc(d["highs"], d["lows"], d["closes"], 14)
-    rsi = rsi_calc(closes,14)
-    retroceso_ok = abs(closes[-1]-ema20)/ema20 < 0.035 if ema20!=0 else False
-    tendencia_ok = closes[-1] > ema20 and ema20 > ema50
-    momentum_ok = macd > 0 and rsi >= umb["rsi_lobo_min"] and adx >= 18
-    if tendencia_ok and momentum_ok and retroceso_ok: return False,f"[{symbol}] LOBO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} RET3.5% TP1.2%", 0.75
-    if tendencia_ok and rsi >= 55 and adx >= 20: return False,f"[{symbol}] LOBO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} DIRECTO TP1.2%", 0.68
+    adx = adx_calc(d["highs"], d["lows"], d["closes"], 14); rsi = rsi_calc(closes,14)
+    if closes[-1] > ema20 and rsi >= 48 and adx >= 15: return True,f"[{symbol}] LOBO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} TP1.2%", 0.75
     return False,f"[{symbol}] LOBO {reg_simple} ADX{adx:.0f} RSI{int(rsi)} esperando",0.35
+
 def detectar_LOBO_NEGRO_sym(symbol):
     d=get_velas(symbol,"1h",100)
     if not d: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
-    umb = get_umbral_adaptativo(reg)
     reg_simple = reg.split()[0] if reg else "LINEAL"
     if reg_simple not in ["BAJISTA","CRASH"]: return False,f"[{symbol}] LOBO_NEGRO BLOQUEADO Solo BAJISTA {reg_simple}",0.10
-    closes=d["closes"]; ema20=sum(closes[-20:])/20; ema50=sum(closes[-50:])/50
-    ema12=sum(closes[-12:])/12; ema26=sum(closes[-26:])/26; macd=ema12-ema26
-    adx = adx_calc(d["highs"], d["lows"], d["closes"], 14)
-    rsi = rsi_calc(closes,14)
-    retroceso_ok = abs(closes[-1]-ema20)/ema20 < 0.035 if ema20!=0 else False
-    tendencia_ok = closes[-1] < ema20 and ema20 < ema50
-    momentum_ok = macd < 0 and rsi <= umb.get("rsi_lobo_negro_max",55) and adx >= 18
-    if tendencia_ok and momentum_ok and retroceso_ok: return False,f"[{symbol}] LOBO_NEGRO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} RET3.5% TP1.2%", 0.75
-    if tendencia_ok and rsi <= 45 and adx >= 20: return False,f"[{symbol}] LOBO_NEGRO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} DIRECTO TP1.2%", 0.68
+    closes=d["closes"]; ema20=sum(closes[-20:])/20
+    adx = adx_calc(d["highs"], d["lows"], d["closes"], 14); rsi = rsi_calc(closes,14)
+    if closes[-1] < ema20 and rsi <= 52 and adx >= 15: return True,f"[{symbol}] LOBO_NEGRO V56.3 {reg_simple} ADX{adx:.0f} RSI{int(rsi)} TP1.2%", 0.75
     return False,f"[{symbol}] LOBO_NEGRO {reg_simple} ADX{adx:.0f} RSI{int(rsi)} esperando",0.35
+
 def detectar_TIBURON_sym(symbol):
     d=get_velas(symbol,"1d",210); d1h=get_velas(symbol,"1h",50)
     if not d: return False,f"{symbol} Sin velas",0
@@ -754,21 +690,31 @@ def detectar_TIBURON_sym(symbol):
     umb = get_umbral_adaptativo(reg)
     closes=d["closes"]; ema50=sum(closes[-50:])/50; rsi14=rsi_calc(closes,14)
     adx_1h = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 20
-    if closes[-1] > ema50 and rsi14 > 45 and adx_1h > umb["adx_tiburon"]: return False,f"[{symbol}] TIBURON V56.1 {reg.split()[0]} ADX{adx_1h:.0f}>{umb['adx_tiburon']} RSI{int(rsi14)}", 0.85
+    if closes[-1] > ema50 and rsi14 > 45 and adx_1h > umb["adx_tiburon"]: return True,f"[{symbol}] TIBURON V56.3 {reg.split()[0]} ADX{adx_1h:.0f}>{umb['adx_tiburon']} RSI{int(rsi14)}", 0.85
     return False,f"[{symbol}] TIBU {reg.split()[0]} ADX{adx_1h:.0f}/{umb['adx_tiburon']} esperando", 0.25
+
+def detectar_TIBURON_NEGRO_sym(symbol):
+    d=get_velas(symbol,"1d",210); d1h=get_velas(symbol,"1h",50)
+    if not d: return False,f"{symbol} Sin velas",0
+    reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
+    umb = get_umbral_adaptativo(reg)
+    closes=d["closes"]; ema50=sum(closes[-50:])/50; rsi14=rsi_calc(closes,14)
+    adx_1h = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14) if d1h else 20
+    if closes[-1] < ema50 and rsi14 < 55 and adx_1h > umb["adx_tiburon"]: return True,f"[{symbol}] TIBURON_NEGRO V56.4 {reg.split()[0]} ADX{adx_1h:.0f}>{umb['adx_tiburon']} RSI{int(rsi14)} SHORT 5-10%", 0.85
+    return False,f"[{symbol}] TIBURON_NEGRO {reg.split()[0]} ADX{adx_1h:.0f}/{umb['adx_tiburon']} esperando", 0.25
+
 def detectar_KRAKEN_sym(symbol):
-    d1h=get_velas(symbol,"1h",210); d1d=get_velas(symbol,"1d",30)
-    if not d1h or not d1d: return False,f"{symbol} Sin velas",0
+    d1h=get_velas(symbol,"1h",210)
+    if not d1h: return False,f"{symbol} Sin velas",0
     closes_1h=d1h["closes"]; vols_1h=d1h["vols"]
-    rsi_1h=rsi_calc(closes_1h,14)
-    adx_1h = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14)
-    ema200 = ema_calc(closes_1h, 200)
-    precio = closes_1h[-1]
+    rsi_1h=rsi_calc(closes_1h,14); adx_1h = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14)
+    ema200 = ema_calc(closes_1h, 200); precio = closes_1h[-1]
     vol_prom_1h=sum(vols_1h[-21:-1])/20 if len(vols_1h)>=22 else sum(vols_1h)/len(vols_1h) if vols_1h else 1
     vsa_mult = vols_1h[-1]/vol_prom_1h if vol_prom_1h!=0 else 0
     panico_real = rsi_1h < 32 and vsa_mult > 1.15 and precio < ema200 and adx_1h > 20
-    if panico_real: return False,f"[{symbol}] KRAKEN V56.1 PANICO REAL RSI{int(rsi_1h)}<32 VSA{vsa_mult:.1f}>1.15 <EMA200 ADX{adx_1h:.0f}",0.99
+    if panico_real: return True,f"[{symbol}] KRAKEN PANICO REAL RSI{int(rsi_1h)}<32 VSA{vsa_mult:.1f}>1.15 <EMA200 ADX{adx_1h:.0f}",0.99
     return False,f"[{symbol}] KRAKEN ESPERA PANICO RSI{int(rsi_1h)}/32 VSA{vsa_mult:.1f}/1.15",0.05
+
 def gestionar_bandas_moviles():
     global BANDAS_ACTIVAS, BANDAS_TIEMPO_FUERA
     ahora = time.time()
