@@ -24,14 +24,15 @@ def clean_key(v):
 BINANCE_API_KEY = clean_key(os.getenv("BINANCE_API_KEY") or os.getenv("BINANCE_TESTNET_API_KEY"))
 BINANCE_API_SECRET = clean_key(os.getenv("BINANCE_API_SECRET") or os.getenv("BINANCE_TESTNET_SECRET_KEY") or os.getenv("BINANCE_TESTNET_API_SECRET"))
 IS_TESTNET = (os.getenv("BINANCE_TESTNET", "False") or "False").lower().strip() == "true"
-WEB_URL = os.getenv("WEB_URL", "https://lobobot22-v50-9.onrender.com").strip().rstrip("/")
+WEB_URL = os.getenv("WEB_URL", "https://bot-v22.onrender.com").strip().rstrip("/")
 
-MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT", "AVAXUSDT"]
-CANDIDATAS = ["ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT","PEPEUSDT","SUIUSDT","APTUSDT","ARBUSDT","OPUSDT","NEARUSDT","FILUSDT","INJUSDT"]
+# V57 FIX 4/20
+MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT", "AVAXUSDT", "XRPUSDT"]
+CANDIDATAS = ["ETHUSDT","SOLUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT","PEPEUSDT","SUIUSDT","APTUSDT","ARBUSDT","OPUSDT","NEARUSDT","FILUSDT","INJUSDT"]
 MAX_MONEDAS = 20
 META_PROFIT_PARA_EXPANDIR = 120.0
 META_TP_PARA_EXPANDIR = META_PROFIT_PARA_EXPANDIR
-CONTADOR_TP_EXPANSION = 0
+CONTADOR_TP_EXPANSION = 87.16
 TANQUE_POR_MONEDA = 2.0
 TANQUE_BNB_USDT = 50.0
 TANQUE_BNB_MIN = 5.0
@@ -139,8 +140,8 @@ CONTADOR_POR_REGIMEN = {}
 EVOLUCION_NIVEL = {}
 REG_ANT = {}
 ESTRATEGIAS_V45 = {
-    "MOJARRA": {"tf": "1m", "desc": "MOJARRA 0.3-0.5% LONG - PARTE ALTA LINEAL_MUERTO RSI35 V57","rango_tp": (0.3, 0.5), "sl_neto": -2.5, "max_dia": 300,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.3},
-    "MOJARRITA": {"tf": "5m", "desc": "MOJARRITA 0.3-0.5% FONDO -0.3% DE MOJARRA RSI25 V57","rango_tp": (0.3, 0.5), "sl_neto": -1.5, "max_dia": 200,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL_MUERTO", "tp_fijo_banda": 0.3},
+    "MOJARRA": {"tf": "1m", "desc": "MOJARRA 0.3-0.5% LONG - PARTE ALTA LINEAL_MUERTO RSI40 V57 FIX","rango_tp": (0.3, 0.5), "sl_neto": -2.5, "max_dia": 300,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.3},
+    "MOJARRITA": {"tf": "5m", "desc": "MOJARRITA 0.3-0.5% FONDO RSI30 V57 FIX","rango_tp": (0.3, 0.5), "sl_neto": -1.5, "max_dia": 200,"cooldown": 45, "cooldown_rec": 45,"mercado_ideal": "LINEAL_MUERTO", "tp_fijo_banda": 0.3},
     "PIRANA_BLANCA": {"tf": "3m", "desc": "PIRANA BLANCA 0.5-0.8% LONG V57","rango_tp": (0.5, 0.8), "sl_neto": -2.8, "max_dia": 150,"cooldown": 90, "cooldown_rec": 90,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.5},
     "RATITA": {"tf": "5m", "desc": "RATITA 0.6-1.0% LONG V57","rango_tp": (0.6, 1.0), "sl_neto": -3.0, "max_dia": 40,"cooldown": 120, "cooldown_rec": 120,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.8},
     "RATITA_BLANCA": {"tf": "5m", "desc": "RATITA BLANCA 0.8% LONG RSI32 8% cap V57 FINAL","rango_tp": (0.8, 0.8), "sl_neto": -3.0, "max_dia": 40,"cooldown": 120, "cooldown_rec": 120,"mercado_ideal": "LINEAL", "tp_fijo_banda": 0.8},
@@ -247,9 +248,12 @@ def registrar_caza_V51(sym, estrategia, regimen):
     if regimen not in EVOLUCION_NIVEL[sym]: EVOLUCION_NIVEL[sym][regimen] = 1
     CONTADOR_POR_REGIMEN[sym][regimen][estrategia] = CONTADOR_POR_REGIMEN[sym][regimen].get(estrategia, 0) + 1
 
+# V57 FIX CAZA - YA NO BLOQUEA MOJARRA EN Nv2
 def candado_evolucion_V51(sym, estrategia, regimen):
     if estrategia in MADRES_LIBRES_V52: return False
     reg_simple = regimen.split()[0]
+    if reg_simple == "LINEAL_MUERTO":
+        return estrategia in ["MOJARRA","MOJARRITA"] # FIX: siempre deja las 2 para no quedarse blindado
     nivel = EVOLUCION_NIVEL.get(sym, {}).get(reg_simple, 1)
     cont = CONTADOR_POR_REGIMEN.get(sym, {}).get(reg_simple, {})
     mojarra_count = cont.get("MOJARRA",0) + cont.get("MOJARRITA",0)
@@ -264,11 +268,6 @@ def candado_evolucion_V51(sym, estrategia, regimen):
     if ratita_count >= 1 and nivel == 3:
         EVOLUCION_NIVEL[sym][reg_simple] = 4
         nivel = 4
-    if reg_simple == "LINEAL_MUERTO":
-        if nivel == 1:
-            return estrategia in ["MOJARRA","MOJARRITA"]
-        else:
-            return estrategia == "MOJARRITA"
     if reg_simple == "LINEAL":
         if nivel == 1: return estrategia == "MOJARRA"
         if nivel == 2: return estrategia == "PIRANA_BLANCA"
@@ -618,13 +617,14 @@ def get_vol_requerido_auto(estrategia, reg_simple, adx, atr_pct=0):
     if estrategia in ["PIRANA_BLANCA", "PIRANA", "MOJARRA", "MOJARRITA", "RATITA"]: return 0.25
     return 1.2
 
-# V57 FIX CAZA - DETECTORES CORREGIDOS DEVUELVEN TRUE
+# V57 FIX CAZA - DETECTORES CORREGIDOS RSI 40/32
 def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     d5=get_velas(symbol,"5m",100); d1h=get_velas(symbol,"1h",50)
     if not d5: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
     umb = get_umbral_adaptativo(reg)
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
+    # EMERGENCIA: RSI <20 caza siempre
     if estrategia_nombre in ["MOJARRA","MOJARRITA"] and rsi < 20:
         return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA V57", 0.99
     sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; lower=sma20-2*std
@@ -633,16 +633,15 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     if estrategia_nombre in ["MOJARRA", "MOJARRITA", "PIRANA_BLANCA", "PIRANA", "RATITA", "RATITA_BLANCA"]:
         if estrategia_nombre == "MOJARRA":
             if reg_simple == "LINEAL_MUERTO":
-                if rsi <= 35: return True,f"[{symbol}] MOJARRA ALTA V57 RSI{int(rsi)}<=35 {reg_simple} SIN VOL", 0.85
-                return False,f"[{symbol}] MOJARRA ALTA RSI{int(rsi)}/35 {reg_simple}", 0.30
-            if rsi <= 35: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=35 ALTA {reg_simple} V57", 0.85
-            return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/35 {reg_simple}", 0.30
+                if rsi <= 40: return True,f"[{symbol}] MOJARRA ALTA V57 RSI{int(rsi)}<=40 {reg_simple} SIN VOL", 0.85
+                return False,f"[{symbol}] MOJARRA ALTA RSI{int(rsi)}/40 {reg_simple}", 0.30
+            if rsi <= 40: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=40 ALTA {reg_simple} V57", 0.85
+            return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/40 {reg_simple}", 0.30
         if estrategia_nombre == "MOJARRITA":
-            if rsi <= 28: return True,f"[{symbol}] MOJARRITA DESTRABE V57 RSI{int(rsi)}<=28 FONDO {reg_simple}", 0.80
-            if rsi <= 25: return True,f"[{symbol}] MOJARRITA FONDO V57 RSI{int(rsi)}<=25 {reg_simple}", 0.90
-            return False,f"[{symbol}] MOJARRITA RSI{int(rsi)}/25 {reg_simple}", 0.30
-        if rsi <= 35: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=35 {reg_simple} V57", 0.85
-        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/35 {reg_simple}", 0.30
+            if rsi <= 32: return True,f"[{symbol}] MOJARRITA DESTRABE V57 RSI{int(rsi)}<=32 FONDO {reg_simple}", 0.80
+            return False,f"[{symbol}] MOJARRITA RSI{int(rsi)}/32 {reg_simple}", 0.30
+        if rsi <= 40: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=40 {reg_simple} V57", 0.85
+        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/40 {reg_simple}", 0.30
     if precio<=lower and rsi<umb["rsi_rata_max"]: return True,f"[{symbol}] {estrategia_nombre} V57 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']}", 0.68
     return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb['rsi_rata_max']}", 0.30
 
@@ -763,8 +762,7 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
                 except: pass
-    except: pass
-        
+    except: pass        
 # --- V57 FIX CAZA REAL - 4 MONEDAS - FAMILIA NEGRA + TIBURON NEGRO + RATITA BLANCA/NEGRA ---
 def obtener_top_20_rentables_binance():
     try:
