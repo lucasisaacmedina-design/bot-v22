@@ -32,7 +32,7 @@ CANDIDATAS = ["ETHUSDT","SOLUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTC
 MAX_MONEDAS = 20
 META_PROFIT_PARA_EXPANDIR = 120.0
 META_TP_PARA_EXPANDIR = META_PROFIT_PARA_EXPANDIR
-CONTADOR_TP_EXPANSION = 87.16
+CONTADOR_TP_EXPANSION = 0.0
 TANQUE_POR_MONEDA = 2.0
 TANQUE_BNB_USDT = 50.0
 TANQUE_BNB_MIN = 5.0
@@ -253,7 +253,7 @@ def candado_evolucion_V51(sym, estrategia, regimen):
     if estrategia in MADRES_LIBRES_V52: return False
     reg_simple = regimen.split()[0]
     if reg_simple == "LINEAL_MUERTO":
-        return estrategia in ["MOJARRA","MOJARRITA"] # FIX: siempre deja las 2 para no quedarse blindado
+        return estrategia in ["MOJARRA","MOJARRITA"]
     nivel = EVOLUCION_NIVEL.get(sym, {}).get(reg_simple, 1)
     cont = CONTADOR_POR_REGIMEN.get(sym, {}).get(reg_simple, {})
     mojarra_count = cont.get("MOJARRA",0) + cont.get("MOJARRITA",0)
@@ -390,7 +390,25 @@ DATA_FILE=os.path.join(DATA_DIR,"manada_v40.json")
 POS_FILE=os.path.join(DATA_DIR,"posiciones_abiertas.json")
 BANDA_FILE=os.path.join(DATA_DIR,"bandas_v45.json")
 CONTADOR_FILE=os.path.join(DATA_DIR,"contador_expansion.json")
+
+# === V57 DESTREBE AUTOMATICO - ESTO ARREGLA TODO AL DEPLOYAR ===
 os.makedirs(DATA_DIR,exist_ok=True)
+for _f in [os.path.join(DATA_DIR, "pirana_v50.json"), os.path.join(DATA_DIR, "bandas_v45.json"), os.path.join(DATA_DIR, "contador_expansion.json")]:
+    try:
+        if os.path.exists(_f):
+            os.remove(_f)
+            print(f"V57 FIX AUTO BORRADO {_f}")
+    except Exception as _e:
+        print(f"Error borrando {_f}: {_e}")
+# Resetea en memoria tambien
+CONTADOR_POR_REGIMEN = {}
+EVOLUCION_NIVEL = {sym: {"LINEAL":1,"LINEAL_MUERTO":1,"ALCISTA":1,"ALCISTA_FUERTE":1,"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
+CONTADOR_NEGRA_POR_REGIMEN = {}
+EVOLUCION_NIVEL_NEGRA = {sym: {"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
+ESCAPE_BLOCK = {}
+ESCAPES_TIMELINE = []
+# === FIN FIX ===
+
 ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regimenes":{},"estrategias_activas":{}}
 USUARIOS={}; LOCK=threading.Lock()
 POSICIONES_ABIERTAS = {}; BANDAS_ACTIVAS = {}; ULTIMO_TRADE = {}; ULTIMO_PENSAMIENTO = 0; ULTIMO_CAZANDO = {}
@@ -624,7 +642,6 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
     umb = get_umbral_adaptativo(reg)
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
-    # EMERGENCIA: RSI <20 caza siempre
     if estrategia_nombre in ["MOJARRA","MOJARRITA"] and rsi < 20:
         return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA V57", 0.99
     sma20=sum(closes[-20:])/20; var=sum((x-sma20)**2 for x in closes[-20:])/20; std=var**0.5; lower=sma20-2*std
@@ -762,7 +779,8 @@ def notificar_caza(sym, tipo, precio, tp, sl, banda_txt, usdt, motivo=""):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
                 except: pass
-    except: pass        
+    except: pass
+        
 # --- V57 FIX CAZA REAL - 4 MONEDAS - FAMILIA NEGRA + TIBURON NEGRO + RATITA BLANCA/NEGRA ---
 def obtener_top_20_rentables_binance():
     try:
