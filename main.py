@@ -917,7 +917,7 @@ def mandar_pensamiento_telegram():
     except Exception as e:
         print(f"Error pensamiento V58.2: {e}")
                 
-# V58.2 - CEREBRO SOLO CANDADO POR REGIMEN V58 - SIN GLOBAL
+# V58.2 - CEREBRO SOLO CANDADO POR REGIMEN - RESPETANDO V58 FINAL IMAGEN
 def detectar_BI_CEREBRO(regimen):
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
@@ -930,14 +930,13 @@ def detectar_BI_CEREBRO(regimen):
             elif cambio_24h > -5: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","MOJARRITA_BLANCA"]
             else: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN","MOJARRITA_BLANCA"]
         else:
-            if reg_sym == "ALCISTA_FUERTE": orden = ["TIBURON","LOBO","RATA","RATITA","RATITA_BLANCA","PIRANA_BLANCA","MOJARRA","MOJARRITA"]
-            elif reg_sym == "ALCISTA": orden = ["LOBO","RATA","RATITA","RATITA_BLANCA","PIRANA_BLANCA","MOJARRA","MOJARRITA"]
-            elif reg_sym == "LINEAL_MUERTO": orden = ["MOJARRA", "MOJARRITA"]
-            else: orden = ["MOJARRA","MOJARRITA","PIRANA_BLANCA","RATITA","RATITA_BLANCA","RATA"]
+            if reg_sym == "ALCISTA_FUERTE": orden = ["TIBURON","LOBO","RATA","RATITA","RATITA_BLANCA","PIRAÑA_BLANCA","MOJARRA","MOJARRITA"]
+            elif reg_sym == "ALCISTA": orden = ["LOBO","RATA","RATITA","RATITA_BLANCA","PIRAÑA_BLANCA","MOJARRA","MOJARRITA"]
+            elif reg_sym == "LINEAL_MUERTO": orden = ["MOJARRA", "MOJARRITA"] # V58 FINAL 01 - SOLO ESTAS 2 RECICLABLE X3
+            else: orden = ["MOJARRA","MOJARRITA","PIRAÑA_BLANCA","RATITA","RATITA_BLANCA","RATA"]
 
         for nombre in orden:
             try:
-                # UNICO CANDADO - POR REGIMEN V58 - Si cambia de regimen no abre nuevas del anterior
                 if not candado(nombre, reg_sym, sym=sym):
                     continue
 
@@ -948,8 +947,8 @@ def detectar_BI_CEREBRO(regimen):
                 elif nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
                 elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
                 elif nombre=="MOJARRITA_BLANCA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA_BLANCA")
-                elif nombre in ["PIRANA_BLANCA","PIRANA"]: ok,motivo,wr = detectar_RATA_sym(sym, "PIRANA_BLANCA")
-                elif nombre in ["RATA_NEGRA","PIRANA_NEGRA","MOJARRA_NEGRA","RATITA_NEGRA"]: ok,motivo,wr = detectar_SHORT_sym(sym, nombre)
+                elif nombre in ["PIRAÑA_BLANCA","PIRANA"]: ok,motivo,wr = detectar_RATA_sym(sym, "PIRAÑA_BLANCA")
+                elif nombre in ["RATA_NEGRA","PIRAÑA_NEGRA","MOJARRA_NEGRA","RATITA_NEGRA"]: ok,motivo,wr = detectar_SHORT_sym(sym, nombre)
                 elif nombre=="LOBO": ok,motivo,wr = detectar_LOBO_sym(sym)
                 elif nombre=="LOBO_NEGRO": ok,motivo,wr = detectar_LOBO_NEGRO_sym(sym)
                 elif nombre=="TIBURON": ok,motivo,wr = detectar_TIBURON_sym(sym)
@@ -958,7 +957,7 @@ def detectar_BI_CEREBRO(regimen):
 
                 tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
                 if tp_a == 0: tp_a = 0.3
-                if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
+                if ok and wr > mejor_fuerza:
                     mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V58.2 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
             except Exception as e_interno:
                 print(f"Skip {nombre} {sym}: {e_interno}")
@@ -966,15 +965,7 @@ def detectar_BI_CEREBRO(regimen):
 
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     return False, f"V58.2 Esperando gatillo limpio - solo candado V58", MONEDAS_ACTIVAS[0], None, 0
-        
-def check_reset_diario(u):
-    hoy=ahora_art().strftime("%Y-%m-%d")
-    if u.get("fecha_hoy")!=hoy:
-        u["fecha_hoy"]=hoy; u["neto_hoy"]=0.0; u["ops_hoy"]=0
-        for k in list(u.get("estrategias", {}).keys()):
-            try: u["estrategias"][k]["ops"]=0
-            except: pass
-
+    
 def get_user_data(uid):
     uid=int(uid)
     with LOCK:
