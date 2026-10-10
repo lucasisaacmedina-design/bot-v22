@@ -1152,15 +1152,14 @@ def motor_v45():
                     continue
         except: pass
         # === FIN FILTRO TOP3 ===
-
-        for sym in list(MONEDAS_ACTIVAS): # tu linea original sigue aca                   
+                       
             for sym in list(MONEDAS_ACTIVAS):
                 reg, det = detectar_regimen_sym(sym)
                 reset_si_cambio_regimen(sym, reg)
                 ESTADO["regimenes"][sym] = f"{reg} {det}"
                 if sym=="BTCUSDT": ESTADO["btc"]=btc_price; ESTADO["regimen"]=reg
                 if sym=="BNBUSDT": ESTADO["bnb"]=get_precio_robusto(sym)
-        except: pass
+        
         gestionar_bandas_moviles()
         verificar_tanque_bnb()
         mandar_pensamiento_telegram()
