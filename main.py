@@ -1143,151 +1143,156 @@ def motor_v45():
             except: pass
 
             if len(temp_sup) >= 3:
-                top3 = scanner_06_top3_mejores_oportunidades(temp_sup)
-                if top3:
-                    print(f"[06] SUPERVIVENCIA {len(temp_sup)} muertas. TOP3: {[x[0] for x in top3]}")
-                    for sym_m, rsi_m, prec_m in top3:
-                        ejecutar_mojarrita_supervivencia(sym_m, prec_m, rsi_m)
-                    time.sleep(300)
-                    continue
-        except: pass
-        # === FIN FILTRO TOP3 ===
-                       
+                try:
+                    top3 = scanner_06_top3_mejores_oportunidades(temp_sup)
+                    if top3:
+                        print(f"[06] SUPERVIVENCIA {len(temp_sup)} muertas. TOP3: {[x[0] for x in top3]}")
+                        for sym_m, rsi_m, prec_m in top3:
+                            ejecutar_mojarrita_supervivencia(sym_m, prec_m, rsi_m)
+                        time.sleep(300)
+                        continue
+                except: pass
+            # === FIN FILTRO TOP3 ===
+
             for sym in list(MONEDAS_ACTIVAS):
                 reg, det = detectar_regimen_sym(sym)
                 reset_si_cambio_regimen(sym, reg)
                 ESTADO["regimenes"][sym] = f"{reg} {det}"
                 if sym=="BTCUSDT": ESTADO["btc"]=btc_price; ESTADO["regimen"]=reg
                 if sym=="BNBUSDT": ESTADO["bnb"]=get_precio_robusto(sym)
-        
-        gestionar_bandas_moviles()
-        verificar_tanque_bnb()
-        mandar_pensamiento_telegram()
-        escanear_candidatas_y_proponer()
-        for user_id in list(USUARIOS.keys()):
-            u=USUARIOS[user_id]
-            if user_id not in POSICIONES_ABIERTAS: POSICIONES_ABIERTAS[user_id] = []
-            for pos in POSICIONES_ABIERTAS[user_id][:]:
-                try:
-                    precio_actual = get_precio_robusto(pos["symbol"])
-                    if precio_actual == 0: continue
-                    es_short = pos.get("estrategia") in NEGRAS
-                    if not es_short:
-                        pnl_pct_actual = (precio_actual - pos["entrada"]) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
-                    else:
-                        pnl_pct_actual = (pos["entrada"] - precio_actual) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
-                    if pnl_pct_actual <= -3.5:
-                        try:
+
+            gestionar_bandas_moviles()
+            verificar_tanque_bnb()
+            mandar_pensamiento_telegram()
+            escanear_candidatas_y_proponer()
+
+            for user_id in list(USUARIOS.keys()):
+                u=USUARIOS[user_id]
+                if user_id not in POSICIONES_ABIERTAS: POSICIONES_ABIERTAS[user_id] = []
+                for pos in POSICIONES_ABIERTAS[user_id][:]:
+                    try:
+                        precio_actual = get_precio_robusto(pos["symbol"])
+                        if precio_actual == 0: continue
+                        es_short = pos.get("estrategia") in NEGRAS
+                        if not es_short:
+                            pnl_pct_actual = (precio_actual - pos["entrada"]) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
+                        else:
+                            pnl_pct_actual = (pos["entrada"] - precio_actual) / pos["entrada"] * 100 if pos["entrada"]!=0 else 0
+                        if pnl_pct_actual <= -3.5:
+                            try:
+                                lado_cierre = "BUY" if es_short else "SELL"
+                                ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
+                                pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
+                                comision = pos["usdt"] * COMISION_TOTAL/100
+                                pnl = pnl_bruto - comision
+                                u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
+                                if es_short:
+                                    CONTADOR_SL_NEGRA_SEGUIDOS+=1
+                                POSICIONES_ABIERTAS[user_id].remove(pos)
+                                guardar_datos()
+                                continue
+                            except: pass
+                        if "max_pnl" not in pos:
+                            pos["max_pnl"] = pnl_pct_actual
+                            pos["max_precio"] = precio_actual
+                        if pnl_pct_actual > pos["max_pnl"]:
+                            pos["max_pnl"] = pnl_pct_actual
+                            pos["max_precio"] = precio_actual
+                        tp_price = pos["entrada"] * (1 + pos["tp"]/100) if not es_short else pos["entrada"] * (1 - pos["tp"]/100)
+                        sl_price = pos["entrada"] * (1 + pos["sl"]/100) if not es_short else pos["entrada"] * (1 - pos["sl"]/100)
+                        cerrar = None
+                        motivo_cierre = ""
+                        cfg = TRAILING_CONFIG.get(pos["estrategia"], {"activo": False})
+                        if cfg.get("activo") and pos["max_pnl"] >= cfg["activacion"]:
+                            if pnl_pct_actual <= (pos["max_pnl"] - cfg["trailing"]):
+                                cerrar = "TP"
+                                motivo_cierre = f"TRAILING V57 {pos['estrategia']} Max{pos['max_pnl']:.2f}% -> Actual{pnl_pct_actual:.2f}% Trail{cfg['trailing']}%"
+                        if not cerrar:
+                            if not es_short:
+                                if precio_actual >= tp_price: cerrar = "TP"
+                                elif precio_actual <= sl_price: cerrar = "SL"
+                            else:
+                                if precio_actual <= tp_price: cerrar = "TP"
+                                elif precio_actual >= sl_price: cerrar = "SL"
+                        if cerrar:
                             lado_cierre = "BUY" if es_short else "SELL"
-                            ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
+                            try: ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
+                            except: pass
                             pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
                             comision = pos["usdt"] * COMISION_TOTAL/100
                             pnl = pnl_bruto - comision
-                            u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
-                            if es_short:
-                                CONTADOR_SL_NEGRA_SEGUIDOS+=1
+                            pnl_pct = pnl_pct_actual
+                            es_tp = cerrar == "TP"
+                            if es_tp:
+                                if pos.get("estrategia") == "KRAKEN": kraken_reset_si_tp()
+                                u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["ganadas"]+=1
+                                if es_short: CONTADOR_SL_NEGRA_SEGUIDOS=0
+                                ganancia_real_total = u["balance"] - BALANCE_INICIAL
+                                CONTADOR_TP_EXPANSION = max(0.0, ganancia_real_total)
+                                if CONTADOR_TP_EXPANSION >= META_PROFIT_PARA_EXPANDIR: intentar_expandir(user_id)
+                            else:
+                                if pos.get("estrategia") == "KRAKEN": kraken_registrar_sl()
+                                u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
+                                if es_short:
+                                    CONTADOR_SL_NEGRA_SEGUIDOS+=1
+                                if pnl <= -1.0: registrar_escape(pos["symbol"])
+                            estr = pos.get("estrategia", "MOJARRA")
+                            if estr not in u.get("estrategias", {}): u["estrategias"][estr] = {"ops":0,"ganadas":0,"neto":0.0}
+                            u["estrategias"][estr]["ops"]+=1; u["estrategias"][estr]["neto"]+=pnl
+                            u["ops_hoy"]+=1
+                            extra = f" {motivo_cierre}" if motivo_cierre else ""
+                            u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar}{extra} ${pnl:+.2f} TP:{pos['tp']:.1f}% V57.1")
+                            notificar_cierre(pos["symbol"], estr, pos["entrada"], precio_actual, pnl, pnl_pct, es_tp, pos.get("subtipo","")+extra)
                             POSICIONES_ABIERTAS[user_id].remove(pos)
                             guardar_datos()
-                            continue
-                        except: pass
-                    if "max_pnl" not in pos:
-                        pos["max_pnl"] = pnl_pct_actual
-                        pos["max_precio"] = precio_actual
-                    if pnl_pct_actual > pos["max_pnl"]:
-                        pos["max_pnl"] = pnl_pct_actual
-                        pos["max_precio"] = precio_actual
-                    tp_price = pos["entrada"] * (1 + pos["tp"]/100) if not es_short else pos["entrada"] * (1 - pos["tp"]/100)
-                    sl_price = pos["entrada"] * (1 + pos["sl"]/100) if not es_short else pos["entrada"] * (1 - pos["sl"]/100)
-                    cerrar = None
-                    motivo_cierre = ""
-                    cfg = TRAILING_CONFIG.get(pos["estrategia"], {"activo": False})
-                    if cfg.get("activo") and pos["max_pnl"] >= cfg["activacion"]:
-                        if pnl_pct_actual <= (pos["max_pnl"] - cfg["trailing"]):
-                            cerrar = "TP"
-                            motivo_cierre = f"TRAILING V57 {pos['estrategia']} Max{pos['max_pnl']:.2f}% -> Actual{pnl_pct_actual:.2f}% Trail{cfg['trailing']}%"
-                    if not cerrar:
-                        if not es_short:
-                            if precio_actual >= tp_price: cerrar = "TP"
-                            elif precio_actual <= sl_price: cerrar = "SL"
-                        else:
-                            if precio_actual <= tp_price: cerrar = "TP"
-                            elif precio_actual >= sl_price: cerrar = "SL"
-                    if cerrar:
-                        lado_cierre = "BUY" if es_short else "SELL"
-                        try: ejecutar_orden_real(pos["symbol"], lado_cierre, pos["usdt"])
-                        except: pass
-                        pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
-                        comision = pos["usdt"] * COMISION_TOTAL/100
-                        pnl = pnl_bruto - comision
-                        pnl_pct = pnl_pct_actual
-                        es_tp = cerrar == "TP"
-                        if es_tp:
-                            if pos.get("estrategia") == "KRAKEN": kraken_reset_si_tp()
-                            u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["ganadas"]+=1
-                            if es_short: CONTADOR_SL_NEGRA_SEGUIDOS=0
-                            ganancia_real_total = u["balance"] - BALANCE_INICIAL
-                            CONTADOR_TP_EXPANSION = max(0.0, ganancia_real_total)
-                            if CONTADOR_TP_EXPANSION >= META_PROFIT_PARA_EXPANDIR: intentar_expandir(user_id)
-                        else:
-                            if pos.get("estrategia") == "KRAKEN": kraken_registrar_sl()
-                            u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
-                            if es_short:
-                                CONTADOR_SL_NEGRA_SEGUIDOS+=1
-                            if pnl <= -1.0: registrar_escape(pos["symbol"])
-                        estr = pos.get("estrategia", "MOJARRA")
-                        if estr not in u.get("estrategias", {}): u["estrategias"][estr] = {"ops":0,"ganadas":0,"neto":0.0}
-                        u["estrategias"][estr]["ops"]+=1; u["estrategias"][estr]["neto"]+=pnl
-                        u["ops_hoy"]+=1
-                        extra = f" {motivo_cierre}" if motivo_cierre else ""
-                        u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar}{extra} ${pnl:+.2f} TP:{pos['tp']:.1f}% V57.1")
-                        notificar_cierre(pos["symbol"], estr, pos["entrada"], precio_actual, pnl, pnl_pct, es_tp, pos.get("subtipo","")+extra)
-                        POSICIONES_ABIERTAS[user_id].remove(pos)
-                        guardar_datos()
-                except Exception as e: print(f"Error cierre V57 {e}")
-            if not u.get("prendido", False): continue
-            ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
-            if ok and estrategia_elegida:
-                counts_global, _ = contar_posiciones_globales()
-                key_global = (symbol_elegido, estrategia_elegida)
-                existentes = [p for p in POSICIONES_ABIERTAS.get(user_id,[]) if p.get('symbol')==symbol_elegido and p.get('estrategia')==estrategia_elegida]
-                key_lock = f"{symbol_elegido}_{estrategia_elegida}"
-                if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < ESTRATEGIAS_V45[estrategia_elegida]["cooldown"]: continue
-                if estrategia_elegida in ["MOJARRA"]: max_permitido = MAX_MOJARRA_POR_MONEDA; dist_requerida = DISTANCIA_MOJARRA_PCT
-                elif estrategia_elegida in ["MOJARRA_NEGRA"]: max_permitido = MAX_MOJARRA_POR_MONEDA; dist_requerida = DISTANCIA_MOJARRA_NEGRA_PCT
-                elif estrategia_elegida in ["PIRANA_BLANCA","PIRANA","MOJARRA","MOJARRITA","RATITA","RATITA_BLANCA"]:
-                    if estrategia_elegida == "MOJARRITA": max_permitido = MAX_MOJARRITA_POR_MONEDA; dist_requerida = DISTANCIA_MOJARRA_PCT
-                    else: max_permitido = MAX_PIRANA_POR_MONEDA; dist_requerida = DISTANCIA_PIRANA_PCT
-                elif estrategia_elegida in ["PIRANA_NEGRA","RATITA_NEGRA"]: max_permitido = MAX_PIRANA_POR_MONEDA; dist_requerida = DISTANCIA_PIRANA_NEGRA_PCT
-                else: max_permitido = 1; dist_requerida = 0.10
-                if counts_global.get(key_global, 0) >= max_permitido: continue
-                if len(existentes) >= max_permitido: continue
-                precio_actual_tmp = get_precio_robusto(symbol_elegido)
-                usdt_a_usar = max(10, u["balance"]*0.035)
-                reg_actual_sym = ESTADO.get("regimenes",{}).get(symbol_elegido,"LINEAL")
-                if estrategia_elegida == "LOBO" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(200, min(500, u["balance"]*0.50))
-                elif estrategia_elegida in ["LOBO_NEGRO","TIBURON_NEGRO"] and ("BAJISTA" in reg_actual_sym or "CRASH" in reg_actual_sym): usdt_a_usar = max(200, min(500, u["balance"]*0.50))
-                elif estrategia_elegida == "RATA" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(80, u["balance"]*0.15)
-                elif estrategia_elegida in ["RATA_NEGRA","RATITA_NEGRA"] and ("BAJISTA" in reg_actual_sym or "CRASH" in reg_actual_sym): usdt_a_usar = max(80, u["balance"]*0.15)
-                elif estrategia_elegida == "RATITA_BLANCA" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(80, u["balance"]*0.15)
-                if estrategia_elegida == "KRAKEN": usdt_a_usar = max(200, min(300, u["balance"]*0.20))
-                if estrategia_elegida == "TIBURON_NEGRO": usdt_a_usar = max(200, min(500, u["balance"]*0.40))
-                tp_final = tp_adaptativo(symbol_elegido, estrategia_elegida)
-                if tp_final == 0: tp_final = 0.3
-                exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
-                if exito:
-                    ULTIMO_TRADE[key_lock]=time.time(); ULTIMO_CAZANDO[key_lock]=time.time()
-                    pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_final, "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat(), "max_pnl": 0.0, "max_precio": precio}
-                    POSICIONES_ABIERTAS[user_id].append(pos)
-                    reg_simple = ESTADO.get("regimenes",{}).get(symbol_elegido,"LINEAL").split()[0]
-                    if estrategia_elegida in BLANCAS: registrar_caza_V51(symbol_elegido, estrategia_elegida, reg_simple)
-                    else: registrar_caza_negra_V56_4(symbol_elegido, estrategia_elegida, reg_simple)
-                    u["modo"]=f"{estrategia_elegida} {symbol_elegido} TP{pos['tp']:.1f}%"; u["mercado"]=motivo
-                    b = BANDAS_ACTIVAS.get(symbol_elegido,{})
-                    banda_txt = f"{b.get('entrada_tiburon',precio*0.97):.0f}->{b.get('tope',precio*1.10):.0f} {b.get('tipo','')}"
-                    notificar_caza(symbol_elegido, estrategia_elegida, precio, pos['tp'], ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], banda_txt, usdt_a_usar, motivo)
-        guardar_datos()
-        time.sleep(60)
-
+                    except Exception as e: print(f"Error cierre V57 {e}")
+                if not u.get("prendido", False): continue
+                ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
+                if ok and estrategia_elegida:
+                    counts_global, _ = contar_posiciones_globales()
+                    key_global = (symbol_elegido, estrategia_elegida)
+                    existentes = [p for p in POSICIONES_ABIERTAS.get(user_id,[]) if p.get('symbol')==symbol_elegido and p.get('estrategia')==estrategia_elegida]
+                    key_lock = f"{symbol_elegido}_{estrategia_elegida}"
+                    if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < ESTRATEGIAS_V45[estrategia_elegida]["cooldown"]: continue
+                    if estrategia_elegida in ["MOJARRA"]: max_permitido = MAX_MOJARRA_POR_MONEDA; dist_requerida = DISTANCIA_MOJARRA_PCT
+                    elif estrategia_elegida in ["MOJARRA_NEGRA"]: max_permitido = MAX_MOJARRA_POR_MONEDA; dist_requerida = DISTANCIA_MOJARRA_NEGRA_PCT
+                    elif estrategia_elegida in ["PIRANA_BLANCA","PIRANA","MOJARRA","MOJARRITA","RATITA","RATITA_BLANCA"]:
+                        if estrategia_elegida == "MOJARRITA": max_permitido = MAX_MOJARRITA_POR_MONEDA; dist_requerida = DISTANCIA_MOJARRA_PCT
+                        else: max_permitido = MAX_PIRANA_POR_MONEDA; dist_requerida = DISTANCIA_PIRANA_PCT
+                    elif estrategia_elegida in ["PIRANA_NEGRA","RATITA_NEGRA"]: max_permitido = MAX_PIRANA_POR_MONEDA; dist_requerida = DISTANCIA_PIRANA_NEGRA_PCT
+                    else: max_permitido = 1; dist_requerida = 0.10
+                    if counts_global.get(key_global, 0) >= max_permitido: continue
+                    if len(existentes) >= max_permitido: continue
+                    precio_actual_tmp = get_precio_robusto(symbol_elegido)
+                    usdt_a_usar = max(10, u["balance"]*0.035)
+                    reg_actual_sym = ESTADO.get("regimenes",{}).get(symbol_elegido,"LINEAL")
+                    if estrategia_elegida == "LOBO" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(200, min(500, u["balance"]*0.50))
+                    elif estrategia_elegida in ["LOBO_NEGRO","TIBURON_NEGRO"] and ("BAJISTA" in reg_actual_sym or "CRASH" in reg_actual_sym): usdt_a_usar = max(200, min(500, u["balance"]*0.50))
+                    elif estrategia_elegida == "RATA" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(80, u["balance"]*0.15)
+                    elif estrategia_elegida in ["RATA_NEGRA","RATITA_NEGRA"] and ("BAJISTA" in reg_actual_sym or "CRASH" in reg_actual_sym): usdt_a_usar = max(80, u["balance"]*0.15)
+                    elif estrategia_elegida == "RATITA_BLANCA" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(80, u["balance"]*0.15)
+                    if estrategia_elegida == "KRAKEN": usdt_a_usar = max(200, min(300, u["balance"]*0.20))
+                    if estrategia_elegida == "TIBURON_NEGRO": usdt_a_usar = max(200, min(500, u["balance"]*0.40))
+                    tp_final = tp_adaptativo(symbol_elegido, estrategia_elegida)
+                    if tp_final == 0: tp_final = 0.3
+                    exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
+                    if exito:
+                        ULTIMO_TRADE[key_lock]=time.time(); ULTIMO_CAZANDO[key_lock]=time.time()
+                        pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_final, "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat(), "max_pnl": 0.0, "max_precio": precio}
+                        POSICIONES_ABIERTAS[user_id].append(pos)
+                        reg_simple = ESTADO.get("regimenes",{}).get(symbol_elegido,"LINEAL").split()[0]
+                        if estrategia_elegida in BLANCAS: registrar_caza_V51(symbol_elegido, estrategia_elegida, reg_simple)
+                        else: registrar_caza_negra_V56_4(symbol_elegido, estrategia_elegida, reg_simple)
+                        u["modo"]=f"{estrategia_elegida} {symbol_elegido} TP{pos['tp']:.1f}%"; u["mercado"]=motivo
+                        b = BANDAS_ACTIVAS.get(symbol_elegido,{})
+                        banda_txt = f"{b.get('entrada_tiburon',precio*0.97):.0f}->{b.get('tope',precio*1.10):.0f} {b.get('tipo','')}"
+                        notificar_caza(symbol_elegido, estrategia_elegida, precio, pos['tp'], ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], banda_txt, usdt_a_usar, motivo)
+            guardar_datos()
+            time.sleep(60)
+        except Exception as e:
+            print(f"Error motor V57.1 {e}")
+            time.sleep(10)
+            
 def get_menu():
     m=types.ReplyKeyboardMarkup(resize_keyboard=False)
     m.add("PRENDER","EVOLUCIONAR")
