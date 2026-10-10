@@ -655,6 +655,12 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     if not d5: return False,f"{symbol} Sin velas",0
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
     umb = get_umbral_adaptativo(reg)
+    # V57.1 FIX RAIZ - fallback si falta rsi_rata_max
+    if not isinstance(umb, dict):
+        umb = {}
+    rsi_max = umb.get("rsi_rata_max", umb.get("rsi_max", 40))
+    rsi_min = umb.get("rsi_rata_min", 20)
+
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
     if estrategia_nombre in ["MOJARRA","MOJARRITA"] and rsi < 20:
         return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA RSI{int(rsi)}<20 {reg.split()[0]} CAZA FORZADA V57", 0.99
@@ -673,9 +679,11 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
             return False,f"[{symbol}] MOJARRITA RSI{int(rsi)}/32 {reg_simple}", 0.30
         if rsi <= 40: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}<=40 {reg_simple} V57", 0.85
         return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/40 {reg_simple}", 0.30
-    if precio<=lower and rsi<umb["rsi_rata_max"]: return True,f"[{symbol}] {estrategia_nombre} V57 {reg_simple} RSI{int(rsi)}<{umb['rsi_rata_max']}", 0.68
-    return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{umb['rsi_rata_max']}", 0.30
-
+    # V57.1 FIX - uso rsi_max con fallback
+    if precio<=lower and rsi < rsi_max:
+        return True,f"[{symbol}] {estrategia_nombre} V57 {reg_simple} RSI{int(rsi)}<{rsi_max}", 0.68
+    return False,f"[{symbol}] {estrategia_nombre} {reg_simple} RSI{int(rsi)}/{rsi_max}", 0.30
+    
 def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     d5=get_velas(symbol,"5m",100)
     if not d5: return False,f"{symbol} Sin velas",0
@@ -687,7 +695,7 @@ def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
         return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/58 {reg_simple}", 0.30
     if rsi >= 60: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=60 SHORT {reg_simple} V57", 0.75
     return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/60 {reg_simple}", 0.30
-
+    
 def detectar_LOBO_sym(symbol):
     d=get_velas(symbol,"1h",100)
     if not d: return False,f"{symbol} Sin velas",0
