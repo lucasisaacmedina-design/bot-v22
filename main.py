@@ -154,6 +154,7 @@ ESTRATEGIAS_V45["PIRAÑA_NEGRA"] = ESTRATEGIAS_V45["PIRANA_NEGRA"]
 BLANCAS = {"MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATITA_BLANCA","RATA","LOBO","TIBURON"}
 NEGRAS = {"MOJARRA_NEGRA","PIRANA_NEGRA","PIRAÑA_NEGRA","RATITA_NEGRA","RATA_NEGRA","LOBO_NEGRO","KRAKEN","TIBURON_NEGRO"}
 MADRES_LIBRES_V52 = {"LOBO","TIBURON","KRAKEN","LOBO_NEGRO","TIBURON_NEGRO"}
+
 def candado(est, regimen):
     r = regimen.split()[0]
     if es_bloqueo_long_total() and est in BLANCAS: return False
@@ -170,7 +171,6 @@ def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
     if reg_viejo_override: viejo = reg_viejo_override.split()[0]
     nuevo = reg_nuevo.split()[0]
     if viejo==nuevo: return
-    print(f"V56.1 CAMBIO {sym} {viejo}->{nuevo} -> EVALUANDO CIERRE INTELIGENTE")
     precio_actual = get_precio_robusto(sym)
     for uid in list(POSICIONES_ABIERTAS.keys()):
         for p in POSICIONES_ABIERTAS[uid][:]:
@@ -184,18 +184,13 @@ def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
                     pnl_actual = (precio_actual - entrada)/entrada*100
                 max_pnl = p.get("max_pnl", pnl_actual)
                 if pnl_actual <= -1.5 or max_pnl <= -1.5:
-                    if btc_crash_15m():
-                        print(f"V56.1 HOLD CRASH BTC NO VENDE {sym}")
-                        continue
+                    if btc_crash_15m(): continue
                     lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
-                    print(f"V56.1 CIERRE SEGURO {sym} {p['estrategia']} PnL:{pnl_actual:.2f}% Max:{max_pnl:.2f}% -> MARKET")
                     try: ejecutar_orden_real(p["symbol"], lado, p["usdt"])
                     except: pass
                     registrar_escape(sym)
                     try: POSICIONES_ABIERTAS[uid].remove(p)
                     except: pass
-                else:
-                    print(f"V56.1 HOLD {sym} {p['estrategia']} PnL:{pnl_actual:.2f}% -> SE DEJA HASTA TP")
     guardar_datos()
 
 def cierre_forzado_por_candado():
@@ -209,11 +204,8 @@ def cierre_forzado_por_candado():
                 if entrada==0: continue
                 pnl = (precio_actual - entrada)/entrada*100 if p["estrategia"] not in NEGRAS else (entrada - precio_actual)/entrada*100
                 if pnl <= -1.5:
-                    if btc_crash_15m():
-                        print(f"V56.1 HOLD CRASH NO CIERRE FORZADO {sym}")
-                        continue
+                    if btc_crash_15m(): continue
                     lado = "BUY" if p["estrategia"] in NEGRAS else "SELL"
-                    print(f"V56.1 FORZADO SEGURO {sym} {p['estrategia']} {pnl:.2f}% -> MARKET")
                     try: ejecutar_orden_real(sym, lado, p["usdt"])
                     except: pass
                     registrar_escape(sym)
@@ -226,7 +218,6 @@ def reset_si_cambio_regimen(sym, reg_nuevo):
     reg_nuevo_simple = reg_nuevo.split()[0]
     reg_ant = REG_ANT.get(sym, "")
     if reg_ant and reg_ant!= reg_nuevo_simple:
-       print(f"V56.1 RESET {sym} {reg_ant}->{reg_nuevo_simple}")
        cierre_market_cambio(sym, reg_nuevo_simple, reg_viejo_override=reg_ant)
        if sym in EVOLUCION_NIVEL and reg_ant in EVOLUCION_NIVEL[sym]:
            nivel_viejo = EVOLUCION_NIVEL[sym][reg_ant]
@@ -246,8 +237,6 @@ def registrar_caza_V51(sym, estrategia, regimen):
     if sym not in EVOLUCION_NIVEL: EVOLUCION_NIVEL[sym] = {}
     if regimen not in EVOLUCION_NIVEL[sym]: EVOLUCION_NIVEL[sym][regimen] = 1
     CONTADOR_POR_REGIMEN[sym][regimen][estrategia] = CONTADOR_POR_REGIMEN[sym][regimen].get(estrategia, 0) + 1
-    nivel = EVOLUCION_NIVEL[sym][regimen]
-    print(f"V56.1 REGISTRO {sym} {regimen} {estrategia} x{CONTADOR_POR_REGIMEN[sym][regimen][estrategia]} Nv{nivel}")
 
 def candado_evolucion_V51(sym, estrategia, regimen):
     if estrategia in MADRES_LIBRES_V52: return False
@@ -256,18 +245,15 @@ def candado_evolucion_V51(sym, estrategia, regimen):
     cont = CONTADOR_POR_REGIMEN.get(sym, {}).get(reg_simple, {})
     mojarra_count = cont.get("MOJARRA",0) + cont.get("MOJARRITA",0)
     pirana_count = cont.get("PIRANA_BLANCA",0)
-    ratita_count = cont.get("RATITA",0)
+    ratita_count = cont.get("RATITA",0) + cont.get("RATITA_BLANCA",0)
     if mojarra_count >= 2 and nivel == 1:
         EVOLUCION_NIVEL[sym][reg_simple] = 2
-        print(f"V56.1 EVOLUCION {sym} {reg_simple} Nv1->Nv2 MOJARRA x{mojarra_count} -> PIRANA_BLANCA")
         nivel = 2
     if pirana_count >= 1 and nivel == 2:
         EVOLUCION_NIVEL[sym][reg_simple] = 3
-        print(f"V56.1 EVOLUCION {sym} {reg_simple} Nv2->Nv3 PIRANA x{pirana_count} -> RATITA")
         nivel = 3
     if ratita_count >= 1 and nivel == 3:
         EVOLUCION_NIVEL[sym][reg_simple] = 4
-        print(f"V56.1 EVOLUCION {sym} {reg_simple} Nv3->Nv4 RATITA x{ratita_count} -> RATA")
         nivel = 4
     if reg_simple == "LINEAL_MUERTO":
         if nivel == 1:
@@ -277,11 +263,11 @@ def candado_evolucion_V51(sym, estrategia, regimen):
     if reg_simple == "LINEAL":
         if nivel == 1: return estrategia == "MOJARRA"
         if nivel == 2: return estrategia == "PIRANA_BLANCA"
-        if nivel == 3: return estrategia == "RATITA"
+        if nivel == 3: return estrategia in ["RATITA","RATITA_BLANCA"]
         if nivel >= 4: return estrategia == "RATA"
     if nivel == 1: return estrategia == "MOJARRA"
     if nivel == 2: return estrategia == "PIRANA_BLANCA"
-    if nivel == 3: return estrategia == "RATITA"
+    if nivel == 3: return estrategia in ["RATITA","RATITA_BLANCA"]
     if nivel >= 4: return estrategia in ["RATA","LOBO"]
     return False
 
@@ -294,7 +280,6 @@ def registrar_caza_negra_V56_4(sym, estrategia, regimen):
     if sym not in EVOLUCION_NIVEL_NEGRA: EVOLUCION_NIVEL_NEGRA[sym] = {}
     if reg_simple not in EVOLUCION_NIVEL_NEGRA[sym]: EVOLUCION_NIVEL_NEGRA[sym][reg_simple] = 1
     CONTADOR_NEGRA_POR_REGIMEN[sym][reg_simple][estrategia] = CONTADOR_NEGRA_POR_REGIMEN[sym][reg_simple].get(estrategia, 0) + 1
-    print(f"V56.4 NEGRA REGISTRO {sym} {reg_simple} {estrategia} x{CONTADOR_NEGRA_POR_REGIMEN[sym][reg_simple][estrategia]} Nv{EVOLUCION_NIVEL_NEGRA[sym][reg_simple]}")
 
 def candado_evolucion_negra_V56_4(sym, estrategia, regimen):
     reg_simple = regimen.split()[0]
@@ -303,20 +288,17 @@ def candado_evolucion_negra_V56_4(sym, estrategia, regimen):
     cont = CONTADOR_NEGRA_POR_REGIMEN.get(sym, {}).get(reg_simple, {})
     mojarra_count = cont.get("MOJARRA_NEGRA", 0)
     pirana_count = cont.get("PIRANA_NEGRA", 0)
-    rata_count = cont.get("RATA_NEGRA", 0)
+    rata_count = cont.get("RATA_NEGRA", 0) + cont.get("RATITA_NEGRA", 0)
     if mojarra_count >= 2 and nivel == 1:
         EVOLUCION_NIVEL_NEGRA[sym][reg_simple] = 2; nivel = 2
-        print(f"V56.4 EVOLUCION NEGRA {sym} {reg_simple} Nv1->Nv2 MOJARRA x{mojarra_count} -> PIRANA_NEGRA")
     if pirana_count >= 1 and nivel == 2:
         EVOLUCION_NIVEL_NEGRA[sym][reg_simple] = 3; nivel = 3
-        print(f"V56.4 EVOLUCION NEGRA {sym} {reg_simple} Nv2->Nv3 PIRANA x{pirana_count} -> RATA_NEGRA")
     if rata_count >= 1 and nivel == 3:
         EVOLUCION_NIVEL_NEGRA[sym][reg_simple] = 4; nivel = 4
-        print(f"V56.4 EVOLUCION NEGRA {sym} {reg_simple} Nv3->Nv4 RATA x{rata_count} -> LOBO_NEGRO/TIBURON_NEGRO")
     if nivel == 1: return estrategia == "MOJARRA_NEGRA"
     if nivel == 2: return estrategia == "PIRANA_NEGRA"
-    if nivel == 3: return estrategia == "RATA_NEGRA"
-    if nivel >= 4: return estrategia in ["RATA_NEGRA", "LOBO_NEGRO", "TIBURON_NEGRO"]
+    if nivel == 3: return estrategia in ["RATITA_NEGRA","RATA_NEGRA"]
+    if nivel >= 4: return estrategia in ["RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO"]
     return False
 
 def activar_kraken_stradivarius_V56_4(motivo="2 SL"):
@@ -324,7 +306,6 @@ def activar_kraken_stradivarius_V56_4(motivo="2 SL"):
     BAJISTA_PROFUNDO_HASTA = time.time() + 7200
     BLOQUEO_LONG_TOTAL_HASTA = time.time() + 7200
     KRAKEN_BLOQUEO_HASTA = time.time() + 7200
-    print(f"V56.4 KRAKEN STRADIVARIUS {motivo} -> BAJISTA_PROFUNDO 2hs BLOQUEO LONG")
 
 def detectar_TIBURON_NEGRO_sym(symbol):
     d=get_velas(symbol,"1d",210); d1h=get_velas(symbol,"1h",50)
@@ -340,28 +321,36 @@ def detectar_TIBURON_NEGRO_sym(symbol):
 MAPA_ANIDADO_V50_9 = {
     "LINEAL_MUERTO": ["MOJARRA", "MOJARRITA"],
     "LINEAL": ["MOJARRA", "PIRANA_BLANCA", "RATITA", "RATA"],
-    "ALCISTA": ["MOJARRA", "PIRANA_BLANCA","RATITA", "RATA", "LOBO"],
-    "ALCISTA_FUERTE": ["MOJARRA", "PIRANA_BLANCA","RATITA", "RATA", "LOBO", "TIBURON"],
-    "BAJISTA": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO"],
-    "CRASH": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO", "TIBURON_NEGRO", "KRAKEN"]
+    "ALCISTA": ["MOJARRA", "PIRANA_BLANCA","RATITA_BLANCA","RATITA", "RATA", "LOBO"],
+    "ALCISTA_FUERTE": ["MOJARRA", "PIRANA_BLANCA","RATITA_BLANCA","RATITA", "RATA", "LOBO", "TIBURON"],
+    "BAJISTA": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO"],
+    "CRASH": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO", "TIBURON_NEGRO", "KRAKEN"]
 }
-MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6 FONDO V53.3", "LINEAL": "MOJARRA 0.3% + RATA DIST 0.10%", "ALCISTA": "REGIMEN 3 LOBO 1.2% JEFE V56.3", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.2% + TIBURON 5-10% V50.23", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.2% JEFE V56.3 + FAMILIA NEGRA", "CRASH": "REGIMEN 6 CRASH TIBURON_NEGRO 5-10% + KRAKEN V56.4"}
+MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6 FONDO V53.3", "LINEAL": "MOJARRA 0.3% + RATITA_BLANCA RSI32 V56.5", "ALCISTA": "REGIMEN 3 LOBO 1.2% JEFE V56.3", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.2% + TIBURON 5-10% V50.23", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.2% JEFE V56.3 + RATITA_NEGRA RSI68 V56.5", "CRASH": "REGIMEN 6 CRASH TIBURON_NEGRO 5-10% + KRAKEN V56.4"}
 def estrategia_prevista(regimen_txt):
     reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
     return MAPA_ESTRATEGIA.get(reg, "MANADA LIBRE")
 BLANCAS_SET = {"MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATITA_BLANCA","RATA","LOBO","TIBURON"}
-def mercado_esta_rojo():
-    for reg in ESTADO.get("regimenes", {}).values():
+
+# >>> UNICO FIX POR MONEDAS DEFINIDO <<<
+def mercado_esta_rojo(sym=None):
+    if sym:
+        reg = ESTADO.get("regimenes",{}).get(sym,"")
         rs = reg.split()[0] if reg else ""
-        if rs in ("BAJISTA","CRASH"): return True, reg
-    try:
-        for sym, banda in BANDAS_ACTIVAS.items():
-            if not banda.get("activa"): continue
+        if rs in ("BAJISTA","CRASH"):
+            return True, f"REGIMEN {sym} {reg}"
+        banda = BANDAS_ACTIVAS.get(sym,{})
+        if banda.get("activa"):
             tipo = str(banda.get("tipo","")).upper()
             if "BAJISTA" in tipo or "CRASH" in tipo:
                 return True, f"BANDA {sym} {tipo}"
-    except: pass
+        return False, ""
+    for s, reg in ESTADO.get("regimenes", {}).items():
+        rs = reg.split()[0] if reg else ""
+        if rs in ("BAJISTA","CRASH"):
+            return True, f"{s} {reg}"
     return False, ""
+
 PROXY_LIST_RAW = os.getenv("PROXY_LIST") or os.getenv("PROXY_URL") or os.getenv("HTTPS_PROXY") or ""
 RAW_SPLIT = [clean_key(c) for c in PROXY_LIST_RAW.split(",") if clean_key(c)]
 if not RAW_SPLIT: RAW_SPLIT = ["http://ufssgczi:aus6m0vuweru@31.58.9.4:6077","http://ufssgczi:aus6m0vuweru@31.59.20.176:6754"]
@@ -653,7 +642,7 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
                 return False,f"[{symbol}] MOJARRITA BLOQUEADA PAUSA GLOBAL V56.1", 0.05
             if btc_crash_15m(umbral=-1.2):
                 return False,f"[{symbol}] MOJARRITA BLOQUEADA BTC CRASH 15m V56.1", 0.05
-            rojo, _ = mercado_esta_rojo()
+            rojo, _ = mercado_esta_rojo(sym=symbol)
             if rojo:
                 return False,f"[{symbol}] MOJARRITA BLOQUEADA MERCADO ROJO V56.1 {reg_simple}", 0.05
             tiene_mojarra = False; precio_prom_mojarra = 0; count_mojarra = 0
