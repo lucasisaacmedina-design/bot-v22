@@ -966,6 +966,23 @@ def detectar_BI_CEREBRO(regimen):
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     return False, f"V58.2 Esperando gatillo limpio - solo candado V58", MONEDAS_ACTIVAS[0], None, 0
     
+def check_reset_diario(u):
+    try:
+        hoy = ahora_art().strftime("%Y-%m-%d")
+        if u.get("fecha_hoy")!= hoy:
+            u["fecha_hoy"] = hoy
+            u["neto_hoy"] = 0.0
+            u["ops_hoy"] = 0
+            u["ganadas"] = 0
+            u["perdidas"] = 0
+        # asegura que existan
+        if "neto_hoy" not in u: u["neto_hoy"] = 0.0
+        if "ops_hoy" not in u: u["ops_hoy"] = 0
+        if "fecha_hoy" not in u: u["fecha_hoy"] = hoy
+    except Exception as e:
+        print(f"check_reset_diario error: {e}")
+    return u
+
 def get_user_data(uid):
     uid=int(uid)
     with LOCK:
