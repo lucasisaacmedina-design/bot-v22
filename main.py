@@ -627,7 +627,6 @@ def detectar_regimen_sym(symbol):
         if es_mercado_supervivencia(symbol):
             return "SUPERVIVENCIA", f"V58 {symbol} lateral <1.5% 24h - SUPERVIVENCIA"
     except: pass
-
     d1h=get_velas(symbol,"1h",210); d1d=get_velas(symbol,"1d",15)
     if not d1h or not d1d: return "LINEAL", "Sin datos"
     closes_1h=d1h["closes"]; closes_1d=d1d["closes"]
@@ -1140,6 +1139,7 @@ def motor_v45():
                     if _reg == "SUPERVIVENCIA":
                         temp_sup.append(_s)
                 except: pass
+             except: pass          
 
             if len(temp_sup) >= 3:
                 top3 = scanner_06_top3_mejores_oportunidades(temp_sup)
