@@ -228,9 +228,87 @@ MAPA_ANIDADO_V50_9 = {
     "ALCISTA": ["MOJARRA", "PIRANA_BLANCA","RATITA_BLANCA","RATITA", "RATA", "LOBO"],
     "ALCISTA_FUERTE": ["MOJARRA", "PIRANA_BLANCA","RATITA_BLANCA","RATITA", "RATA", "LOBO", "TIBURON"],
     "BAJISTA": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO"],
-    "CRASH": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO", "TIBURON_NEGRO", "KRAKEN"]
+    "CRASH": ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA", "RATA_NEGRA", "LOBO_NEGRO", "TIBURON_NEGRO", "KRAKEN"],
+    "SUPERVIVENCIA": ["MOJARRITA_SUPERVIVENCIA"]
 }
 MAPA_ESTRATEGIA = {"LINEAL_MUERTO": "MANADA LIBRE MOJARRA+MOJARRITA x6 FONDO V57", "LINEAL": "MOJARRA 0.3% + RATITA_BLANCA RSI32 V57", "ALCISTA": "REGIMEN 3 LOBO 1.2% JEFE V57", "ALCISTA_FUERTE": "REGIMEN 4 LOBO 1.2% + TIBURON 5-10% V57", "BAJISTA": "REGIMEN 5 LOBO_NEGRO 1.2% JEFE V57 + RATITA_NEGRA RSI68 V57", "CRASH": "REGIMEN 6 CRASH TIBURON_NEGRO 5-10% + KRAKEN V57"}
+
+# ==================== 06 SUPERVIVENCIA ADAPTATIVA - V58.1 FINAL ====================
+# BLOQUE 06 - MOJARRITA SUPERVIVENCIA + SCANNER TOP1/TOP2 ROTATIVO ADAPTATIVO
+# Se adapta a cualquier moneda nueva que agregues al TOP
+
+ESTRATEGIAS_V45["MOJARRITA_SUPERVIVENCIA"] = {
+    "nombre": "MOJARRITA_SUPERVIVENCIA",
+    "riesgo": 0.05,
+    "tp": 0.008,
+    "sl": 0.015,
+    "rsi_compra": 25,
+    "rsi_venta": 60,
+    "tipo": "SCALP_SUPERVIVENCIA"
+}
+
+def es_mercado_supervivencia(symbol="BTCUSDT"):
+    """V58.1 ADAPTATIVO - Detecta si SYMBOL está en lateral muerto"""
+    try:
+        velas = get_velas(symbol, "1h", 50)
+        if not velas or len(velas) < 30:
+            return False
+        if isinstance(velas, dict):
+            closes = velas.get("closes", [])
+        else:
+            closes = [float(v[4]) for v in velas]
+        if len(closes) < 24:
+            return False
+        var_24h = abs(closes[-1] - closes[-24]) / closes[-24] if closes[-24]!= 0 else 0
+        rsi_val = rsi_calc(closes, 14)
+        return var_24h < 0.015 and 38 < rsi_val < 62
+    except:
+        return False
+
+def scanner_06_mejor_oportunidad(symbols_top20):
+    """Scanner rotativo TOP1/TOP2 que busca la mejor mojarrita en modo supervivencia"""
+    mejor = None
+    mejor_score = -999
+    try:
+        for sym in symbols_top20[:12]:
+            velas = get_velas(sym, "5m", 100)
+            if not velas or len(velas) < 50:
+                continue
+            if isinstance(velas, dict):
+                closes = velas.get("closes", [])
+            else:
+                closes = [float(v[4]) for v in velas]
+            rsi = rsi_calc(closes, 14)
+            if rsi < 30:
+                vol = float(velas[-1][5]) if not isinstance(velas, dict) else 0
+                score = (30 - rsi) + (vol / 1000000)
+                if score > mejor_score:
+                    mejor_score = score
+                    mejor = (sym, rsi, closes[-1])
+    except Exception as e:
+        print(f"[06] error scanner: {e}")
+    return mejor
+
+def ejecutar_mojarrita_supervivencia(sym, precio, rsi):
+    """Lanza la caza de supervivencia con notificacion especial"""
+    try:
+        estrategia = ESTRATEGIAS_V45["MOJARRITA_SUPERVIVENCIA"]
+        notificar_caza(
+            simbolo=sym,
+            estrategia="MOJARRITA_SUPERVIVENCIA",
+            precio=precio,
+            rsi=rsi,
+            regimen="SUPERVIVENCIA",
+            extra=f"SCANNER TOP1 SCORE RSI:{rsi:.1f} V58.1"
+        )
+        return True
+    except Exception as e:
+        print(f"[06] error ejecutar: {e}")
+        return False
+
+print("[OK] BLOQUE 06 V58.1 CARGADO - SUPERVIVENCIA ADAPTATIVA")
+# ==================== FIN BLOQUE 06 ====================#
+
 def estrategia_prevista(regimen_txt):
     reg = regimen_txt.split()[0] if regimen_txt else "LINEAL"
     return MAPA_ESTRATEGIA.get(reg, "MANADA LIBRE")
@@ -491,25 +569,65 @@ def vender_mojarra_vieja_en_profit_y_recargar():
     except: pass
     return False
 def get_umbral_adaptativo(regimen):
+    # === V58.2 KRAKEN 2.0 ADAPTATIVO POR MONEDA - SIN FRENO GLOBAL ===
     reg = regimen.split()[0] if regimen else "LINEAL"
-    if reg == "ALCISTA_FUERTE": return {"rsi_kraken": 30.5, "rsi_pirana": 35, "rsi_pirana_negra": 30, "vsa_kraken_base": 1.3, "vsa_negra_base": 1.3, "adx_tiburon": 28, "rsi_lobo_min": 48, "rsi_rata_max": 42, "rsi_lobo_negro_max": 60, "rsi_rata_negra_min": 65}
-    elif reg == "ALCISTA": return {"rsi_kraken": 29.5, "rsi_pirana": 33, "rsi_pirana_negra": 29, "vsa_kraken_base": 1.4, "vsa_negra_base": 1.4, "adx_tiburon": 30, "rsi_lobo_min": 45, "rsi_rata_max": 45, "rsi_lobo_negro_max": 55, "rsi_rata_negra_min": 65}
-    elif reg == "BAJISTA": return {"rsi_kraken": 27.5, "rsi_pirana": 30, "rsi_pirana_negra": 35, "vsa_kraken_base": 1.6, "vsa_negra_base": 1.3, "adx_tiburon": 35, "rsi_lobo_min": 999, "rsi_rata_max": 30, "rsi_lobo_negro_max": 55, "rsi_rata_negra_min": 55}
-    elif reg == "CRASH": return {"rsi_kraken": 30.0, "rsi_pirana": 28, "rsi_pirana_negra": 40, "vsa_kraken_base": 1.3, "vsa_negra_base": 1.3, "adx_tiburon": 35, "rsi_lobo_min": 999, "rsi_rata_max": 30, "rsi_lobo_negro_max": 60, "rsi_rata_negra_min": 50}
-    elif reg == "LINEAL": return {"rsi_kraken": 29.0, "rsi_pirana": 38, "rsi_pirana_negra": 28, "vsa_kraken_base": 1.3, "vsa_negra_base": 1.3, "adx_tiburon": 28, "rsi_lobo_min": 52, "rsi_rata_max": 38, "rsi_lobo_negro_max": 55, "rsi_rata_negra_min": 60}
-    else: return {"rsi_kraken": 27.5, "rsi_pirana": 30, "rsi_pirana_negra": 28, "vsa_kraken_base": 1.6, "vsa_negra_base": 1.6, "adx_tiburon": 35, "rsi_lobo_min": 999, "rsi_rata_max": 30, "rsi_lobo_negro_max": 55, "rsi_rata_negra_min": 60}
-def detectar_regimen_sym(symbol):
+    btc_delta = 0.0
     try:
-        if btc_crash_15m(umbral=-1.2):
-            return "BAJISTA", f"V57 FORZADO BTC CRASH 15m -1.2%"
-        cambio_btc = get_cambio_24h("BTCUSDT")
-        if cambio_btc <= -3.5:
-            return "CRASH", f"V57 FORZADO BTC {cambio_btc:.1f}% CRASH"
-        if cambio_btc <= -1.8 and symbol!= "BTCUSDT":
-            return "BAJISTA", f"V57 FORZADO BTC {cambio_btc:.1f}%"
-        if cambio_btc <= -1.8 and symbol== "BTCUSDT":
-            return "BAJISTA", f"V57 FORZADO BTC {cambio_btc:.1f}%"
+        if 'BTC_PRECIOS' in globals() and len(BTC_PRECIOS) > 4:
+            btc_delta = ((BTC_PRECIOS[-1] - BTC_PRECIOS[-5]) / BTC_PRECIOS[-5]) * 100
+    except: btc_delta = 0.0
+
+    ajuste = 0.0
+    if btc_delta <= -1.2: ajuste = -4.0
+    elif btc_delta <= -0.6: ajuste = -2.0
+    elif btc_delta >= 1.0: ajuste = 1.0
+
+    if reg == "ALCISTA_FUERTE": return {"rsi_kraken": max(20, 30.5 + ajuste), "rsi_pirana": 35, "rsi_pirana_negra": 30, "vsa_kraken_base": 1.3}
+    elif reg == "ALCISTA": return {"rsi_kraken": max(20, 29.5 + ajuste), "rsi_pirana": 33, "rsi_pirana_negra": 29, "vsa_kraken_base": 1.4}
+    elif reg == "BAJISTA": return {"rsi_kraken": max(18, 27.5 + ajuste), "rsi_pirana": 30, "rsi_pirana_negra": 35, "vsa_kraken_base": 1.6}
+    elif reg == "CRASH": return {"rsi_kraken": max(18, 30.0 + ajuste), "rsi_pirana": 28, "rsi_pirana_negra": 40, "vsa_kraken_base": 1.3}
+    elif reg == "LINEAL": return {"rsi_kraken": max(20, 29.0 + ajuste), "rsi_pirana": 38, "rsi_pirana_negra": 28, "vsa_kraken_base": 1.3}
+    else: return {"rsi_kraken": max(18, 27.5 + ajuste), "rsi_pirana": 30, "rsi_pirana_negra": 28, "vsa_kraken_base": 1.6}
+
+# === V58.1 TOP3 MEJORES MOJARRITAS ===
+def scanner_06_top3_mejores_oportunidades(symbols):
+    ops = []
+    for sym in symbols:
+        try:
+            try: rsi = obtener_rsi(sym)
+            except:
+                try: rsi = get_rsi(sym)
+                except: rsi = 50
+            precio = get_precio_robusto(sym)
+            score = 100 - rsi
+            ops.append((score, sym, rsi, precio))
+        except: pass
+    ops.sort(reverse=True, key=lambda x: x[0])
+    return [(sym, rsi, precio) for score, sym, rsi, precio in ops[:3]]
+
+def ejecutar_mojarrita_supervivencia(sym, precio, rsi):
+    try:
+        print(f"[06] MOJARRITA TOP3 -> {sym} RSI:{rsi:.1f}")
+        intentar_comprar(sym, motivo=f"SUPERVIVENCIA TOP3 RSI {rsi:.1f}")
+    except Exception as e:
+        print(f"[06] Error mojarrita {sym}: {e}")
+# === FIN V58.1 TOP3 ===
+
+def detectar_regimen_sym(symbol):
+    # === V58.2 KRAKEN 2.0 ADAPTATIVO POR MONEDA ===
+    btc_delta_15m = 0.0
+    try:
+        # intenta sacar delta BTC 15m de tu lista, si no existe deja 0
+        if 'BTC_PRECIOS' in globals() and len(BTC_PRECIOS) > 4:
+            btc_delta_15m = ((BTC_PRECIOS[-1] - BTC_PRECIOS[-5]) / BTC_PRECIOS[-5]) * 100
+    except: btc_delta_15m = 0.0
+
+    # === V58.1 ADAPTATIVO A TODA MONEDA ===
+    try:
+        if es_mercado_supervivencia(symbol):
+            return "SUPERVIVENCIA", f"V58 {symbol} lateral <1.5% 24h - SUPERVIVENCIA"
     except: pass
+
     d1h=get_velas(symbol,"1h",210); d1d=get_velas(symbol,"1d",15)
     if not d1h or not d1d: return "LINEAL", "Sin datos"
     closes_1h=d1h["closes"]; closes_1d=d1d["closes"]
@@ -1013,6 +1131,28 @@ def motor_v45():
             if btc_price>0:
                 BTC_PRECIOS_15M.append((btc_price, time.time()))
                 if len(BTC_PRECIOS_15M)>20: BTC_PRECIOS_15M = BTC_PRECIOS_15M[-20:]
+         # === V58.1 FILTRO TOP3 SUPERVIVENCIA ===
+        try:
+            temp_sup = []
+            for _s in list(MONEDAS_ACTIVAS)[:15]:
+                try:
+                    _reg, _ = detectar_regimen_sym(_s)
+                    if _reg == "SUPERVIVENCIA":
+                        temp_sup.append(_s)
+                except: pass
+
+            if len(temp_sup) >= 3:
+                top3 = scanner_06_top3_mejores_oportunidades(temp_sup)
+                if top3:
+                    print(f"[06] SUPERVIVENCIA {len(temp_sup)} muertas. TOP3: {[x[0] for x in top3]}")
+                    for sym_m, rsi_m, prec_m in top3:
+                        ejecutar_mojarrita_supervivencia(sym_m, prec_m, rsi_m)
+                    time.sleep(300)
+                    continue
+        except: pass
+        # === FIN FILTRO TOP3 ===
+
+        for sym in list(MONEDAS_ACTIVAS): # tu linea original sigue aca                   
             for sym in list(MONEDAS_ACTIVAS):
                 reg, det = detectar_regimen_sym(sym)
                 reset_si_cambio_regimen(sym, reg)
