@@ -893,15 +893,13 @@ def detectar_BI_CEREBRO(regimen):
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
         if is_moneda_bloqueada(sym): continue
-        # V57.1 FIX - SACAMOS PAUSA GLOBAL Y BLOQUEO LONG GLOBAL
-        total_madres_en_sym = sum(1 for uid2, lista2 in POSICIONES_ABIERTAS.items() for p in lista2 if p.get("symbol")==sym and p.get("estrategia") in ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","RATITA_BLANCA","RATITA_NEGRA"])
+        total_madres_en_sym = sum(1 for uid2, lista2 in POSICIONES_ABIERTAS.items() for p in (lista2 if isinstance(lista2,list) else []) if p.get("symbol")==sym and p.get("estrategia") in ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","RATITA_BLANCA","RATITA_NEGRA"])
         tib_en_sym = tib_por_moneda.get(sym,0)
         tib_negro_en_sym = tib_negro_por_moneda.get(sym,0)
         kraken_en_sym = kraken_por_moneda.get(sym,0)
         reg_sym = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
         cambio_24h = get_cambio_24h(sym)
 
-        # V57.1 - ORDEN POR REGIMEN SIMPLE ESPEJADO - TU DIAGRAMA
         if reg_sym in ("BAJISTA","CRASH"):
             if cambio_24h > -3: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","MOJARRITA"]
             elif cambio_24h > -5: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","MOJARRITA"]
@@ -913,34 +911,42 @@ def detectar_BI_CEREBRO(regimen):
             else: orden = ["MOJARRA","MOJARRITA","PIRANA_BLANCA","RATITA","RATITA_BLANCA","RATA"]
 
         for nombre in orden:
-            if not candado(nombre, reg_sym, sym=sym): continue
-            # V57.1 FIX - NO BLOQUEA BLANCAS POR CLIMA ROJO GLOBAL - SOLO POR SU REGIMEN
-            MADRES = ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","RATITA_BLANCA","RATITA_NEGRA"]
-            if nombre in MADRES and total_madres_en_sym >= 3: continue
-            if nombre == "KRAKEN" and kraken_en_sym >= 1: continue
-            if nombre == "TIBURON" and tib_en_sym >= 1: continue
-            if nombre == "TIBURON_NEGRO" and tib_negro_en_sym >= 1: continue
-            if nombre == "TIBURON" and total_tib_global >= 2: continue
-            if nombre == "TIBURON_NEGRO" and total_tib_global >= 2: continue
-            if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym, "RATA")
-            elif nombre=="RATITA": ok,motivo,wr = detectar_RATA_sym(sym, "RATITA")
-            elif nombre=="RATITA_BLANCA": ok,motivo,wr = detectar_RATA_sym(sym, "RATITA_BLANCA")
-            elif nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
-            elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
-            elif nombre in ["PIRANA_BLANCA","PIRANA"]: ok,motivo,wr = detectar_RATA_sym(sym, "PIRANA_BLANCA")
-            elif nombre in ["RATA_NEGRA","PIRANA_NEGRA","MOJARRA_NEGRA","RATITA_NEGRA"]: ok,motivo,wr = detectar_SHORT_sym(sym, nombre)
-            elif nombre=="LOBO": ok,motivo,wr = detectar_LOBO_sym(sym)
-            elif nombre=="LOBO_NEGRO": ok,motivo,wr = detectar_LOBO_NEGRO_sym(sym)
-            elif nombre=="TIBURON": ok,motivo,wr = detectar_TIBURON_sym(sym)
-            elif nombre=="TIBURON_NEGRO": ok,motivo,wr = detectar_TIBURON_NEGRO_sym(sym)
-            else: ok,motivo,wr = detectar_KRAKEN_sym(sym)
-            tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
-            if tp_a == 0: tp_a = 0.3
-            if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
-                mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V57.1 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
+            try:
+                if not candado(nombre, reg_sym, sym=sym): continue
+                MADRES = ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","RATITA_BLANCA","RATITA_NEGRA"]
+                if nombre in MADRES and total_madres_en_sym >= 3: continue
+                if nombre == "KRAKEN" and kraken_en_sym >= 1: continue
+                if nombre == "TIBURON" and tib_en_sym >= 1: continue
+                if nombre == "TIBURON_NEGRO" and tib_negro_en_sym >= 1: continue
+                if nombre == "TIBURON" and total_tib_global >= 2: continue
+                if nombre == "TIBURON_NEGRO" and total_tib_global >= 2: continue
+
+                ok=False; motivo=""; wr=0
+                if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym, "RATA")
+                elif nombre=="RATITA": ok,motivo,wr = detectar_RATA_sym(sym, "RATITA")
+                elif nombre=="RATITA_BLANCA": ok,motivo,wr = detectar_RATA_sym(sym, "RATITA_BLANCA")
+                elif nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
+                elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
+                elif nombre in ["PIRANA_BLANCA","PIRANA"]: ok,motivo,wr = detectar_RATA_sym(sym, "PIRANA_BLANCA")
+                elif nombre in ["RATA_NEGRA","PIRANA_NEGRA","MOJARRA_NEGRA","RATITA_NEGRA"]: ok,motivo,wr = detectar_SHORT_sym(sym, nombre)
+                elif nombre=="LOBO": ok,motivo,wr = detectar_LOBO_sym(sym)
+                elif nombre=="LOBO_NEGRO": ok,motivo,wr = detectar_LOBO_NEGRO_sym(sym)
+                elif nombre=="TIBURON": ok,motivo,wr = detectar_TIBURON_sym(sym)
+                elif nombre=="TIBURON_NEGRO": ok,motivo,wr = detectar_TIBURON_NEGRO_sym(sym)
+                else: ok,motivo,wr = detectar_KRAKEN_sym(sym)
+
+                tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
+                if tp_a == 0: tp_a = 0.3
+                if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
+                    mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V57.1 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
+            except Exception as e_interno:
+                # V57.1 FIX: Si una estrategia crashea por falta de rsi_rata_max, no tumba todo
+                print(f"Skip {nombre} {sym}: {e_interno}")
+                continue
+
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     return False, f"V57.1 CAZANDO MOJARRA - RSI bajo detectado esperando senal V57", MONEDAS_ACTIVAS[0], None, 0
-
+    
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
     if u.get("fecha_hoy")!=hoy:
