@@ -269,26 +269,41 @@ def scanner_mejor_oportunidad_v58():
     global ULTIMO_SCANNER_V58, TOP_MONEDAS_V58
     import time
     ahora = time.time()
-    if ahora - ULTIMO_SCANNER_V58 < TIEMPO_SCANNER_V58 and TOP_MONEDAS_V58:
+    # FIX V58.1a: Si no pasaron 5min, salir SIN log ni recalcular
+    if ahora - ULTIMO_SCANNER_V58 < TIEMPO_SCANNER_V58:
         return TOP_MONEDAS_V58
 
-    print("🔍 [BLOQUE 06 V58.1] SCANNER ROTATIVO 5MIN...")
+    print("🔍 [BLOQUE 06 V58.1a] SCANNER ROTATIVO 5MIN...")
     scores = []
     for symbol in MONEDAS:
         try:
             velas = get_velas(symbol, "5m", 100)
-            if not velas or len(velas) < 50: continue
+            if not velas or len(velas) < 50:
+                continue
             closes = velas.get("closes", []) if isinstance(velas, dict) else [float(v[4]) for v in velas]
-            if len(closes) < 30: continue
+            if len(closes) < 30:
+                continue
 
-            adx_v = adx_calc(closes, 14) if 'adx_calc' in globals() else 20
             rsi_v = rsi_calc(closes, 14)
-            atr_v = atr_calc(closes, 14) if 'atr_calc' in globals() else 0.5
-            vol_v = volumen_relativo(symbol) if 'volumen_relativo' in globals() else 1.0
+            # FILTRO FOTO 06: RSI >85 NO CAZA
+            if rsi_v > 85:
+                continue
 
-            # FILTROS FOTO 06
-            if rsi_v > 85: continue
-            # Anti-pump 20>50
+            # FIX: valores seguros si no tenes esas funciones
+            try:
+                adx_v = adx_calc(closes, 14)
+            except:
+                adx_v = 20
+            try:
+                atr_v = atr_calc(closes, 14)
+            except:
+                atr_v = 0.5
+            try:
+                vol_v = volumen_relativo(symbol)
+            except:
+                vol_v = 1.0
+
+            # Anti-pump 20>50 de tu foto
             if vol_v > 2.0 and rsi_v > 70:
                 print(f"⚠️ {symbol} ANTI-PUMP 20>50 SALTEADO")
                 continue
@@ -296,16 +311,21 @@ def scanner_mejor_oportunidad_v58():
             score = calcular_score_v58(adx_v, rsi_v, atr_v, vol_v)
             scores.append((symbol, score, {"adx":adx_v,"rsi":rsi_v,"atr":atr_v,"vol":vol_v}))
         except Exception as e:
+            print(f"Scanner error {symbol}: {e}")
             continue
 
     scores.sort(key=lambda x: x[1], reverse=True)
-    TOP_MONEDAS_V58 = scores[:2] # TOP1/TOP2 monedas distintas de tu foto
-    ULTIMO_SCANNER_V58 = ahora
+    TOP_MONEDAS_V58 = scores[:2] if scores else TOP_MONEDAS_V58 # si queda vacío, mantiene el anterior
+    ULTIMO_SCANNER_V58 = ahora # FIX CRITICO: siempre actualiza el timer aunque falle
 
     if TOP_MONEDAS_V58:
         print(f"✅ [BLOQUE 06] TOP1: {TOP_MONEDAS_V58[0][0]} SCORE {TOP_MONEDAS_V58[0][1]:.1f} RSI {TOP_MONEDAS_V58[0][2]['rsi']:.1f}")
-    return TOP_MONEDAS_V58
+        if len(TOP_MONEDAS_V58) > 1:
+            print(f"✅ [BLOQUE 06] TOP2: {TOP_MONEDAS_V58[1][0]} SCORE {TOP_MONEDAS_V58[1][1]:.1f} RSI {TOP_MONEDAS_V58[1][2]['rsi']:.1f}")
+    else:
+        print(f"⚠️ [BLOQUE 06] Scanner vacío - get_velas() no devuelve datos")
 
+    return TOP_MONEDAS_V58
 def es_mercado_supervivencia(symbol="BTCUSDT"):
     """V58.1 ADAPTATIVO - Ahora usa el SCANNER TOP1/TOP2"""
     try:
