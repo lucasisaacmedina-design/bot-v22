@@ -690,11 +690,23 @@ def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     reg = ESTADO.get("regimenes",{}).get(symbol,"LINEAL")
     closes=d5["closes"]; rsi=rsi_calc(closes,7)
     reg_simple = reg.split()[0] if reg else "LINEAL"
+
+    # V58.2 FIX BAJISTA - en BAJISTA/CRASH cazamos SHORT con RSI mucho más bajo
+    if reg_simple in ["BAJISTA", "CRASH", "BAJISTA_FUERTE"]:
+        if rsi >= 42:
+            return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=42 SHORT {reg_simple} V58.2 CAZA BAJISTA", 0.85
+        if rsi >= 35: # continuidad bajista
+            return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)} BAJISTA CONTINUIDAD SHORT {reg_simple} V58.2", 0.75
+        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/35 {reg_simple}", 0.30
+
     if estrategia_nombre == "MOJARRA_NEGRA":
-        if rsi >= 58: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=58 SHORT {reg_simple} V57", 0.85
-        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/58 {reg_simple}", 0.30
-    if rsi >= 60: return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=60 SHORT {reg_simple} V57", 0.75
-    return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/60 {reg_simple}", 0.30
+        if rsi >= 52: # antes 58, muy alto, lo bajamos a 52 para LINEAL/ALCISTA agotado
+            return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=52 SHORT {reg_simple} V58.2", 0.85
+        return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/52 {reg_simple}", 0.30
+
+    if rsi >= 55: # antes 60
+        return True,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}>=55 SHORT {reg_simple} V58.2", 0.75
+    return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/55 {reg_simple}", 0.30
     
 def detectar_LOBO_sym(symbol):
     d=get_velas(symbol,"1h",100)
@@ -946,14 +958,14 @@ def detectar_BI_CEREBRO(regimen):
                 tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
                 if tp_a == 0: tp_a = 0.3
                 if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
-                    mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V57.1 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
+                    mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V58.2 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
             except Exception as e_interno:
-                # V57.1 FIX: Si una estrategia crashea por falta de rsi_rata_max, no tumba todo
                 print(f"Skip {nombre} {sym}: {e_interno}")
                 continue
 
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    return False, f"V57.1 CAZANDO MOJARRA - RSI bajo detectado esperando senal V57", MONEDAS_ACTIVAS[0], None, 0
+    # V58.2 - Mensaje real de por qué no cazó, ya no más "SIN GLOBAL" ciego
+    return False, f"V58.2 BAJISTA BUSCANDO - RSI 35-42 revisado, esperando gatillo V58.2", MONEDAS_ACTIVAS[0], None, 0    
     
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
