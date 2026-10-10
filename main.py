@@ -901,7 +901,6 @@ def detectar_BI_CEREBRO(regimen):
             if p.get("estrategia") == "TIBURON": tib_por_moneda[sym] = tib_por_moneda.get(sym,0)+1
             if p.get("estrategia") == "TIBURON_NEGRO": tib_negro_por_moneda[sym] = tib_negro_por_moneda.get(sym,0)+1
             if p.get("estrategia") == "KRAKEN": kraken_por_moneda[sym] = kraken_por_moneda.get(sym,0)+1
-    rojo, motivo_rojo = mercado_esta_rojo()
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
         if is_moneda_bloqueada(sym): continue
@@ -912,6 +911,7 @@ def detectar_BI_CEREBRO(regimen):
         kraken_en_sym = kraken_por_moneda.get(sym,0)
         reg_sym = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
         cambio_24h = get_cambio_24h(sym)
+        rojo_sym, motivo_rojo_sym = mercado_esta_rojo(sym=sym)
         try:
             d5_rsi_check = get_velas("BTCUSDT","5m",20)
             if d5_rsi_check:
@@ -919,7 +919,7 @@ def detectar_BI_CEREBRO(regimen):
                 if rsi_btc < 12 and not es_bloqueo_long_total():
                     activar_kraken_stradivarius_V56_4(f"RSI_BTC {rsi_btc:.0f}<12")
         except: pass
-        if reg_sym in ("BAJISTA","CRASH") or rojo:
+        if reg_sym in ("BAJISTA","CRASH") or rojo_sym:
             if es_bajista_profundo_activo() or es_bloqueo_long_total():
                 orden = ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA"]
             else:
@@ -933,7 +933,7 @@ def detectar_BI_CEREBRO(regimen):
             else: orden = ["MOJARRA","PIRANA_BLANCA","RATITA","RATITA_BLANCA","RATA","LOBO","TIBURON","KRAKEN"]
         for nombre in orden:
             if not candado(nombre, reg_sym): continue
-            if rojo and nombre in BLANCAS_SET: continue
+            if rojo_sym and nombre in BLANCAS_SET: continue
             if es_bloqueo_long_total() and nombre in BLANCAS_SET: continue
             if nombre in BLANCAS and nombre not in MADRES_LIBRES_V52:
                 if not candado_evolucion_V51(sym, nombre, reg_sym): continue
@@ -962,7 +962,6 @@ def detectar_BI_CEREBRO(regimen):
             if ok and wr > mejor_fuerza and es_rentable(tp_a, nombre)[0]:
                 mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V56.5 Nv{EVOLUCION_NIVEL_NEGRA.get(sym,{}).get(reg_sym,1) if nombre in NEGRAS else EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
     if mejor_est: return False, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    if rojo: return False, f"CANDADO 3-NIVELES {motivo_rojo}", MONEDAS_ACTIVAS[0], None, 0
     if hay_pausa_global(): return False, f"V56.5 PAUSA PANICO {int((PAUSA_GLOBAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
     if es_bloqueo_long_total(): return False, f"V56.5 BAJISTA_PROFUNDO BLOQUEO LONG {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
     return False, f"V56.5 BLINDADA STRADIVARIUS", MONEDAS_ACTIVAS[0], None, 0
