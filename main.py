@@ -79,6 +79,8 @@ EVOLUCION_NIVEL_NEGRA = {}
 CONTADOR_NEGRA_POR_REGIMEN = {}
 BAJISTA_PROFUNDO_HASTA = 0
 BLOQUEO_LONG_TOTAL_HASTA = 0
+BAJISTA_PROFUNDO_POR_MONEDA = {}
+BLOQUEO_LONG_POR_MONEDA = {}
 CONTADOR_SL_NEGRA_SEGUIDOS = 0
 
 def is_moneda_bloqueada(sym):
@@ -104,10 +106,14 @@ def registrar_escape(sym):
 def hay_pausa_global():
     return time.time() < PAUSA_GLOBAL_HASTA
 
-def es_bajista_profundo_activo():
+def es_bajista_profundo_activo(sym=None):
+    if sym and sym in BAJISTA_PROFUNDO_POR_MONEDA:
+        return time.time() < BAJISTA_PROFUNDO_POR_MONEDA[sym]
     return time.time() < BAJISTA_PROFUNDO_HASTA
 
-def es_bloqueo_long_total():
+def es_bloqueo_long_total(sym=None):
+    if sym and sym in BLOQUEO_LONG_POR_MONEDA:
+        return time.time() < BLOQUEO_LONG_POR_MONEDA[sym]
     return time.time() < BLOQUEO_LONG_TOTAL_HASTA
 
 def btc_crash_15m(umbral=-2.5):
@@ -155,9 +161,12 @@ BLANCAS = {"MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATITA_BLANC
 NEGRAS = {"MOJARRA_NEGRA","PIRANA_NEGRA","PIRAÑA_NEGRA","RATITA_NEGRA","RATA_NEGRA","LOBO_NEGRO","KRAKEN","TIBURON_NEGRO"}
 MADRES_LIBRES_V52 = {"LOBO","TIBURON","KRAKEN","LOBO_NEGRO","TIBURON_NEGRO"}
 
-def candado(est, regimen):
+def candado(est, regimen, sym=None):
     r = regimen.split()[0]
-    if es_bloqueo_long_total() and est in BLANCAS: return False
+    if r == "LINEAL_MUERTO" and est in ["MOJARRA","MOJARRITA"]:
+        return True
+    if es_bloqueo_long_total(sym) and est in BLANCAS:
+        return False
     if est=="LOBO" and r not in ["ALCISTA","ALCISTA_FUERTE"]: return False
     if est=="TIBURON" and r!="ALCISTA_FUERTE": return False
     if est=="TIBURON_NEGRO" and r!="CRASH": return False
@@ -175,7 +184,7 @@ def cierre_market_cambio(sym, reg_nuevo, reg_viejo_override=None):
     for uid in list(POSICIONES_ABIERTAS.keys()):
         for p in POSICIONES_ABIERTAS[uid][:]:
             if p.get("symbol")!=sym: continue
-            if not candado(p["estrategia"], reg_nuevo):
+            if not candado(p["estrategia"], reg_nuevo, sym=sym):
                 entrada = p.get("entrada",0)
                 if entrada==0: continue
                 if p["estrategia"] in NEGRAS:
@@ -198,7 +207,7 @@ def cierre_forzado_por_candado():
         for p in POSICIONES_ABIERTAS[uid][:]:
             sym = p.get("symbol")
             reg_actual = ESTADO.get("regimenes",{}).get(sym,"LINEAL")
-            if not candado(p["estrategia"], reg_actual):
+            if not candado(p["estrategia"], reg_actual, sym=sym):
                 precio_actual = get_precio_robusto(sym)
                 entrada = p.get("entrada",0)
                 if entrada==0: continue
@@ -301,11 +310,17 @@ def candado_evolucion_negra_V56_4(sym, estrategia, regimen):
     if nivel >= 4: return estrategia in ["RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO"]
     return False
 
-def activar_kraken_stradivarius_V56_4(motivo="2 SL"):
+def activar_kraken_stradivarius_V56_4(motivo="2 SL", sym=None):
     global BAJISTA_PROFUNDO_HASTA, BLOQUEO_LONG_TOTAL_HASTA, KRAKEN_BLOQUEO_HASTA
-    BAJISTA_PROFUNDO_HASTA = time.time() + 7200
-    BLOQUEO_LONG_TOTAL_HASTA = time.time() + 7200
-    KRAKEN_BLOQUEO_HASTA = time.time() + 7200
+    ahora = time.time()
+    if sym:
+        BAJISTA_PROFUNDO_POR_MONEDA[sym] = ahora + 7200
+        BLOQUEO_LONG_POR_MONEDA[sym] = ahora + 7200
+    else:
+        BAJISTA_PROFUNDO_HASTA = ahora + 7200
+        BLOQUEO_LONG_TOTAL_HASTA = ahora + 7200
+    KRAKEN_BLOQUEO_HASTA = ahora + 7200
+    print(f"V56.5.2 STRADIVARIUS {sym or 'GLOBAL'} {motivo}")
 
 def detectar_TIBURON_NEGRO_sym(symbol):
     d=get_velas(symbol,"1d",210); d1h=get_velas(symbol,"1h",50)
@@ -332,7 +347,6 @@ def estrategia_prevista(regimen_txt):
     return MAPA_ESTRATEGIA.get(reg, "MANADA LIBRE")
 BLANCAS_SET = {"MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATITA_BLANCA","RATA","LOBO","TIBURON"}
 
-# >>> UNICO FIX POR MONEDAS DEFINIDO <<<
 def mercado_esta_rojo(sym=None):
     if sym:
         reg = ESTADO.get("regimenes",{}).get(sym,"")
@@ -916,11 +930,11 @@ def detectar_BI_CEREBRO(regimen):
             d5_rsi_check = get_velas("BTCUSDT","5m",20)
             if d5_rsi_check:
                 rsi_btc = rsi_calc(d5_rsi_check["closes"],7)
-                if rsi_btc < 12 and not es_bloqueo_long_total():
-                    activar_kraken_stradivarius_V56_4(f"RSI_BTC {rsi_btc:.0f}<12")
+                if rsi_btc < 12 and not es_bloqueo_long_total(sym=sym):
+                    activar_kraken_stradivarius_V56_4(f"RSI_BTC {rsi_btc:.0f}<12", sym=sym)
         except: pass
         if reg_sym in ("BAJISTA","CRASH") or rojo_sym:
-            if es_bajista_profundo_activo() or es_bloqueo_long_total():
+            if es_bajista_profundo_activo(sym=sym) or es_bloqueo_long_total(sym=sym):
                 orden = ["MOJARRA_NEGRA", "PIRANA_NEGRA", "RATITA_NEGRA"]
             else:
                 if cambio_24h > -3: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA"]
@@ -932,9 +946,9 @@ def detectar_BI_CEREBRO(regimen):
             elif reg_sym == "LINEAL_MUERTO": orden = ["MOJARRA", "MOJARRITA"]
             else: orden = ["MOJARRA","PIRANA_BLANCA","RATITA","RATITA_BLANCA","RATA","LOBO","TIBURON","KRAKEN"]
         for nombre in orden:
-            if not candado(nombre, reg_sym): continue
+            if not candado(nombre, reg_sym, sym=sym): continue
             if rojo_sym and nombre in BLANCAS_SET: continue
-            if es_bloqueo_long_total() and nombre in BLANCAS_SET: continue
+            if es_bloqueo_long_total(sym=sym) and nombre in BLANCAS_SET: continue
             if nombre in BLANCAS and nombre not in MADRES_LIBRES_V52:
                 if not candado_evolucion_V51(sym, nombre, reg_sym): continue
             if nombre in NEGRAS and nombre not in MADRES_LIBRES_V52:
@@ -963,7 +977,7 @@ def detectar_BI_CEREBRO(regimen):
                 mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V56.5 Nv{EVOLUCION_NIVEL_NEGRA.get(sym,{}).get(reg_sym,1) if nombre in NEGRAS else EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
     if mejor_est: return False, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
     if hay_pausa_global(): return False, f"V56.5 PAUSA PANICO {int((PAUSA_GLOBAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
-    if es_bloqueo_long_total(): return False, f"V56.5 BAJISTA_PROFUNDO BLOQUEO LONG {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
+    if es_bloqueo_long_total(): return False, f"V56.5 BAJISTA_PROFUNDO BLOQUEO LONG GLOBAL {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min", MONEDAS_ACTIVAS[0], None, 0
     return False, f"V56.5 BLINDADA STRADIVARIUS", MONEDAS_ACTIVAS[0], None, 0
 
 def check_reset_diario(u):
@@ -996,11 +1010,11 @@ def guardar_datos():
             with open(POS_FILE,"w") as f: json.dump(POSICIONES_ABIERTAS,f,indent=2)
             with open(BANDA_FILE,"w") as f: json.dump(BANDAS_ACTIVAS,f,indent=2)
             with open(CONTADOR_FILE,"w") as f: json.dump({"tps": CONTADOR_TP_EXPANSION, "monedas": MONEDAS_ACTIVAS, "tanque": TANQUE_BNB_USDT}, f, indent=2)
-            with open(os.path.join(DATA_DIR,"pirana_v50.json"),"w") as f: json.dump({"estado": ESTADO_PIRANA, "estado_negra": ESTADO_PIRANA_NEGRA, "cache": CANDIDATAS_CACHE, "bandas_tiempo": BANDAS_TIEMPO_FUERA, "kraken": {"sl_count": KRAKEN_SL_COUNT, "bloqueo_hasta": KRAKEN_BLOQUEO_HASTA}, "v51_reg_ant": REG_ANT, "v51_contadores": CONTADOR_POR_REGIMEN, "v51_niveles": EVOLUCION_NIVEL, "v56": {"escape_block": ESCAPE_BLOCK, "escapes": ESCAPES_TIMELINE, "pausa": PAUSA_GLOBAL_HASTA, "bajista_profundo": BAJISTA_PROFUNDO_HASTA, "bloqueo_long": BLOQUEO_LONG_TOTAL_HASTA, "evol_negra": EVOLUCION_NIVEL_NEGRA, "cont_negra": CONTADOR_NEGRA_POR_REGIMEN, "sl_negra_seguidos": CONTADOR_SL_NEGRA_SEGUIDOS}},f,indent=2)
+            with open(os.path.join(DATA_DIR,"pirana_v50.json"),"w") as f: json.dump({"estado": ESTADO_PIRANA, "estado_negra": ESTADO_PIRANA_NEGRA, "cache": CANDIDATAS_CACHE, "bandas_tiempo": BANDAS_TIEMPO_FUERA, "kraken": {"sl_count": KRAKEN_SL_COUNT, "bloqueo_hasta": KRAKEN_BLOQUEO_HASTA}, "v51_reg_ant": REG_ANT, "v51_contadores": CONTADOR_POR_REGIMEN, "v51_niveles": EVOLUCION_NIVEL, "v56": {"escape_block": ESCAPE_BLOCK, "escapes": ESCAPES_TIMELINE, "pausa": PAUSA_GLOBAL_HASTA, "bajista_profundo": BAJISTA_PROFUNDO_HASTA, "bloqueo_long": BLOQUEO_LONG_TOTAL_HASTA, "bajista_profundo_por_moneda": BAJISTA_PROFUNDO_POR_MONEDA, "bloqueo_long_por_moneda": BLOQUEO_LONG_POR_MONEDA, "evol_negra": EVOLUCION_NIVEL_NEGRA, "cont_negra": CONTADOR_NEGRA_POR_REGIMEN, "sl_negra_seguidos": CONTADOR_SL_NEGRA_SEGUIDOS}},f,indent=2)
     except: pass
 
 def cargar_datos():
-    global MONEDAS_ACTIVAS, POSICIONES_ABIERTAS, BANDAS_ACTIVAS, ESTADO_PIRANA, ESTADO_PIRANA_NEGRA, CANDIDATAS_CACHE, BANDAS_TIEMPO_FUERA, CONTADOR_TP_EXPANSION, TANQUE_BNB_USDT, KRAKEN_SL_COUNT, KRAKEN_BLOQUEO_HASTA, REG_ANT, CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, ESCAPE_BLOCK, ESCAPES_TIMELINE, PAUSA_GLOBAL_HASTA, BAJISTA_PROFUNDO_HASTA, BLOQUEO_LONG_TOTAL_HASTA, EVOLUCION_NIVEL_NEGRA, CONTADOR_NEGRA_POR_REGIMEN, CONTADOR_SL_NEGRA_SEGUIDOS
+    global MONEDAS_ACTIVAS, POSICIONES_ABIERTAS, BANDAS_ACTIVAS, ESTADO_PIRANA, ESTADO_PIRANA_NEGRA, CANDIDATAS_CACHE, BANDAS_TIEMPO_FUERA, CONTADOR_TP_EXPANSION, TANQUE_BNB_USDT, KRAKEN_SL_COUNT, KRAKEN_BLOQUEO_HASTA, REG_ANT, CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, ESCAPE_BLOCK, ESCAPES_TIMELINE, PAUSA_GLOBAL_HASTA, BAJISTA_PROFUNDO_HASTA, BLOQUEO_LONG_TOTAL_HASTA, BAJISTA_PROFUNDO_POR_MONEDA, BLOQUEO_LONG_POR_MONEDA, EVOLUCION_NIVEL_NEGRA, CONTADOR_NEGRA_POR_REGIMEN, CONTADOR_SL_NEGRA_SEGUIDOS
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE,"r") as f:
@@ -1049,6 +1063,8 @@ def cargar_datos():
                     PAUSA_GLOBAL_HASTA = v56.get("pausa",0)
                     BAJISTA_PROFUNDO_HASTA = v56.get("bajista_profundo",0)
                     BLOQUEO_LONG_TOTAL_HASTA = v56.get("bloqueo_long",0)
+                    BAJISTA_PROFUNDO_POR_MONEDA = v56.get("bajista_profundo_por_moneda",{})
+                    BLOQUEO_LONG_POR_MONEDA = v56.get("bloqueo_long_por_moneda",{})
                     EVOLUCION_NIVEL_NEGRA = v56.get("evol_negra",{})
                     CONTADOR_NEGRA_POR_REGIMEN = v56.get("cont_negra",{})
                     CONTADOR_SL_NEGRA_SEGUIDOS = v56.get("sl_negra_seguidos",0)
@@ -1229,7 +1245,7 @@ def motor_v45():
                             u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
                             if es_short:
                                 CONTADOR_SL_NEGRA_SEGUIDOS+=1
-                                if CONTADOR_SL_NEGRA_SEGUIDOS>=2: activar_kraken_stradivarius_V56_4("2 SL NEGRA SEGUIDOS V56.5")
+                                if CONTADOR_SL_NEGRA_SEGUIDOS>=2: activar_kraken_stradivarius_V56_4("2 SL NEGRA SEGUIDOS V56.5", sym=pos["symbol"])
                             POSICIONES_ABIERTAS[user_id].remove(pos)
                             guardar_datos()
                             continue
@@ -1279,7 +1295,7 @@ def motor_v45():
                             u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
                             if es_short:
                                 CONTADOR_SL_NEGRA_SEGUIDOS+=1
-                                if CONTADOR_SL_NEGRA_SEGUIDOS>=2: activar_kraken_stradivarius_V56_4("2 SL NEGRA SEGUIDOS V56.5")
+                                if CONTADOR_SL_NEGRA_SEGUIDOS>=2: activar_kraken_stradivarius_V56_4("2 SL NEGRA SEGUIDOS V56.5", sym=pos["symbol"])
                             if pnl <= -1.0: registrar_escape(pos["symbol"])
                         estr = pos.get("estrategia", "MOJARRA")
                         if estr not in u.get("estrategias", {}): u["estrategias"][estr] = {"ops":0,"ganadas":0,"neto":0.0}
@@ -1369,7 +1385,7 @@ def balance(m):
     kraken_estado = f"KRAKEN BLOQ hasta {int((KRAKEN_BLOQUEO_HASTA-time.time())/3600)}h SL:{KRAKEN_SL_COUNT}" if time.time() < KRAKEN_BLOQUEO_HASTA else f"KRAKEN OK SL:{KRAKEN_SL_COUNT}"
     pausa_txt = f"V56.5 PAUSA {int((PAUSA_GLOBAL_HASTA-time.time())/60)}min" if hay_pausa_global() else "V56.5 OK"
     bloqueos_txt = f"BLOQ: {','.join([f'{k[:3]} {int((v-time.time())/60)}m' for k,v in ESCAPE_BLOCK.items()])}" if ESCAPE_BLOCK else "Sin bloqueos"
-    bajista_txt = f"BAJISTA_PROFUNDO {int((BAJISTA_PROFUNDO_HASTA-time.time())/60)}min BLOQ_LONG {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min SL_NEGRA:{CONTADOR_SL_NEGRA_SEGUIDOS}" if es_bajista_profundo_activo() else "BAJISTA OK"
+    bajista_txt = f"BAJISTA_PROFUNDO {int((BAJISTA_PROFUNDO_HASTA-time.time())/60)}min BLOQ_LONG {int((BLOQUEO_LONG_TOTAL_HASTA-time.time())/60)}min SL_NEGRA:{CONTADOR_SL_NEGRA_SEGUIDOS} POR_MONEDA:{','.join(BLOQUEO_LONG_POR_MONEDA.keys())}" if es_bajista_profundo_activo() else "BAJISTA OK"
     v51_txt = "\n".join([f"{sym} {reg}: {cnt}" for sym, d in CONTADOR_POR_REGIMEN.items() for reg, cnt in d.items()]) or "V56.2 contadores"
     v56_txt = "\n".join([f"{sym} {reg}: Nv{lv} {CONTADOR_NEGRA_POR_REGIMEN.get(sym,{}).get(reg,{})}" for sym, d in EVOLUCION_NIVEL_NEGRA.items() for reg, lv in d.items()]) or "V56.5 negra"
     nivel_txt = "\n".join([f"{sym} {reg}: Nv{lv}" for sym, d in EVOLUCION_NIVEL.items() for reg, lv in d.items()]) or ""
@@ -1386,7 +1402,7 @@ def evolucionar(m):
     regs="\n".join([f"{k}: {v} {get_cambio_24h(k):+.1f}%" for k,v in ESTADO.get("regimenes",{}).items()])
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas V56.5"
     rojo, motivo = mercado_esta_rojo()
-    clima = f"CLIMA BTC {ESTADO.get('regimen','LINEAL')} CANDADO:{rojo} {motivo} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} V56.5 AUTO KRAKEN:{KRAKEN_SL_COUNT} BAJISTA:{es_bajista_profundo_activo()} PAUSA:{hay_pausa_global()}"
+    clima = f"CLIMA BTC {ESTADO.get('regimen','LINEAL')} CANDADO:{rojo} {motivo} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} V56.5 AUTO KRAKEN:{KRAKEN_SL_COUNT} BAJISTA:{es_bajista_profundo_activo()} PAUSA:{hay_pausa_global()} POR_MONEDA:{list(BLOQUEO_LONG_POR_MONEDA.keys())}"
     bot.send_message(m.chat.id,f"{clima}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="HISTORIAL")
@@ -1549,7 +1565,7 @@ def api_data():
         u=USUARIOS[target]
         bandas_txt = " | ".join([banda_txt_api(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
         ganancia_total = u["balance"]-u["capital_inicial"]
-        return jsonify({"balance":u["balance"],"capital_inicial":u["capital_inicial"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"regimen_btc":ESTADO.get("regimen","LINEAL"),"regimenes":ESTADO.get("regimenes",{}),"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS,"ganancia_total":ganancia_total,"bandas":BANDAS_ACTIVAS,"bandas_txt":bandas_txt,"posiciones":POSICIONES_ABIERTAS.get(target,[]),"precios":{},"meta_proxima":META_PROFIT_PARA_EXPANDIR,"tps_actual":CONTADOR_TP_EXPANSION,"v51_contadores":CONTADOR_POR_REGIMEN,"v51_niveles":EVOLUCION_NIVEL,"v56_contadores_negra":CONTADOR_NEGRA_POR_REGIMEN,"v56_niveles_negra":EVOLUCION_NIVEL_NEGRA,"bajista_profundo":BAJISTA_PROFUNDO_HASTA,"bloqueo_long":BLOQUEO_LONG_TOTAL_HASTA})
+        return jsonify({"balance":u["balance"],"capital_inicial":u["capital_inicial"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"regimen_btc":ESTADO.get("regimen","LINEAL"),"regimenes":ESTADO.get("regimenes",{}),"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS,"ganancia_total":ganancia_total,"bandas":BANDAS_ACTIVAS,"bandas_txt":bandas_txt,"posiciones":POSICIONES_ABIERTAS.get(target,[]),"precios":{},"meta_proxima":META_PROFIT_PARA_EXPANDIR,"tps_actual":CONTADOR_TP_EXPANSION,"v51_contadores":CONTADOR_POR_REGIMEN,"v51_niveles":EVOLUCION_NIVEL,"v56_contadores_negra":CONTADOR_NEGRA_POR_REGIMEN,"v56_niveles_negra":EVOLUCION_NIVEL_NEGRA,"bajista_profundo":BAJISTA_PROFUNDO_HASTA,"bloqueo_long":BLOQUEO_LONG_TOTAL_HASTA,"bajista_por_moneda":BAJISTA_PROFUNDO_POR_MONEDA,"bloqueo_por_moneda":BLOQUEO_LONG_POR_MONEDA})
     except Exception as e:
         return jsonify({"balance":10000,"capital_inicial":10000,"neto_hoy":0,"modo":"OK","mercado":"OK","regimen_btc":"LINEAL","regimenes":ESTADO.get("regimenes",{}),"estrategias":{},"monedas":MONEDAS_ACTIVAS,"ganancia_total":0,"bandas":BANDAS_ACTIVAS,"bandas_txt":"OK","posiciones":[],"precios":{},"meta_proxima":120,"tps_actual":CONTADOR_TP_EXPANSION,"v51_contadores":CONTADOR_POR_REGIMEN,"v51_niveles":EVOLUCION_NIVEL}),200
 
