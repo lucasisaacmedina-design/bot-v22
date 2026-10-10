@@ -875,55 +875,44 @@ def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     try:
         ahora = time.time()
-        if ahora - ULTIMO_PENSAMIENTO < 1800: return
+        # Log para que veas en Koyeb si entra
+        print(f"[PENSAMIENTO] Check {ahora - ULTIMO_PENSAMIENTO:.0f}s - Usuarios: {len(USUARIOS)}")
+        if ahora - ULTIMO_PENSAMIENTO < 1800:
+            return
         ULTIMO_PENSAMIENTO = ahora
+
         regs_txt = "\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO.get("regimen","LINEAL")
         bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
-        try:
-            ok, motivo, sym, est, fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
-        except Exception as e_cerebro:
-            print(f"Error cerebro interno V57 (no critico): {e_cerebro}")
-            ok = False
-            motivo = f"Recalibrando: {e_cerebro}"
-            sym, est, fuerza = "", "", 0.0
-        monedas_txt = f"{len(MONEDAS_ACTIVAS)}/20 ({','.join([m.replace('USDT','') for m in MONEDAS_ACTIVAS])})"
+
+        motivo = ESTADO.get("ultimo_motivo", ESTADO.get("regimen_detalle","Acechando..."))
+        monedas_txt = f"{len(MONEDAS_ACTIVAS)}/20"
         tanque_txt = f"PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque {monedas_txt}"
-        if ok:
-            texto = f"PENSAMIENTO LOBO V57.1 CAZA\n{regs_txt}\n{bandas_txt}\nEstrategia: {est} en {sym} ({fuerza:.2f})\n{motivo[:120]}\n{tanque_txt}\nDashboard: {WEB_URL}"
-        else:
-            texto = f"MERCADO EN LECTURA V57.1\n{regs_txt}\n{bandas_txt}\nAcechando... {motivo[:100]}\n{tanque_txt}\nDashboard: {WEB_URL}"
+
+        texto = f"🐺 ACECHANDO V58.2\n{regs_txt}\n{bandas_txt}\n{motivo[:150]}\n{tanque_txt}\nDashboard: {WEB_URL}"
+
         for uid in list(USUARIOS.keys()):
+            print(f"[PENSAMIENTO] Usuario {uid} prendido={USUARIOS[uid].get('prendido')}")
             if USUARIOS[uid].get("prendido"):
-                try: bot.send_message(uid, texto)
-                except: pass
+                try:
+                    bot.send_message(uid, texto)
+                    print(f"[PENSAMIENTO] ENVIADO a {uid}")
+                except Exception as e_tg:
+                    print(f"[PENSAMIENTO] ERROR TG a {uid}: {e_tg}")
     except Exception as e:
-        print(f"Error pensamiento V57: {e}")
-        
-# V57.1 - CEREBRO SIN CANDADO GLOBAL - SOLO POR REGIMEN
+        print(f"Error pensamiento V58.2: {e}")
+                
+# V58.2 - CEREBRO SOLO CANDADO POR REGIMEN V58 - SIN GLOBAL
 def detectar_BI_CEREBRO(regimen):
-    counts_global, total_tib_global = contar_posiciones_globales()
-    tib_por_moneda = {}; tib_negro_por_moneda = {}; kraken_por_moneda = {}
-    for uid, lista in POSICIONES_ABIERTAS.items():
-        if not isinstance(lista, list): continue
-        for p in lista:
-            sym = p.get("symbol")
-            if p.get("estrategia") == "TIBURON": tib_por_moneda[sym] = tib_por_moneda.get(sym,0)+1
-            if p.get("estrategia") == "TIBURON_NEGRO": tib_negro_por_moneda[sym] = tib_negro_por_moneda.get(sym,0)+1
-            if p.get("estrategia") == "KRAKEN": kraken_por_moneda[sym] = kraken_por_moneda.get(sym,0)+1
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
         if is_moneda_bloqueada(sym): continue
-        total_madres_en_sym = sum(1 for uid2, lista2 in POSICIONES_ABIERTAS.items() for p in (lista2 if isinstance(lista2,list) else []) if p.get("symbol")==sym and p.get("estrategia") in ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","RATITA_BLANCA","RATITA_NEGRA"])
-        tib_en_sym = tib_por_moneda.get(sym,0)
-        tib_negro_en_sym = tib_negro_por_moneda.get(sym,0)
-        kraken_en_sym = kraken_por_moneda.get(sym,0)
         reg_sym = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
         cambio_24h = get_cambio_24h(sym)
 
         if reg_sym in ("BAJISTA","CRASH"):
-            if cambio_24h > -3: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","MOJARRITA"]
-            elif cambio_24h > -5: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","MOJARRITA"]
-            else: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN","MOJARRITA"]
+            if cambio_24h > -3: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","MOJARRITA_BLANCA"]
+            elif cambio_24h > -5: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","MOJARRITA_BLANCA"]
+            else: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATA_NEGRA","RATITA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN","MOJARRITA_BLANCA"]
         else:
             if reg_sym == "ALCISTA_FUERTE": orden = ["TIBURON","LOBO","RATA","RATITA","RATITA_BLANCA","PIRANA_BLANCA","MOJARRA","MOJARRITA"]
             elif reg_sym == "ALCISTA": orden = ["LOBO","RATA","RATITA","RATITA_BLANCA","PIRANA_BLANCA","MOJARRA","MOJARRITA"]
@@ -932,14 +921,9 @@ def detectar_BI_CEREBRO(regimen):
 
         for nombre in orden:
             try:
-                if not candado(nombre, reg_sym, sym=sym): continue
-                MADRES = ["RATA","RATITA","LOBO","TIBURON","KRAKEN","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","RATITA_BLANCA","RATITA_NEGRA"]
-                if nombre in MADRES and total_madres_en_sym >= 3: continue
-                if nombre == "KRAKEN" and kraken_en_sym >= 1: continue
-                if nombre == "TIBURON" and tib_en_sym >= 1: continue
-                if nombre == "TIBURON_NEGRO" and tib_negro_en_sym >= 1: continue
-                if nombre == "TIBURON" and total_tib_global >= 2: continue
-                if nombre == "TIBURON_NEGRO" and total_tib_global >= 2: continue
+                # UNICO CANDADO - POR REGIMEN V58 - Si cambia de regimen no abre nuevas del anterior
+                if not candado(nombre, reg_sym, sym=sym):
+                    continue
 
                 ok=False; motivo=""; wr=0
                 if nombre=="RATA": ok,motivo,wr = detectar_RATA_sym(sym, "RATA")
@@ -947,6 +931,7 @@ def detectar_BI_CEREBRO(regimen):
                 elif nombre=="RATITA_BLANCA": ok,motivo,wr = detectar_RATA_sym(sym, "RATITA_BLANCA")
                 elif nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
                 elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
+                elif nombre=="MOJARRITA_BLANCA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA_BLANCA")
                 elif nombre in ["PIRANA_BLANCA","PIRANA"]: ok,motivo,wr = detectar_RATA_sym(sym, "PIRANA_BLANCA")
                 elif nombre in ["RATA_NEGRA","PIRANA_NEGRA","MOJARRA_NEGRA","RATITA_NEGRA"]: ok,motivo,wr = detectar_SHORT_sym(sym, nombre)
                 elif nombre=="LOBO": ok,motivo,wr = detectar_LOBO_sym(sym)
@@ -964,9 +949,8 @@ def detectar_BI_CEREBRO(regimen):
                 continue
 
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    # V58.2 - Mensaje real de por qué no cazó, ya no más "SIN GLOBAL" ciego
-    return False, f"V58.2 BAJISTA BUSCANDO - RSI 35-42 revisado, esperando gatillo V58.2", MONEDAS_ACTIVAS[0], None, 0    
-    
+    return False, f"V58.2 Esperando gatillo limpio - solo candado V58", MONEDAS_ACTIVAS[0], None, 0
+        
 def check_reset_diario(u):
     hoy=ahora_art().strftime("%Y-%m-%d")
     if u.get("fecha_hoy")!=hoy:
