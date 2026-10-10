@@ -1130,18 +1130,19 @@ def motor_v45():
             if btc_price>0:
                 BTC_PRECIOS_15M.append((btc_price, time.time()))
                 if len(BTC_PRECIOS_15M)>20: BTC_PRECIOS_15M = BTC_PRECIOS_15M[-20:]
-         # === V58.1 FILTRO TOP3 SUPERVIVENCIA ===
-         try:
-             temp_sup = []
-             for _s in list(MONEDAS_ACTIVAS)[:15]:
-                 try:
-                     _reg, _ = detectar_regimen_sym(_s)
-                     if _reg == "SUPERVIVENCIA":
-                         temp_sup.append(_s)
-                  except: pass
-          except: pass
 
-                if len(temp_sup) >= 3:
+            # === V58.1 FILTRO TOP3 SUPERVIVENCIA ===
+            try:
+                temp_sup = []
+                for _s in list(MONEDAS_ACTIVAS)[:15]:
+                    try:
+                        _reg, _ = detectar_regimen_sym(_s)
+                        if _reg == "SUPERVIVENCIA":
+                            temp_sup.append(_s)
+                    except: pass
+            except: pass
+
+            if len(temp_sup) >= 3:
                 top3 = scanner_06_top3_mejores_oportunidades(temp_sup)
                 if top3:
                     print(f"[06] SUPERVIVENCIA {len(temp_sup)} muertas. TOP3: {[x[0] for x in top3]}")
