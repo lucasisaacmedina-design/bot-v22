@@ -273,7 +273,7 @@ def scanner_mejor_oportunidad_v58():
     if ahora - ULTIMO_SCANNER_V58 < TIEMPO_SCANNER_V58:
         return TOP_MONEDAS_V58
 
-    print("🔍 [BLOQUE 06 V58.1a] SCANNER ROTATIVO 5MIN...")
+    print("🔍 [BLOQUE 06 V58.1a FIX] SCANNER ROTATIVO 5MIN...")
     scores = []
     for symbol in MONEDAS:
         try:
@@ -285,11 +285,8 @@ def scanner_mejor_oportunidad_v58():
                 continue
 
             rsi_v = rsi_calc(closes, 14)
-            # FILTRO FOTO 06: RSI >85 NO CAZA
             if rsi_v > 85:
                 continue
-
-            # FIX: valores seguros si no tenes esas funciones
             try:
                 adx_v = adx_calc(closes, 14)
             except:
@@ -303,9 +300,16 @@ def scanner_mejor_oportunidad_v58():
             except:
                 vol_v = 1.0
 
-            # Anti-pump 20>50 de tu foto
             if vol_v > 2.0 and rsi_v > 70:
                 print(f"⚠️ {symbol} ANTI-PUMP 20>50 SALTEADO")
+                continue
+
+            # === V58.1a FIX CRITICO - LINEAL_MUERTO = SUPERVIVENCIA ===
+            # Antes lo descartabas, ahora CAZA
+            if rsi_v <= 25:
+                print(f"🎯 {symbol} MOJARRITA_SUPERVIVENCIA RSI {rsi_v:.1f} ADX {adx_v:.1f} - CAZA 25% TP 0.3/0.5/0.8 x3")
+                score = 999 # Forzar al TOP
+                scores.append((symbol, score, {"adx":adx_v,"rsi":rsi_v,"atr":atr_v,"vol":vol_v, "tipo":"SUPERVIVENCIA"}))
                 continue
 
             score = calcular_score_v58(adx_v, rsi_v, atr_v, vol_v)
@@ -315,17 +319,25 @@ def scanner_mejor_oportunidad_v58():
             continue
 
     scores.sort(key=lambda x: x[1], reverse=True)
-    TOP_MONEDAS_V58 = scores[:2] if scores else TOP_MONEDAS_V58 # si queda vacío, mantiene el anterior
-    ULTIMO_SCANNER_V58 = ahora # FIX CRITICO: siempre actualiza el timer aunque falle
+    TOP_MONEDAS_V58 = scores[:2] if scores else TOP_MONEDAS_V58
+    ULTIMO_SCANNER_V58 = ahora
 
     if TOP_MONEDAS_V58:
-        print(f"✅ [BLOQUE 06] TOP1: {TOP_MONEDAS_V58[0][0]} SCORE {TOP_MONEDAS_V58[0][1]:.1f} RSI {TOP_MONEDAS_V58[0][2]['rsi']:.1f}")
+        print(f"✅ [BLOQUE 06] TOP1: {TOP_MONEDAS_V58[0][0]} SCORE {TOP_MONEDAS_V58[0][1]:.1f} RSI {TOP_MONEDAS_V58[0][2]['rsi']:.1f} {TOP_MONEDAS_V58[0][2].get('tipo','')}")
         if len(TOP_MONEDAS_V58) > 1:
-            print(f"✅ [BLOQUE 06] TOP2: {TOP_MONEDAS_V58[1][0]} SCORE {TOP_MONEDAS_V58[1][1]:.1f} RSI {TOP_MONEDAS_V58[1][2]['rsi']:.1f}")
+            print(f"✅ [BLOQUE 06] TOP2: {TOP_MONEDAS_V58[1][0]} SCORE {TOP_MONEDAS_V58[1][1]:.1f} RSI {TOP_MONEDAS_V58[1][2]['rsi']:.1f} {TOP_MONEDAS_V58[1][2].get('tipo','')}")
     else:
-        print(f"⚠️ [BLOQUE 06] Scanner vacío - get_velas() no devuelve datos")
+        print(f"⚠️ [BLOQUE 06] Scanner vacío")
 
     return TOP_MONEDAS_V58
+
+# Y PEGÁ ESTO DEBAJO TAMBIEN:
+def get_mejor_estrategia_v58(symbol, rsi_5m, adx, atr, regimen):
+    # ESTO VA PRIMERO - ANTES DE Nv1 y NvNegra
+    if rsi_5m <= 25:
+        return {"nombre":"MOJARRITA_SUPERVIVENCIA","nivel":18 if rsi_5m<=18 else 22 if rsi_5m<=22 else 25,"cap":0.25,"tp":[0.003,0.005,0.008],"reciclable":3}
+    return None
+    
 def es_mercado_supervivencia(symbol="BTCUSDT"):
     """V58.1 ADAPTATIVO - Ahora usa el SCANNER TOP1/TOP2"""
     try:
