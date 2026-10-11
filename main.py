@@ -738,7 +738,7 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
                 except: pass
     except Exception as e: print(f"Error notificar_cierre: {e}") 
         
-# --- V58.7 RANURA UNIVERSAL - 4 MONEDAS - SIN CANDADO GLOBAL - GRAFICOS ON ---
+# --- V58.7.1 RANURA UNIVERSAL - 4 MONEDAS - SIN CANDADO GLOBAL - GRAFICOS ON - ANTI-429 ---
 def obtener_top_20_rentables_binance():
     try:
         r = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=8)
@@ -780,9 +780,9 @@ def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es
         u = USUARIOS.get(ADMINS_IDS[0], {})
         hoy = u.get("neto_hoy",0); total = (u.get("balance",0)-u.get("capital_inicial",0))
         if es_tp:
-            msg = f"🔥 PRESA DEVORADA V58.7 RANURA\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n+${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\n{WEB_URL}"
+            msg = f"🔥 PRESA DEVORADA V58.7.1 RANURA\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n+${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f} Total: ${total:+.2f}\n{WEB_URL}"
         else:
-            msg = f"💨 ESCAPÓ LA PRESA V58.7\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f}\n{WEB_URL}"
+            msg = f"💨 ESCAPÓ LA PRESA V58.7.1\n{tipo} {sym}\n${entrada:.2f} -> ${salida:.2f}\n${ganancia_usdt:.2f} ({ganancia_pct:+.2f}%)\nHoy: ${hoy:+.2f}\n{WEB_URL}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, msg)
@@ -807,26 +807,24 @@ def mandar_pensamiento_telegram():
         motivo = ESTADO.get("ultimo_motivo", ESTADO.get("regimen_detalle","Acechando..."))
         monedas_txt = f"{len(MONEDAS_ACTIVAS)}/20"
         tanque_txt = f"PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque {monedas_txt} RANURA ON"
-        texto = f"🐺 ACECHANDO V58.7 RANURA\n{regs_txt}\n{bandas_txt}\n{motivo[:150]}\n{tanque_txt}\nDashboard: {WEB_URL}"
+        texto = f"🐺 ACECHANDO V58.7.1 RANURA\n{regs_txt}\n{bandas_txt}\n{motivo[:150]}\n{tanque_txt}\nDashboard: {WEB_URL}"
         for uid in list(USUARIOS.keys()):
             if USUARIOS[uid].get("prendido"):
                 try: bot.send_message(uid, texto)
                 except Exception as e_tg: print(f"[PENSAMIENTO] ERROR TG a {uid}: {e_tg}")
-    except Exception as e: print(f"Error pensamiento V58.7: {e}")
+    except Exception as e: print(f"Error pensamiento V58.7.1: {e}")
 
-# === V58.7 RANURA UNIVERSAL EN BI_CEREBRO ===
+# === V58.7.1 RANURA UNIVERSAL EN BI_CEREBRO ===
 def detectar_BI_CEREBRO(regimen):
     mejor_motivo=""; mejor_sym=""; mejor_fuerza=0; mejor_est=None
     for sym in MONEDAS_ACTIVAS:
         if is_moneda_bloqueada(sym): continue
         reg_sym = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
-        # RANURA UNIVERSAL PRIORIDAD 1 - NO PISA CANDADO 25/22/18
         try:
             senal_sup = senal_mojarrita_supervivencia(sym)
             if senal_sup and 3 <= senal_sup.get("rsi", 50) <= 20:
                 if candado("MOJARRITA_SUPERVIVENCIA", reg_sym, sym=sym):
                     rsi_s = senal_sup["rsi"]
-                    # cap intercalado 35/25
                     if rsi_s >= 18 or (12 <= rsi_s <= 14) or (6 <= rsi_s <= 8): cap_txt = "35%"
                     else: cap_txt = "25%"
                     wr_ranura = 0.99
@@ -834,7 +832,7 @@ def detectar_BI_CEREBRO(regimen):
                         mejor_fuerza = wr_ranura
                         mejor_est = "MOJARRITA_SUPERVIVENCIA"
                         mejor_sym = sym
-                        mejor_motivo = f"[{sym} {reg_sym}] RANURA V58.7 RSI{rsi_s:.1f} CAP {cap_txt} Nv{senal_sup['nivel']} TP 0.3/0.5/0.8 x3"
+                        mejor_motivo = f"[{sym} {reg_sym}] RANURA V58.7.1 RSI{rsi_s:.1f} CAP {cap_txt} Nv{senal_sup['nivel']} TP 0.3/0.5/0.8 x3"
                         continue
         except: pass
 
@@ -867,12 +865,12 @@ def detectar_BI_CEREBRO(regimen):
                 tp_a = tp_adaptativo(sym, nombre if nombre in ESTRATEGIAS_V45 else "RATA")
                 if tp_a == 0: tp_a = 0.3
                 if ok and wr > mejor_fuerza:
-                    mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V58.7 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
+                    mejor_fuerza=wr; mejor_est=nombre; mejor_motivo=f"[{sym} {reg_sym} {cambio_24h:.1f}%] {motivo} TP{tp_a:.1f}% V58.7.1 Nv{EVOLUCION_NIVEL.get(sym,{}).get(reg_sym,1)}"; mejor_sym=sym
             except Exception as e_interno:
                 print(f"Skip {nombre} {sym}: {e_interno}")
                 continue
     if mejor_est: return True, mejor_motivo, mejor_sym, mejor_est, mejor_fuerza
-    return False, f"V58.7 RANURA ON Esperando gatillo - candado OK", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V58.7.1 RANURA ON Esperando gatillo - candado OK", MONEDAS_ACTIVAS[0], None, 0
 
 def check_reset_diario(u):
     try:
@@ -918,7 +916,7 @@ def cargar_datos():
         CONTADOR_NEGRA_POR_REGIMEN = {}
         CONTADOR_TP_EXPANSION = 0.0
         ESCAPE_BLOCK = {}; ESCAPES_TIMELINE = []; PAUSA_GLOBAL_HASTA = 0
-        print("V58.7 RANURA - EVOLUCION FORZADA Nv1 TODAS - RANURA ON")
+        print("V58.7.1 RANURA - EVOLUCION FORZADA Nv1 TODAS - RANURA ON ANTI-429")
         return
     except Exception as e: print(f"V57 cargar error {e}")
 
@@ -970,16 +968,16 @@ def inicializar_moneda_nueva_AUTO(sym):
         atr_pct = (atr/precio*100) if precio else 2.0
         if atr_pct > 2.5: inf = precio * 0.94; sup = precio * 1.06
         else: inf = precio * 0.97; sup = precio * 1.03
-        BANDAS_ACTIVAS[sym] = {"entrada_tiburon": inf, "tope": sup, "tipo": "NORMAL", "activa": False, "origen_mov": f"V58.7 AUTO ATR{atr_pct:.2f}%", "creada_en": time.time()}
+        BANDAS_ACTIVAS[sym] = {"entrada_tiburon": inf, "tope": sup, "tipo": "NORMAL", "activa": False, "origen_mov": f"V58.7.1 AUTO ATR{atr_pct:.2f}%", "creada_en": time.time()}
         REG_ANT[sym] = "LINEAL"
         EVOLUCION_NIVEL[sym] = {"LINEAL": 1, "LINEAL_MUERTO": 1, "ALCISTA": 1, "ALCISTA_FUERTE": 1, "BAJISTA": 1, "CRASH": 1}
         CONTADOR_POR_REGIMEN[sym] = {}
         EVOLUCION_NIVEL_NEGRA[sym] = {"BAJISTA": 1, "CRASH": 1}
         CONTADOR_NEGRA_POR_REGIMEN[sym] = {}
-        print(f"V58.7 AUTO INICIADA {sym} ${precio:.2f} ATR{atr_pct:.2f}% Banda {inf:.2f}->{sup:.2f}")
+        print(f"V58.7.1 AUTO INICIADA {sym} ${precio:.2f} ATR{atr_pct:.2f}% Banda {inf:.2f}->{sup:.2f}")
         return True
     except Exception as e:
-        print(f"V58.7 AUTO ERROR {sym}: {e}")
+        print(f"V58.7.1 AUTO ERROR {sym}: {e}")
         BANDAS_ACTIVAS[sym] = {"entrada_tiburon": get_precio_robusto(sym)*0.97, "tope": get_precio_robusto(sym)*1.03, "tipo": "NORMAL", "activa": False, "creada_en": time.time()}
         REG_ANT[sym] = "LINEAL"; EVOLUCION_NIVEL[sym] = {"LINEAL": 1}
         return False
@@ -990,7 +988,7 @@ def intentar_expandir(user_id_notify=None):
     if len(MONEDAS_ACTIVAS) >= MAX_MONEDAS: return False
     mejor_sym, wr = detectar_mejor_candidata()
     if not mejor_sym: return False
-    msg = f"META PROFIT ${META_PROFIT_PARA_EXPANDIR:.0f} ALCANZADA V58.7 AUTO\nProfit: ${CONTADOR_TP_EXPANSION:.2f}\nCandidata: {mejor_sym} WR {wr:.2f}\nActual {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} -> {len(MONEDAS_ACTIVAS)+1}/{MAX_MONEDAS}\nAutorizas sumar {mejor_sym}?"
+    msg = f"META PROFIT ${META_PROFIT_PARA_EXPANDIR:.0f} ALCANZADA V58.7.1 AUTO\nProfit: ${CONTADOR_TP_EXPANSION:.2f}\nCandidata: {mejor_sym} WR {wr:.2f}\nActual {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} -> {len(MONEDAS_ACTIVAS)+1}/{MAX_MONEDAS}\nAutorizas sumar {mejor_sym}?"
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton(f"AUTORIZAR {mejor_sym} AUTO", callback_data=f"AUTH_ADD_{mejor_sym}"), types.InlineKeyboardButton(f"RECHAZAR", callback_data=f"REJECT_{mejor_sym}"))
     try:
@@ -1010,20 +1008,20 @@ def handle_callback(call):
             if nueva not in MONEDAS_ACTIVAS and len(MONEDAS_ACTIVAS) < MAX_MONEDAS:
                 MONEDAS_ACTIVAS.append(nueva)
                 inicializar_moneda_nueva_AUTO(nueva)
-                ESTADO["regimenes"].setdefault(nueva, "LINEAL Iniciada por evolucion AUTO V58.7")
+                ESTADO["regimenes"].setdefault(nueva, "LINEAL Iniciada por evolucion AUTO V58.7.1")
                 CONTADOR_TP_EXPANSION = 0
                 CANDIDATAS_CACHE["proxima"] = None; CANDIDATAS_CACHE["_aviso_meta"] = 0
                 guardar_datos()
-                bot.answer_callback_query(call.id, f"{nueva} AUTORIZADA V58.7!")
-                bot.send_message(call.message.chat.id, f"V58.7 {nueva} AUTORIZADO\nMonedas: {len(MONEDAS_ACTIVAS)}/20 ({','.join([m.replace('USDT','') for m in MONEDAS_ACTIVAS])})\nDashboard: {WEB_URL}")
+                bot.answer_callback_query(call.id, f"{nueva} AUTORIZADA V58.7.1!")
+                bot.send_message(call.message.chat.id, f"V58.7.1 {nueva} AUTORIZADO\nMonedas: {len(MONEDAS_ACTIVAS)}/20 ({','.join([m.replace('USDT','') for m in MONEDAS_ACTIVAS])})\nDashboard: {WEB_URL}")
             else: bot.answer_callback_query(call.id, "Ya agregada")
         elif data.startswith("REJECT_"):
             rechazada = data.replace("REJECT_", "")
             bot.answer_callback_query(call.id, f"{rechazada} Rechazada")
-            bot.send_message(call.message.chat.id, f"V58.7 {rechazada} rechazada. Sigue con {len(MONEDAS_ACTIVAS)}/20")
+            bot.send_message(call.message.chat.id, f"V58.7.1 {rechazada} rechazada. Sigue con {len(MONEDAS_ACTIVAS)}/20")
             CANDIDATAS_CACHE["proxima"] = None; guardar_datos()
     except Exception as e:
-        print(f"Error callback V58.7: {e}")
+        print(f"Error callback V58.7.1: {e}")
         bot.answer_callback_query(call.id, "Error")
 
 def escanear_candidatas_y_proponer():
@@ -1034,19 +1032,16 @@ def escanear_candidatas_y_proponer():
     mejor, wr = detectar_mejor_candidata()
     if mejor: CANDIDATAS_CACHE["proxima"] = mejor
 
-# === V58.7 EJECUCION RANURA UNIVERSAL CON CAP INTERCALADO ===
 def ejecutar_mojarrita_supervivencia(sym, precio, rsi):
     try:
-        # CAP intercalado V58.7: 20,14,8 = 35% / 17,11,5 = 25%
         if rsi >= 18 or (12 <= rsi <= 14) or (6 <= rsi <= 8):
             cap_pct = 0.35
         else:
             cap_pct = 0.25
         nivel = 20 if rsi >= 18 else 17 if rsi >= 15 else 14 if rsi >= 12 else 11 if rsi >= 9 else 8 if rsi >= 6 else 5
-        print(f"[06 V58.7 RANURA] {sym} RSI:{rsi:.1f} Nv{nivel} CAP {cap_pct*100:.0f}% TP 0.3/0.5/0.8 x3")
-        # Llamada a intentar_comprar si existe, sino el motor lo caza via BI_CEREBRO
+        print(f"[06 V58.7.1 RANURA] {sym} RSI:{rsi:.1f} Nv{nivel} CAP {cap_pct*100:.0f}% TP 0.3/0.5/0.8 x3")
         try:
-            intentar_comprar(sym, motivo=f"RANURA V58.7 RSI {rsi:.1f} Nv{nivel} {sym} CAP{cap_pct}")
+            intentar_comprar(sym, motivo=f"RANURA V58.7.1 RSI {rsi:.1f} Nv{nivel} {sym} CAP{cap_pct}")
         except:
             pass
     except Exception as e:
@@ -1054,7 +1049,7 @@ def ejecutar_mojarrita_supervivencia(sym, precio, rsi):
 
 def motor_v45():
     global CONTADOR_TP_EXPANSION, BTC_PRECIOS_15M, CONTADOR_SL_NEGRA_SEGUIDOS
-    print(f">>> MOTOR V58.7 RANURA UNIVERSAL 4 MONEDAS {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} - INTERCALADO 20-3 CAP 35/25 - GRAFICOS ON")
+    print(f">>> MOTOR V58.7.1 RANURA UNIVERSAL 4 MONEDAS {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} - INTERCALADO 20-3 CAP 35/25 - ANTI-429 - GRAFICOS ON")
     time.sleep(5)
     while True:
         try:
@@ -1071,10 +1066,10 @@ def motor_v45():
                         senal = senal_mojarrita_supervivencia(sym_top)
                         if senal:
                             precio_top = get_precio_robusto(sym_top)
-                            print(f"[06 V58.7] SUPERVIVENCIA {sym_top} RSI:{rsi_top:.1f} {senal.get('tipo')} Nv{senal.get('nivel')} - CAZA RANURA")
+                            print(f"[06 V58.7.1] SUPERVIVENCIA {sym_top} RSI:{rsi_top:.1f} {senal.get('tipo')} Nv{senal.get('nivel')} - CAZA RANURA")
                             ejecutar_mojarrita_supervivencia(sym_top, precio_top, rsi_top)
             except Exception as e_06:
-                print(f"[06 V58.7] Error bloque supervivencia: {e_06}")
+                print(f"[06 V58.7.1] Error bloque supervivencia: {e_06}")
 
             for sym in list(MONEDAS_ACTIVAS):
                 reg, det = detectar_regimen_sym(sym)
@@ -1123,7 +1118,7 @@ def motor_v45():
                         cfg = TRAILING_CONFIG.get(pos["estrategia"], {"activo": False})
                         if cfg.get("activo") and pos["max_pnl"] >= cfg["activacion"]:
                             if pnl_pct_actual <= (pos["max_pnl"] - cfg["trailing"]):
-                                cerrar = "TP"; motivo_cierre = f"TRAILING V58.7 {pos['estrategia']} Max{pos['max_pnl']:.2f}% -> Actual{pnl_pct_actual:.2f}% Trail{cfg['trailing']}%"
+                                cerrar = "TP"; motivo_cierre = f"TRAILING V58.7.1 {pos['estrategia']} Max{pos['max_pnl']:.2f}% -> Actual{pnl_pct_actual:.2f}% Trail{cfg['trailing']}%"
                         if not cerrar:
                             if not es_short:
                                 if precio_actual >= tp_price: cerrar = "TP"
@@ -1157,11 +1152,11 @@ def motor_v45():
                             u["estrategias"][estr]["ops"]+=1; u["estrategias"][estr]["neto"]+=pnl
                             u["ops_hoy"]+=1
                             extra = f" {motivo_cierre}" if motivo_cierre else ""
-                            u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar}{extra} ${pnl:+.2f} TP:{pos['tp']:.1f}% V58.7 RANURA")
+                            u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar}{extra} ${pnl:+.2f} TP:{pos['tp']:.1f}% V58.7.1 RANURA")
                             notificar_cierre(pos["symbol"], estr, pos["entrada"], precio_actual, pnl, pnl_pct, es_tp, pos.get("subtipo","")+extra)
                             POSICIONES_ABIERTAS[user_id].remove(pos)
                             guardar_datos()
-                    except Exception as e: print(f"Error cierre V58.7 {e}")
+                    except Exception as e: print(f"Error cierre V58.7.1 {e}")
                 if not u.get("prendido", False): continue
                 ok,motivo,symbol_elegido,estrategia_elegida,fuerza = detectar_BI_CEREBRO(ESTADO.get("regimen","LINEAL"))
                 if ok and estrategia_elegida:
@@ -1181,7 +1176,6 @@ def motor_v45():
                     if counts_global.get(key_global, 0) >= max_permitido: continue
                     if len(existentes) >= max_permitido: continue
                     precio_actual_tmp = get_precio_robusto(symbol_elegido)
-                    # CAP RANURA UNIVERSAL
                     if estrategia_elegida == "MOJARRITA_SUPERVIVENCIA":
                         try:
                             velas_rsi = get_velas(symbol_elegido, "5m", 100)
@@ -1202,7 +1196,6 @@ def motor_v45():
                     elif estrategia_elegida == "RATITA_BLANCA" and "ALCISTA" in reg_actual_sym: usdt_a_usar = max(80, u["balance"]*0.15)
                     if estrategia_elegida == "KRAKEN": usdt_a_usar = max(200, min(300, u["balance"]*0.20))
                     if estrategia_elegida == "TIBURON_NEGRO": usdt_a_usar = max(200, min(500, u["balance"]*0.40))
-                    # TP RANURA 0.3/0.5/0.8 x3
                     if estrategia_elegida == "MOJARRITA_SUPERVIVENCIA":
                         tp_final = 0.3
                     else:
@@ -1223,7 +1216,7 @@ def motor_v45():
             guardar_datos()
             time.sleep(60)
         except Exception as e:
-            print(f"Error motor V58.7 {e}")
+            print(f"Error motor V58.7.1 {e}")
             time.sleep(10)
 
 def get_menu():
@@ -1237,11 +1230,11 @@ def get_menu():
 @bot.message_handler(commands=['start'])
 def start(m):
     u=get_user_data(m.chat.id)
-    estado_txt = f"V58.7 RANURA {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
+    estado_txt = f"V58.7.1 RANURA {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
     regs="\n".join([f"{k}:{v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen'].split()[0]
     bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas"
     ganancia = u["balance"] - u["capital_inicial"]
-    bot.send_message(m.chat.id,f"V58.7 RANURA CEREBRO {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f}\nGan ${ganancia:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"V58.7.1 RANURA CEREBRO {estado_txt}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}\nBal ${u['balance']:.2f}\nGan ${ganancia:.2f}\n{WEB_URL}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="BALANCE")
 def balance(m):
@@ -1249,46 +1242,46 @@ def balance(m):
     ganancia_historica = u["balance"]-u["capital_inicial"]
     regs="\n".join([f"{k}: {v.split()[0]} ({get_cambio_24h(k):+.1f}%)" for k,v in ESTADO.get("regimenes",{}).items()])
     pos_txt = "\n".join([f"{p['symbol']} {p['estrategia']} Ent {p['entrada']:.2f} TP{p['tp']:.1f}% Max{p.get('max_pnl',0):.1f}% ${p['usdt']:.0f} CAP{int(p['usdt']/u['balance']*100) if u['balance']>0 else 0}%" for p in POSICIONES_ABIERTAS.get(m.chat.id,[])]) or "Sin pos"
-    bot.send_message(m.chat.id,f"V58.7 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} RANURA ON\n{regs}\n{pos_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"V58.7.1 {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} RANURA ON\n{regs}\n{pos_txt}\nBal ${u['balance']:.2f} Hist ${ganancia_historica:+.2f}\nHoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="PRENDER")
 def prender(m):
-    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V58.7 RANURA"; guardar_datos()
-    bot.send_message(m.chat.id,f"MANADA PRENDIDA V58.7 RANURA UNIVERSAL\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
+    u=get_user_data(m.chat.id); u["prendido"]=True; u["modo"]="CAZANDO V58.7.1 RANURA"; guardar_datos()
+    bot.send_message(m.chat.id,f"MANADA PRENDIDA V58.7.1 RANURA UNIVERSAL\nBolsa Unica ${u['balance']:.2f}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="EVOLUCIONAR")
 def evolucionar(m):
     u=get_user_data(m.chat.id)
     regs="\n".join([f"{k}: {v} {get_cambio_24h(k):+.1f}%" for k,v in ESTADO.get("regimenes",{}).items()])
-    bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas V58.7"
-    clima = f"V58.7 RANURA CLIMA BTC {ESTADO.get('regimen','LINEAL')} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} RANURA 20-3 CAP 35/25"
+    bandas_txt = "\n".join([banda_txt_display(k,v) for k,v in BANDAS_ACTIVAS.items() if v.get("activa")]) or "Sin bandas V58.7.1"
+    clima = f"V58.7.1 RANURA CLIMA BTC {ESTADO.get('regimen','LINEAL')} {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} RANURA 20-3 CAP 35/25"
     bot.send_message(m.chat.id,f"{clima}\n{regs}\n{bandas_txt}\n{'+'.join(MONEDAS_ACTIVAS)}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="HISTORIAL")
 def historial(m):
     u=get_user_data(m.chat.id); hist = u.get("historial",[])[-15:]; txt = "\n".join(hist) or "Sin historial"
-    bot.send_message(m.chat.id,f"HISTORIAL V58.7 RANURA\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"HISTORIAL V58.7.1 RANURA\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="ORDENES")
 def ordenes(m):
     lista = POSICIONES_ABIERTAS.get(m.chat.id,[])
-    if not lista: bot.send_message(m.chat.id,"Sin ordenes abiertas V58.7 RANURA",reply_markup=get_menu()); return
+    if not lista: bot.send_message(m.chat.id,"Sin ordenes abiertas V58.7.1 RANURA",reply_markup=get_menu()); return
     txt="".join([f"{p['symbol']} {p['estrategia']} ${p['entrada']:.2f} TP{p['tp']:.1f}% SL{p['sl']:.1f}% Max{p.get('max_pnl',0):.1f}% ${p['usdt']:.0f}\n" for p in lista])
-    bot.send_message(m.chat.id,f"ORDENES V58.7 RANURA {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{txt}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"ORDENES V58.7.1 RANURA {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{txt}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="RETIRAR GANANCIAS")
 def retirar_gan(m):
     u=get_user_data(m.chat.id); gan = u["balance"]-u["capital_inicial"]
     if gan <= 0: bot.send_message(m.chat.id,f"Sin ganancias para retirar. Gan ${gan:.2f}",reply_markup=get_menu()); return
     u["balance"]=BALANCE_INICIAL; u["capital_inicial"]=BALANCE_INICIAL; u["neto_hoy"]=0; guardar_datos()
-    bot.send_message(m.chat.id,f"GANANCIAS RETIRADAS V58.7 ${gan:.2f}\nBolsa unica vuelve a ${u['capital_inicial']:.2f}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"GANANCIAS RETIRADAS V58.7.1 ${gan:.2f}\nBolsa unica vuelve a ${u['capital_inicial']:.2f}",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="RETIRAR TODO")
 def retirar_todo(m):
     global CONTADOR_POR_REGIMEN, EVOLUCION_NIVEL, CONTADOR_NEGRA_POR_REGIMEN, EVOLUCION_NIVEL_NEGRA, CONTADOR_TP_EXPANSION, ESCAPE_BLOCK, ESCAPES_TIMELINE, PAUSA_GLOBAL_HASTA
     u=get_user_data(m.chat.id); total=u["balance"]; gan = total - u["capital_inicial"]
     u["balance"]=BALANCE_INICIAL; u["capital_inicial"]=BALANCE_INICIAL; u["neto_hoy"]=0; u["ganadas"]=0; u["perdidas"]=0; u["ops_hoy"]=0
-    u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} RETIRO TOTAL ${total:.2f} Gan ${gan:.2f} -> RESET 10k V58.7")
+    u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} RETIRO TOTAL ${total:.2f} Gan ${gan:.2f} -> RESET 10k V58.7.1")
     POSICIONES_ABIERTAS[m.chat.id]=[]
     CONTADOR_POR_REGIMEN = {}
     EVOLUCION_NIVEL = {sym: {"LINEAL":1,"LINEAL_MUERTO":1,"ALCISTA":1,"ALCISTA_FUERTE":1,"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
@@ -1296,7 +1289,7 @@ def retirar_todo(m):
     EVOLUCION_NIVEL_NEGRA = {sym: {"BAJISTA":1,"CRASH":1} for sym in MONEDAS_ACTIVAS}
     CONTADOR_TP_EXPANSION = 0.0; ESCAPE_BLOCK = {}; ESCAPES_TIMELINE = []; PAUSA_GLOBAL_HASTA = 0
     guardar_datos()
-    bot.send_message(m.chat.id,f"TODO RETIRADO V58.7 ${total:.2f} (Gan ${gan:.2f})\nReseteada a ${BALANCE_INICIAL:.2f} + EVOLUCION Nv1",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"TODO RETIRADO V58.7.1 ${total:.2f} (Gan ${gan:.2f})\nReseteada a ${BALANCE_INICIAL:.2f} + EVOLUCION Nv1",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: True)
 def fallback(m):
@@ -1306,9 +1299,9 @@ def fallback(m):
             sym = txt.replace(" ","").replace("$","")
             if "USDT" not in sym: sym+="USDT"
             precio=get_precio_robusto(sym)
-            bot.send_message(m.chat.id,f"{sym} ${precio:.2f} V58.7 RANURA",reply_markup=get_menu())
-        else: bot.send_message(m.chat.id,f"V58.7 RANURA UNIVERSAL 4 MONEDAS Comandos: PRENDER, BALANCE, EVOLUCIONAR\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque 50 RANURA 20-3 CAP 35/25\n{WEB_URL}",reply_markup=get_menu())
-    except: bot.send_message(m.chat.id,"V58.7",reply_markup=get_menu())
+            bot.send_message(m.chat.id,f"{sym} ${precio:.2f} V58.7.1 RANURA",reply_markup=get_menu())
+        else: bot.send_message(m.chat.id,f"V58.7.1 RANURA UNIVERSAL 4 MONEDAS Comandos: PRENDER, BALANCE, EVOLUCIONAR\n{len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque 50 RANURA 20-3 CAP 35/25\n{WEB_URL}",reply_markup=get_menu())
+    except: bot.send_message(m.chat.id,"V58.7.1",reply_markup=get_menu())
 
 def info_sym(sym):
     try:
@@ -1342,15 +1335,15 @@ def info_sym(sym):
             "regimen": str(reg), "reg_detalle": str(reg_full), "cambio24": float(cambio24),
             "adx": float(adx_real), "rsi": float(rsi_real), "ema": str(ema_txt),
             "atr": float(atr_pct), "vol": float(vol_txt), "precio": float(precio),
-            "madre": str(madre), "mejor_estrategia": f"V58.7 RANURA Nv{nivel}/NvNegra{nivel_negra} {cont} {cont_negra}",
+            "madre": str(madre), "mejor_estrategia": f"V58.7.1 RANURA Nv{nivel}/NvNegra{nivel_negra} {cont} {cont_negra}",
             "banda_inf": float(banda.get("entrada_tiburon",precio*0.97)),
             "banda_sup": float(banda.get("tope",precio*1.03)),
             "v51_nivel": int(nivel), "v51_contador": cont,
             "v56_nivel_negra": int(nivel_negra), "v56_contador_negra": cont_negra
         }
     except Exception as e:
-        print(f"info_sym V58.7 error {sym}: {e}")
-        return {"regimen":"LINEAL","cambio24":0.0,"adx":15.0,"rsi":50.0,"ema":"9>20","atr":0.0,"vol":1.0,"precio":0.0,"madre":"NORMAL","mejor_estrategia":"V58.7 RANURA","banda_inf":1.0,"banda_sup":2.0,"v51_nivel":1,"v51_contador":{},"v56_nivel_negra":1,"v56_contador_negra":{}}
+        print(f"info_sym V58.7.1 error {sym}: {e}")
+        return {"regimen":"LINEAL","cambio24":0.0,"adx":15.0,"rsi":50.0,"ema":"9>20","atr":0.0,"vol":1.0,"precio":0.0,"madre":"NORMAL","mejor_estrategia":"V58.7.1 RANURA","banda_inf":1.0,"banda_sup":2.0,"v51_nivel":1,"v51_contador":{},"v56_nivel_negra":1,"v56_contador_negra":{}}
 
 @app.route('/api/mercado')
 def api_mercado():
@@ -1368,7 +1361,7 @@ def api_detalles_mercado():
                 "adx": float(inf.get("adx",15.0)), "madre": str(inf.get("madre","NORMAL")),
                 "rsi": float(inf.get("rsi",50.0)), "ema": str(inf.get("ema","9>20")),
                 "atr": float(inf.get("atr",0.0)), "vol": float(inf.get("vol",1.0)),
-                "mejor_estrategia": str(inf.get("mejor_estrategia","V58.7 RANURA")),
+                "mejor_estrategia": str(inf.get("mejor_estrategia","V58.7.1 RANURA")),
                 "v51_nivel": int(inf.get("v51_nivel",1)), "v51_contador": inf.get("v51_contador",{}),
                 "v56_nivel_negra": int(inf.get("v56_nivel_negra",1)), "v56_contador_negra": inf.get("v56_contador_negra",{}),
                 "precio": float(inf.get("precio",0.0)), "banda_inf": float(inf.get("banda_inf",1.0)), "banda_sup": float(inf.get("banda_sup",2.0))
@@ -1389,9 +1382,9 @@ def api_graficos():
 @app.route('/')
 def home():
     html = '''<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>V58.7 RANURA UNIVERSAL 4/20 GRAFICOS ON</title><script src="https://s3.tradingview.com/tv.js"></script>
+    <title>V58.7.1 RANURA UNIVERSAL 4/20 GRAFICOS ON</title><script src="https://s3.tradingview.com/tv.js"></script>
     <style>body{margin:0;background:#0f1115;color:#d1d4dc;font-family:Arial}.top{padding:12px;background:#1e222d;position:sticky;top:0;z-index:20;border-bottom:2px solid #44ff88;font-size:12px;white-space:nowrap;overflow:auto}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}.card{background:#1e222d;border-radius:8px;overflow:hidden;border:1px solid #2a2e39}.det{font-family:monospace;font-size:11px;padding:6px;background:#0e1a0e;color:#a5fca5}</style>
-    </head><body><div class="top" id="info">V58.7 RANURA UNIVERSAL 4/20 - Cargando...</div><div class="grid" id="grid"></div>
+    </head><body><div class="top" id="info">V58.7.1 RANURA UNIVERSAL 4/20 - Cargando...</div><div class="grid" id="grid"></div>
     <script>
     async function init(){
       let a = await (await fetch('/api/data')).json();
@@ -1407,7 +1400,7 @@ def home():
     }
     async function load(){
       try{let a=await (await fetch('/api/data')).json();
-        document.getElementById('info').innerHTML=`V58.7 RANURA ${a.monedas.length}/20 | $${a.balance?.toFixed(2)||''} | ${a.bandas_txt||''} | ${Object.entries(a.regimenes||{}).map(e=>e[0].replace('USDT','')+':'+e[1]).join(' | ')} | PROFIT $${a.tps_actual?.toFixed(2)}/$${a.meta_proxima} RANURA ON`;
+        document.getElementById('info').innerHTML=`V58.7.1 RANURA ${a.monedas.length}/20 | $${a.balance?.toFixed(2)||''} | ${a.bandas_txt||''} | ${Object.entries(a.regimenes||{}).map(e=>e[0].replace('USDT','')+':'+e[1]).join(' | ')} | PROFIT $${a.tps_actual?.toFixed(2)}/$${a.meta_proxima} RANURA ON`;
       }catch(e){}
       try{
         let d=await (await fetch('/api/detalles_mercado')).json();
@@ -1444,14 +1437,32 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL")
     t = threading.Thread(target=motor_v45, daemon=False); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=False).start()
-    print("V58.7 RANURA UNIVERSAL INTERCALADO 20-3 NO PISA 25/22/18 - 4 MONEDAS - GRAFICOS ON")
-    try:
-        bot.delete_webhook(drop_pending_updates=False)
-        print("V58.7 Webhook borrado - polling unico")
-        time.sleep(2)
-    except: pass
-    try:
-        bot.infinity_polling(timeout=20, long_polling_timeout=20)
-    except Exception as e:
-        print(f"Bot polling error V58.7 {e}")
-        time.sleep(10)
+    print("V58.7.1 RANURA UNIVERSAL INTERCALADO 20-3 NO PISA 25/22/18 - 4 MONEDAS - GRAFICOS ON - ANTI-429")
+
+    # --- PARCHE ANTI 429 V58.7.1 ---
+    import logging
+    logging.getLogger('telebot').setLevel(logging.ERROR)
+
+    while True:
+        try:
+            try:
+                bot.delete_webhook(drop_pending_updates=True)
+                print("V58.7.1 Webhook borrado - polling unico ANTI-429")
+                time.sleep(3)
+            except Exception as e_wh:
+                print(f"Webhook del {e_wh}")
+
+            bot.infinity_polling(
+                timeout=60,
+                long_polling_timeout=60,
+                allowed_updates=["message", "callback_query"],
+                skip_pending=True
+            )
+        except Exception as e:
+            err_txt = str(e).lower()
+            if "429" in err_txt or "too many" in err_txt:
+                print(f"[ANTI-429] Telegram saturado, duermo 15s: {e}")
+                time.sleep(15)
+            else:
+                print(f"Bot polling error V58.7.1 {e} - reintento en 10s")
+                time.sleep(10)
