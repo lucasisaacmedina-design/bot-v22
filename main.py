@@ -777,7 +777,8 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
                 except: pass
     except Exception as e: print(f"Error notificar_cierre: {e}")
 
-# --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX 3 COMANDOS + PROFIT POR MONEDA - SOLO PARTE 2 CORREGIDA ---
+# --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX 3 COMANDOS + PROFIT POR MONEDA - CON PARCHE ANTI-HOLD 24HS V58.8 ---
+# UNICO CAMBIO: TP 0.15% rescate si >24hs para estrategias que NO sean MOJARRA/MOJARRITA
 INDICE_RONDA_DISTRIBUIDA = 0
 
 def obtener_top_20_rentables_binance():
@@ -826,7 +827,6 @@ def calcular_profit_hoy_por_moneda(u):
                     try:
                         if "$" in h:
                             parte = h.split("$")[-1]
-                            # busca +xx.xx o -xx.xx
                             import re
                             m = re.search(r'([+-]?\d+\.\d+)', parte)
                             if m:
@@ -1116,8 +1116,19 @@ def motor_v45():
                                 guardar_datos()
                                 continue
                             except: pass
-                        tp_price = pos["entrada"] * (1 + pos["tp"]/100) if not es_short else pos["entrada"] * (1 - pos["tp"]/100)
+                        # --- PARCHE ANTI-HOLD 24HS V58.8 - UNICO CAMBIO - NO TOCA 01 ---
+                        try:
+                            dt_entry = datetime.fromisoformat(pos.get("hora",""))
+                            segundos_hold = (ahora_art() - dt_entry).total_seconds()
+                        except:
+                            segundos_hold = 0
+                        tp_usar = pos["tp"]
+                        if segundos_hold > 24*3600 and pos.get("estrategia") not in ["MOJARRA","MOJARRITA","MOJARRITA_SUPERVIVENCIA"]:
+                            tp_usar = 0.15
+                            print(f"⚠️ RESCATE {pos.get('estrategia')} {pos.get('symbol')} {segundos_hold/3600:.1f}hs -> TP {tp_usar}%")
+                        tp_price = pos["entrada"] * (1 + tp_usar/100) if not es_short else pos["entrada"] * (1 - tp_usar/100)
                         sl_price = pos["entrada"] * (1 + pos["sl"]/100) if not es_short else pos["entrada"] * (1 - pos["sl"]/100)
+                        # --- FIN PARCHE ---
                         cerrar = None
                         if not es_short:
                             if precio_actual >= tp_price: cerrar = "TP"
@@ -1140,7 +1151,7 @@ def motor_v45():
                             if estr not in u.get("estrategias", {}): u["estrategias"][estr] = {"ops":0,"ganadas":0,"neto":0.0}
                             u["estrategias"][estr]["ops"]+=1; u["estrategias"][estr]["neto"]+=pnl
                             u["ops_hoy"]+=1
-                            u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar} ${pnl:+.2f} TP:{pos['tp']:.1f}% V58.7.8")
+                            u["historial"].append(f"{ahora_art().strftime('%H:%M:%S')} {estr} {pos['symbol']} {cerrar} ${pnl:+.2f} TP:{tp_usar:.1f}% V58.7.8")
                             notificar_cierre(pos["symbol"], estr, pos["entrada"], precio_actual, pnl, pnl_pct_actual, es_tp, pos.get("subtipo",""))
                             POSICIONES_ABIERTAS[user_id].remove(pos)
                             guardar_datos()
@@ -1239,7 +1250,6 @@ def balance(m):
             extra = f" | Hoy: ${pm['profit']:+.2f} ({pm['count']}/3)" if pm["count"]>0 else f" | Hoy: $0.00"
             fuego = " 🔥" if pm["profit"]>0 else ""
             regs_txt += f"{k}: {reg_simple} ({cambio:+.1f}%){extra}{fuego}\n"
-
         posiciones = POSICIONES_ABIERTAS.get(m.chat.id, [])
         if not posiciones:
             posiciones = POSICIONES_ABIERTAS.get(ADMINS_IDS[0], [])
@@ -1248,7 +1258,6 @@ def balance(m):
         disponible = total - en_juego
         if disponible < 0: disponible = total
         total_acum = total - u.get("capital_inicial",10000)
-
         msg = f"🐺 V58.7.8 DISTRIBUIDA REAL | {len(posiciones)}/20\n"
         msg += f"━━━━━━━━━━━━━━\n📊 REGIMENES:\n{regs_txt}\n"
         msg += f"💰 BALANCE:\nTotal: ${total:.2f}\nHoy: ${u.get('neto_hoy',0):+.2f} ({u.get('ganadas',0)} devoradas)\n"
@@ -1457,7 +1466,7 @@ if True:
         REG_ANT.setdefault(sym, "LINEAL_MUERTO")
     t = threading.Thread(target=motor_v45, daemon=False); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=False).start()
-    print("V58.7.8 DISTRIBUIDA REAL 4 MONEDAS - 52/58/65 + 5-28 TP0.5% x3 RECICLABLE")
+    print("V58.7.8 DISTRIBUIDA REAL 4 MONEDAS - 52/58/65 + 5-28 TP0.5% x3 RECICLABLE + ANTI-HOLD 24HS V58.8")
     import logging
     logging.getLogger('telebot').setLevel(logging.ERROR)
     while True:
