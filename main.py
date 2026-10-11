@@ -777,10 +777,7 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
                 except: pass
     except Exception as e: print(f"Error notificar_cierre: {e}")
 
-# --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX XRP 1/3 + 2/3 MISMO MINUTO - SOLO PARTE 2 CORREGIDA ---
-INDICE_RONDA_DISTRIBUIDA = 0    
-        
-# --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX XRP 1/3 + 2/3 MISMO MINUTO - SOLO PARTE 2 CORREGIDA ---
+# --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX 3 COMANDOS + PROFIT POR MONEDA - SOLO PARTE 2 CORREGIDA ---
 INDICE_RONDA_DISTRIBUIDA = 0
 
 def obtener_top_20_rentables_binance():
@@ -818,6 +815,28 @@ def detectar_mejor_candidata():
             if wr_total > mejor_wr: mejor_wr = wr_total; mejor = sym
         except: continue
     return mejor, mejor_wr
+
+# ===== HELPER V58.7.8 PROFIT POR MONEDA - NO TOCA CAZA =====
+def calcular_profit_hoy_por_moneda(u):
+    profit_map = {sym: {"profit":0.0, "count":0} for sym in MONEDAS_ACTIVAS}
+    try:
+        for h in u.get("historial", [])[-100:]:
+            for sym in MONEDAS_ACTIVAS:
+                if sym in h:
+                    try:
+                        if "$" in h:
+                            parte = h.split("$")[-1]
+                            # busca +xx.xx o -xx.xx
+                            import re
+                            m = re.search(r'([+-]?\d+\.\d+)', parte)
+                            if m:
+                                val = float(m.group(1))
+                                profit_map[sym]["profit"] += val
+                                profit_map[sym]["count"] += 1
+                    except: pass
+                    break
+    except: pass
+    return profit_map
 
 def notificar_cierre(sym, tipo, entrada, salida, ganancia_usdt, ganancia_pct, es_tp, subtipo=""):
     try:
@@ -881,7 +900,6 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
             key_global = (sym, nombre)
             if counts_global.get(key_global, 0) >= max_perm:
                 continue
-            # FIX V58.7.8 - COOLDOWN 30s POR MONEDA
             key_lock = f"{sym}_{nombre}"
             if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < 30:
                 continue
@@ -894,13 +912,11 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
             tp_a = tp_adaptativo(sym, nombre) or 0.5
             if ok and wr > 0.5:
                 count_sym = sum([v for k,v in counts_global.items() if k[0]==sym])
-                # FIX V58.7.8: 0.1 -> 0.5 PENALIZA FUERTE PARA DISTRIBUIR
                 score_dist = wr - (count_sym * 0.5)
                 candidatos.append((score_dist, motivo, sym, nombre, wr, tp_a))
     if candidatos:
         candidatos.sort(key=lambda x: x[0], reverse=True)
         mejor = candidatos[0]
-        # FIX V58.7.8: NO AVANZA RONDA ACA, solo despues de cazar con exito
         return True, mejor[1], mejor[2], mejor[3], mejor[4]
     return False, f"V58.7.8 DISTRIBUIDA REAL Esperando RSI 5-28 o 52/58/65", MONEDAS_ACTIVAS[0], None, 0
 
@@ -1136,7 +1152,6 @@ def motor_v45():
                     key_global = (symbol_elegido, estrategia_elegida)
                     existentes = [p for p in POSICIONES_ABIERTAS.get(user_id,[]) if p.get('symbol')==symbol_elegido and p.get('estrategia')==estrategia_elegida]
                     key_lock = f"{symbol_elegido}_{estrategia_elegida}"
-                    # FIX V58.7.8: 30s fijo, no el cooldown de 15 de la estrategia
                     if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < 30:
                         print(f"COOLDOWN 30s BLOQUEA {key_lock}")
                         continue
@@ -1149,7 +1164,6 @@ def motor_v45():
                     exito, res, precio = ejecutar_orden_real(symbol_elegido,"BUY",usdt_a_usar)
                     if exito:
                         ULTIMO_TRADE[key_lock]=time.time()
-                        # FIX V58.7.8: AVANZA RONDA SOLO ACA DESPUES DE EXITO
                         INDICE_RONDA_DISTRIBUIDA = (INDICE_RONDA_DISTRIBUIDA + 1) % len(MONEDAS_ACTIVAS)
                         pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_final, "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat(), "max_pnl": 0.0, "max_precio": precio}
                         POSICIONES_ABIERTAS[user_id].append(pos)
@@ -1195,23 +1209,111 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)}/40", 0.30
 
 def intentar_comprar(sym, motivo=""): return True
+
 def get_menu():
-    m=types.ReplyKeyboardMarkup(resize_keyboard=False)
+    m=types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.add("PRENDER","EVOLUCIONAR"); m.add("BALANCE","HISTORIAL"); m.add("RETIRAR GANANCIAS","RETIRAR TODO"); m.add("ORDENES")
     return m
 
 @bot.message_handler(commands=['start'])
 def start(m):
-    u=get_user_data(m.chat.id)
-    estado_txt = f"V58.7.8 DISTRIBUIDA REAL {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
-    regs="\n".join([f"{k}:{v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen'].split()[0]
-    bot.send_message(m.chat.id,f"V58.7.8 DISTRIBUIDA REAL CEREBRO {estado_txt}\n{regs}\nBal ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    try:
+        u=get_user_data(m.chat.id)
+        estado_txt = f"V58.7.8 DISTRIBUIDA REAL {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}" if u["prendido"] else "APAGADO"
+        regs="\n".join([f"{k}:{v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen'].split()[0]
+        bot.send_message(m.chat.id,f"V58.7.8 DISTRIBUIDA REAL CEREBRO {estado_txt}\n{regs}\nBal ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
+    except Exception as e:
+        print(f"START ERROR {e}")
 
+# ==================== 3 COMANDOS FIX V58.7.8 - SOLO ESTO TOCADO ====================
 @bot.message_handler(func=lambda m: m.text=="BALANCE")
 def balance(m):
-    u=get_user_data(m.chat.id)
-    regs="\n".join([f"{k}: {v.split()[0]} ({get_cambio_24h(k):+.1f}%)" for k,v in ESTADO.get("regimenes",{}).items()])
-    bot.send_message(m.chat.id,f"V58.7.8 DISTRIBUIDA REAL {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS}\n{regs}\nBal ${u['balance']:.2f} Hoy ${u['neto_hoy']:+.2f}",reply_markup=get_menu())
+    try:
+        u=get_user_data(m.chat.id)
+        profit_map = calcular_profit_hoy_por_moneda(u)
+        regs_txt = ""
+        for k,v in ESTADO.get("regimenes",{}).items():
+            reg_simple = v.split()[0]
+            cambio = get_cambio_24h(k)
+            pm = profit_map.get(k, {"profit":0.0,"count":0})
+            extra = f" | Hoy: ${pm['profit']:+.2f} ({pm['count']}/3)" if pm["count"]>0 else f" | Hoy: $0.00"
+            fuego = " 🔥" if pm["profit"]>0 else ""
+            regs_txt += f"{k}: {reg_simple} ({cambio:+.1f}%){extra}{fuego}\n"
+
+        posiciones = POSICIONES_ABIERTAS.get(m.chat.id, [])
+        if not posiciones:
+            posiciones = POSICIONES_ABIERTAS.get(ADMINS_IDS[0], [])
+        en_juego = sum([p.get("usdt",0) for p in posiciones])
+        total = u["balance"]
+        disponible = total - en_juego
+        if disponible < 0: disponible = total
+        total_acum = total - u.get("capital_inicial",10000)
+
+        msg = f"🐺 V58.7.8 DISTRIBUIDA REAL | {len(posiciones)}/20\n"
+        msg += f"━━━━━━━━━━━━━━\n📊 REGIMENES:\n{regs_txt}\n"
+        msg += f"💰 BALANCE:\nTotal: ${total:.2f}\nHoy: ${u.get('neto_hoy',0):+.2f} ({u.get('ganadas',0)} devoradas)\n"
+        msg += f"Acumulado: ${total_acum:+.2f}\nEn Juego: ${en_juego:.0f} ({len(posiciones)} x $350)\nDisponible: ${disponible:.2f}\n\n"
+        msg += f"🎯 SIGUIENTE: MOJARRA 52/58/65\nBanda 10->12 | TP 0.5% x3\n{WEB_URL}"
+        bot.send_message(m.chat.id, msg, reply_markup=get_menu())
+    except Exception as e:
+        print(f"BALANCE ERROR: {e}")
+        try: bot.send_message(m.chat.id, f"BALANCE ERROR - Bal ${get_user_data(m.chat.id)['balance']:.2f} - Reintenta", reply_markup=get_menu())
+        except: pass
+
+@bot.message_handler(func=lambda m: m.text=="ORDENES")
+def ordenes(m):
+    try:
+        uid = m.chat.id
+        posiciones = POSICIONES_ABIERTAS.get(uid, [])
+        if not posiciones and ADMINS_IDS[0] in POSICIONES_ABIERTAS:
+            posiciones = POSICIONES_ABIERTAS.get(ADMINS_IDS[0], [])
+        if not posiciones:
+            bot.send_message(m.chat.id, f"📋 ORDENES ABIERTAS 0/20\n━━━━━━━━━━━━━━\nSin ordenes abiertas\nEn Juego Total: $0", reply_markup=get_menu())
+            return
+        msg = f"📋 ORDENES ABIERTAS {len(posiciones)}/20\n━━━━━━━━━━━━━━\n"
+        total_juego = 0
+        for i,p in enumerate(posiciones[:20],1):
+            try:
+                sym = p.get("symbol","?")
+                entrada = p.get("entrada",0)
+                tp_pct = p.get("tp",0.5)
+                tp_precio = entrada * (1+tp_pct/100)
+                usdt = p.get("usdt",0)
+                total_juego += usdt
+                try:
+                    hora_iso = p.get("hora","")
+                    dt = datetime.fromisoformat(hora_iso)
+                    mins = int((ahora_art() - dt).total_seconds()/60)
+                    hace = f"{mins}m" if mins<60 else f"{mins//60}h"
+                except: hace = "?"
+                msg += f"{i}. {sym} ${entrada:.2f} -> ${tp_precio:.2f} | +{tp_pct:.1f}% | ${usdt:.0f} | Hace {hace}\n"
+            except: continue
+        msg += f"\nEn Juego Total: ${total_juego:.0f}"
+        bot.send_message(m.chat.id, msg, reply_markup=get_menu())
+    except Exception as e:
+        print(f"ORDENES ERROR: {e}")
+        try: bot.send_message(m.chat.id, f"📋 ORDENES ERROR pero hay {len(POSICIONES_ABIERTAS.get(ADMINS_IDS[0],[]))} abiertas", reply_markup=get_menu())
+        except: pass
+
+@bot.message_handler(func=lambda m: m.text=="HISTORIAL")
+def historial(m):
+    try:
+        u=get_user_data(m.chat.id)
+        hist = u.get("historial", [])
+        if not hist:
+            bot.send_message(m.chat.id, f"📜 HISTORIAL VACIO\nHoy: 0/3 | +$0.00\nTotal: 0 | +$0.00", reply_markup=get_menu())
+            return
+        ultimas = hist[-10:]
+        msg = f"📜 HISTORIAL ULTIMAS {len(ultimas)}\n━━━━━━━━━━━━━━\n"
+        for h in ultimas[::-1]:
+            msg += f"{h[:90]}\n"
+        msg += f"\nHoy: {u.get('ganadas',0)}/{u.get('ops_hoy',0)} | ${u.get('neto_hoy',0):+.2f}\n"
+        msg += f"Total Acum: ${u['balance']-u.get('capital_inicial',10000):+.2f}"
+        bot.send_message(m.chat.id, msg, reply_markup=get_menu())
+    except Exception as e:
+        print(f"HISTORIAL ERROR: {e}")
+        try: bot.send_message(m.chat.id, f"📜 HISTORIAL {len(get_user_data(m.chat.id).get('historial',[]))} ops - error al mostrar", reply_markup=get_menu())
+        except: pass
 
 @bot.message_handler(func=lambda m: m.text=="PRENDER")
 def prender(m):
