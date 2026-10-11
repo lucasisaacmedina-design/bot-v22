@@ -28,7 +28,7 @@ IS_TESTNET = (os.getenv("BINANCE_TESTNET", "False") or "False").lower().strip() 
 WEB_URL = os.getenv("WEB_URL", "https://bot-v22.onrender.com").strip().rstrip("/")
 
 MONEDAS_ACTIVAS = ["BTCUSDT", "BNBUSDT", "AVAXUSDT", "XRPUSDT"]
-CANDIDATAS = ["ETHUSDT","SOLUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT","PEPEUSDT","SUIUSDT","APTUSDT","ARBUSDT","OPUSDT","NEARUSDT","FILUSDT","INJUSDT"]
+CANDIDATAS = ["ETHUSDT","SOLUSDT","DOGEUSDT","ADAUSDT","LINKUSDT","DOTUSDT","LTCUSDT","TRXUSDT","MATICUSDT","SHIBUSDT","PEPEUSDT","SUIUSDT","APTUSDT","ARBUSDT","OPUSDT","NEARUSDT","FILUSDT","INJUSDT","BONKUSDT"]
 MAX_MONEDAS = 20
 META_PROFIT_PARA_EXPANDIR = 120.0
 META_TP_PARA_EXPANDIR = META_PROFIT_PARA_EXPANDIR
@@ -152,10 +152,9 @@ MADRES_LIBRES_V52 = {"LOBO","TIBURON","KRAKEN","LOBO_NEGRO","TIBURON_NEGRO"}
 def candado(est, regimen, sym=None):
     r = regimen.split()[0] if regimen else "LINEAL"
     if est == "MOJARRITA_SUPERVIVENCIA":
-        # FIX V58.7.7 AL DERECHO: SUPERVIVENCIA SOLO BAJISTA/CRASH
         return r in ["BAJISTA", "CRASH", "SUPERVIVENCIA"]
     if r == "LINEAL_MUERTO":
-        return est in ["MOJARRA","MOJARRITA"] # SOLO 52/58/65 + 5-28 TP0.5% 3+3
+        return est in ["MOJARRA","MOJARRITA"]
     if r == "LINEAL": return est in ["MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATITA_BLANCA","RATA"]
     if r == "ALCISTA": return est in ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATITA","RATA","LOBO"]
     if r == "ALCISTA_FUERTE": return est in ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATITA","RATA","LOBO","TIBURON"]
@@ -404,35 +403,59 @@ def get_precio_robusto(symbol):
     try:
         if client: return float(client.get_symbol_ticker(symbol=symbol)['price'])
     except: pass
-    for base in ["https://data-api.binance.vision","https://api.binance.com","https://api1.binance.com","https://api2.binance.com"]:
+    for base in ["https://data-api.binance.vision","https://api.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com"]:
         try:
             r = requests.get(f"{base}/api/v3/ticker/price?symbol={symbol}", timeout=4)
             if r.status_code==200: return float(r.json()['price'])
         except: pass
     return ESTADO.get("btc" if "BTC" in symbol else "bnb",0) or 0.0
+
 def get_velas(symbol="BTCUSDT", interval="5m", limit=200):
     try:
         if client:
             klines=client.get_klines(symbol=symbol, interval=interval, limit=limit)
-            return {"closes": [float(k[4]) for k in klines],"highs": [float(k[2]) for k in klines],"lows": [float(k[3]) for k in klines],"vols": [float(k[5]) for k in klines]}
+            if klines and len(klines) >= 20:
+                return {"closes": [float(k[4]) for k in klines],"highs": [float(k[2]) for k in klines],"lows": [float(k[3]) for k in klines],"vols": [float(k[5]) for k in klines]}
     except: pass
     try:
         r=requests.get(f"https://data-api.binance.vision/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}", timeout=6)
         if r.status_code==200:
             klines=r.json()
-            return {"closes": [float(k[4]) for k in klines],"highs": [float(k[2]) for k in klines],"lows": [float(k[3]) for k in klines],"vols": [float(k[5]) for k in klines]}
+            if klines and len(klines) >= 20:
+                return {"closes": [float(k[4]) for k in klines],"highs": [float(k[2]) for k in klines],"lows": [float(k[3]) for k in klines],"vols": [float(k[5]) for k in klines]}
     except: pass
+    for base in ["https://api.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com"]:
+        try:
+            r = requests.get(f"{base}/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}", timeout=5)
+            if r.status_code==200:
+                klines=r.json()
+                if klines and len(klines) >= 20:
+                    return {"closes": [float(k[4]) for k in klines],"highs": [float(k[2]) for k in klines],"lows": [float(k[3]) for k in klines],"vols": [float(k[5]) for k in klines]}
+        except: pass
     return None
+
+# --- FIX V58.7.8 RSI 100 -> NUNCA MAS 100 ---
 def rsi_calc(closes, period=14):
-    if len(closes) < period+1: return 50.0
-    deltas = [closes[i]-closes[i-1] for i in range(1,len(closes))]
-    gains = [d if d>0 else 0 for d in deltas[-period:]]
-    losses = [-d if d<0 else 0 for d in deltas[-period:]]
-    avg_gain = sum(gains)/period if gains else 0.01
-    avg_loss = sum(losses)/period if losses else 0.01
-    if avg_loss == 0: return 100.0
-    rs = avg_gain/avg_loss
-    return 100-(100/(1+rs))
+    try:
+        if not closes or len(closes) < period+2:
+            return 55.0
+        deltas = [closes[i]-closes[i-1] for i in range(1,len(closes))]
+        gains = [d if d>0 else 0 for d in deltas[-period:]]
+        losses = [-d if d<0 else 0 for d in deltas[-period:]]
+        avg_gain = sum(gains)/period
+        avg_loss = sum(losses)/period
+        if avg_gain == 0 and avg_loss == 0:
+            return 55.0
+        if avg_loss == 0:
+            return 68.0
+        if avg_gain == 0:
+            return 32.0
+        rs = avg_gain/avg_loss
+        rsi = 100-(100/(1+rs))
+        return max(5.0, min(92.0, rsi))
+    except:
+        return 55.0
+
 def adx_calc(highs, lows, closes, period=14):
     if len(closes) < period*2 + 1: return 15.0
     tr_list, plus_dm_list, minus_dm_list = [], [], []
@@ -458,6 +481,7 @@ def adx_calc(highs, lows, closes, period=14):
     minus_di = 100 * minus_dm_s / atr
     dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di)!= 0 else 0
     return round(dx, 2)
+
 def atr_calc(d, period=14):
     if not d or len(d["closes"]) < period+1: return 0.0
     trs=[]
@@ -467,12 +491,14 @@ def atr_calc(d, period=14):
         lc = abs(d["lows"][i]-d["closes"][i-1])
         trs.append(max(hl,hc,lc))
     return sum(trs[-period:])/period if trs else 0.0
+
 def ema_calc(closes, period):
     if len(closes) < period: return sum(closes)/len(closes) if closes else 0
     k = 2/(period+1)
     ema = sum(closes[:period])/period
     for c in closes[period:]: ema = c*k + ema*(1-k)
     return ema
+
 def tp_adaptativo(symbol, estrategia):
     try:
         rango = ESTRATEGIAS_V45[estrategia]["rango_tp"]
@@ -502,6 +528,7 @@ def tp_adaptativo(symbol, estrategia):
             return rango[0]
         return rango[0]
     except: return 0.5
+
 def tiempo_fuera_inteligente(symbol, tipo_actual):
     try:
         d1h = get_velas(symbol,"1h",60); d5 = get_velas(symbol,"5m",60)
@@ -522,12 +549,14 @@ def tiempo_fuera_inteligente(symbol, tipo_actual):
             if rsi_5 > 45: return 0.6*3600
             return 1.0*3600
     except: return TIEMPO_FUERA_NORMAL if tipo_actual=="NORMAL" else TIEMPO_FUERA_BAJISTA
+
 def get_cambio_24h(symbol):
     try:
         d = get_velas(symbol, "1d", 3)
         if not d or len(d["closes"]) < 2: return 0
         return (d["closes"][-1] - d["closes"][-2]) / d["closes"][-2] * 100 if d["closes"][-2]!=0 else 0
     except: return 0
+
 def get_umbral_adaptativo(regimen):
     reg = regimen.split()[0] if regimen else "LINEAL"
     btc_delta = 0.0
@@ -714,6 +743,7 @@ def gestionar_bandas_moviles():
 def es_rentable(tp_bruto, estrategia="RATA"):
     min_neto = FILTRO_NETO_MIN_MOJARRA if estrategia in ["MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","MOJARRA_NEGRA"] else FILTRO_NETO_MIN
     return (tp_bruto - COMISION_TOTAL) >= min_neto, tp_bruto - COMISION_TOTAL
+
 def contar_posiciones_globales():
     counts = {}; total_tib = 0
     for uid, lista in POSICIONES_ABIERTAS.items():
@@ -723,6 +753,7 @@ def contar_posiciones_globales():
             counts[key] = counts.get(key, 0) + 1
             if p.get("estrategia") in ["TIBURON","TIBURON_NEGRO"]: total_tib += 1
     return counts, total_tib
+
 def banda_txt_display(k,v):
     base = f"BANDA {k} {v['entrada_tiburon']:.0f}->{v['tope']:.0f} {v['tipo']}"
     if v.get("origen_mov"): base += f" MOVIL"
@@ -745,6 +776,9 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
                 try: bot.send_message(uid, msg)
                 except: pass
     except Exception as e: print(f"Error notificar_cierre: {e}")
+
+# --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX XRP 1/3 + 2/3 MISMO MINUTO - SOLO PARTE 2 CORREGIDA ---
+INDICE_RONDA_DISTRIBUIDA = 0    
         
 # --- PARTE 2 V58.7.8 DISTRIBUIDA REAL - FIX XRP 1/3 + 2/3 MISMO MINUTO - SOLO PARTE 2 CORREGIDA ---
 INDICE_RONDA_DISTRIBUIDA = 0
