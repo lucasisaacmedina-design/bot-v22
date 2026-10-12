@@ -6,7 +6,7 @@ import telebot
 from telebot import types
 try:
     from zoneinfo import ZoneInfo
-    TZ = ZoneInfo("America/Argentina/Buenos_Aires")
+    TZ = ZoneInfo("America/Argentina/Buenos_Aires") 
 except:
     import pytz; TZ = pytz.timezone('America/Argentina/Buenos_Aires')
 try:
@@ -1106,7 +1106,8 @@ def motor_v45():
                         if precio_actual == 0: continue
                         es_short = pos.get("estrategia") in NEGRAS
                         pnl_pct_actual = (precio_actual - pos["entrada"]) / pos["entrada"] * 100 if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * 100
-                        if pnl_pct_actual <= -3.5:
+                        es_mojarra_inmortal = pos.get("estrategia") in ["MOJARRA","MOJARRITA","MOJARRITA_SUPERVIVENCIA"]
+                        if not es_mojarra_inmortal and pnl_pct_actual <= -3.5:
                             try:
                                 ejecutar_orden_real(pos["symbol"], "BUY" if es_short else "SELL", pos["usdt"])
                                 pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
@@ -1132,10 +1133,10 @@ def motor_v45():
                         cerrar = None
                         if not es_short:
                             if precio_actual >= tp_price: cerrar = "TP"
-                            elif precio_actual <= sl_price: cerrar = "SL"
+                            elif not es_mojarra_inmortal and precio_actual <= sl_price: cerrar = "SL"
                         else:
                             if precio_actual <= tp_price: cerrar = "TP"
-                            elif precio_actual >= sl_price: cerrar = "SL"
+                            elif not es_mojarra_inmortal and precio_actual >= sl_price: cerrar = "SL"
                         if cerrar:
                             ejecutar_orden_real(pos["symbol"], "BUY" if es_short else "SELL", pos["usdt"])
                             pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
