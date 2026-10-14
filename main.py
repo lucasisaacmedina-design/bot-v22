@@ -558,11 +558,27 @@ def tiempo_fuera_inteligente(symbol, tipo_actual):
     except: return TIEMPO_FUERA_NORMAL if tipo_actual=="NORMAL" else TIEMPO_FUERA_BAJISTA
 
 def get_cambio_24h(symbol):
+    # FIX V58.7.9 REAL - Usa ticker/24hr directo, no klines 1d
+    try:
+        for base in ["https://data-api.binance.vision","https://api.binance.com","https://api1.binance.com"]:
+            try:
+                r = requests.get(f"{base}/api/v3/ticker/24hr?symbol={symbol}", timeout=4)
+                if r.status_code == 200:
+                    data = r.json()
+                    # Binance devuelve string "1.234"
+                    return float(data.get("priceChangePercent", 0))
+            except:
+                continue
+    except:
+        pass
+    # Fallback viejo si ticker falla
     try:
         d = get_velas(symbol, "1d", 3)
-        if not d or len(d["closes"]) < 2: return 0
-        return (d["closes"][-1] - d["closes"][-2]) / d["closes"][-2] * 100 if d["closes"][-2]!=0 else 0
-    except: return 0
+        if d and len(d["closes"]) >= 2 and d["closes"][-2] != 0:
+            return (d["closes"][-1] - d["closes"][-2]) / d["closes"][-2] * 100
+    except:
+        pass
+    return 0.0
 
 def get_umbral_adaptativo(regimen):
     reg = regimen.split()[0] if regimen else "LINEAL"
