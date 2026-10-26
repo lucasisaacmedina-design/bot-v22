@@ -78,12 +78,12 @@ MAX_MOJARRA_POR_MONEDA = 5
 MAX_PIRANA_POR_MONEDA = 2
 MAX_MOJARRITA_POR_MONEDA = 5
 MOJARRITA_NIVELES = [20, 16, 12, 8, 3]
-DISTANCIA_CARDUMEN_PCT = 0.40
+DISTANCIA_CARDUMEN_PCT = 0
 DISTANCIA_PIRANA_PCT = 0.40
-DISTANCIA_MOJARRA_PCT = 0.40
+DISTANCIA_MOJARRA_PCT = 0
 DISTANCIA_MOJARRA_NEGRA_PCT = 0.40
 DISTANCIA_PIRANA_NEGRA_PCT = 0.40
-DISTANCIA_EXCLUSIVA_PCT = 0.40
+DISTANCIA_EXCLUSIVA_PCT = 0
 ESTADO_PIRANA = {}
 ESTADO_PIRANA_NEGRA = {}
 BANDAS_TIEMPO_FUERA = {}
@@ -232,17 +232,7 @@ def get_tp_variable_mojarra(pos):
     except: return TP_BASE_V594
 
 def es_rango_exclusivo_FIX(sym, precio_nuevo):
-    try:
-        if precio_nuevo == 0: return False
-        for uid in POSICIONES_ABIERTAS:
-            for p in POSICIONES_ABIERTAS[uid]:
-                if p.get("symbol") == sym:
-                    ent = p.get("entrada", 0)
-                    if ent == 0: continue
-                    diff = abs(ent - precio_nuevo)/ent*100
-                    if diff < DISTANCIA_EXCLUSIVA_PCT: return False
-        return True
-    except: return True
+    return True
 
 def get_usdt_compound_mojarra(balance_actual):
     try:
@@ -858,7 +848,7 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
                 except: pass
     except Exception as e: print(f"Error notificar_cierre: {e}")
                 
-# --- PARTE 2 V59.5.4 FINAL FIX - 40/40 EXCLUSIVOS + 12H/6H + TOP20 FIX + COMPOUND ---
+# --- PARTE 2 V59.5.4 FINAL FIX - 40/40 + 12H/6H + TOP20 FIX + COMPOUND - SIN CANDADO 0.40% EN 01 ---
 INDICE_RONDA_DISTRIBUIDA = 0
 
 def obtener_top_20_rentables_binance():
@@ -872,7 +862,7 @@ def obtener_top_20_rentables_binance():
             if s in MONEDAS_ACTIVAS or s in ["USDTUSDT","USDCUSDT","FDUSDUSDT","BUSDUSDT"]: continue
             if is_moneda_bloqueada(s): continue
             out.append((s, float(t.get("priceChangePercent",0))))
-        out.sort(key=lambda x: x[1], reverse=True)  # FIX V59.5.4 era False -> True cazando ganadoras
+        out.sort(key=lambda x: x[1], reverse=True)
         top = [x[0] for x in out[:20]]
         print(f"V59.5.4 FIX TOP20: {top} ANTI-FALSO")
         return top
@@ -930,7 +920,7 @@ def mandar_pensamiento_telegram():
         if ahora - ULTIMO_PENSAMIENTO < 1800: return
         ULTIMO_PENSAMIENTO = ahora
         regs_txt = "\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO.get("regimen","LINEAL")
-        bandas_txt = "V59.5.4 FIX 40/40 EXCLUSIVOS 0.40% Vol+ATR+ADX+EMA+15m + BANCAR ESCALONADO 12H/6H"
+        bandas_txt = "V59.5.4 FIX 40/40 - SIN CANDADO - TP 0.5%->12H 0.3%->6H"
         motivo = ESTADO.get("ultimo_motivo", ESTADO.get("regimen_detalle","Acechando..."))
         monedas_txt = f"{len(MONEDAS_ACTIVAS)}/40"
         tanque_txt = f"PROFIT ${CONTADOR_TP_EXPANSION:.2f}/${META_PROFIT_PARA_EXPANDIR:.0f} Tanque {monedas_txt} V59.5.4 40/40 TP 0.5%->12H 0.3%->6H LOBO 1.2% FIJO"
@@ -955,28 +945,28 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
     for sym in monedas_ordenadas:
         if is_moneda_bloqueada(sym): continue
         reg_sym = ESTADO.get("regimenes",{}).get(sym,"LINEAL").split()[0]
-        if reg_sym == "LINEAL_MUERTO": orden = ["MOJARRA", "MOJARRITA"]  # FIX 5x + 5x = 10 por moneda = 40 total
-        elif reg_sym == "LINEAL": orden = ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATA"]  # FIX ORDEN CORRECTO QUE ME DISTE
+        if reg_sym == "LINEAL_MUERTO": orden = ["MOJARRA", "MOJARRITA"]
+        elif reg_sym == "LINEAL": orden = ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATA"]
         elif reg_sym == "ALCISTA": orden = ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATITA","RATA","LOBO"]
         elif reg_sym == "ALCISTA_FUERTE": orden = ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATITA","RATA","LOBO","TIBURON"]
         elif reg_sym in ["BAJISTA","CRASH"]: orden = ["MOJARRA_NEGRA","PIRANA_NEGRA","RATITA_NEGRA","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN","MOJARRITA_SUPERVIVENCIA","MOJARRA","MOJARRITA"]
         else: orden = ["MOJARRITA_SUPERVIVENCIA"]
         for nombre in orden:
             if not candado(nombre, reg_sym, sym=sym): continue
-            if nombre == "MOJARRA": max_perm = MAX_MOJARRA_POR_MONEDA  # 5
-            elif nombre in ["MOJARRITA","MOJARRITA_SUPERVIVENCIA"]: max_perm = MAX_MOJARRITA_POR_MONEDA  # 5
+            if nombre == "MOJARRA": max_perm = MAX_MOJARRA_POR_MONEDA
+            elif nombre in ["MOJARRITA","MOJARRITA_SUPERVIVENCIA"]: max_perm = MAX_MOJARRITA_POR_MONEDA
             elif nombre in ["LOBO","TIBURON","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN"]: max_perm = 1
             else: max_perm = MAX_PIRANA_POR_MONEDA
             key_global = (sym, nombre)
             if counts_global.get(key_global, 0) >= max_perm: continue
             key_lock = f"{sym}_{nombre}"
             if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < 30: continue
-            # FIX EXCLUSIVO 0.40% - verifica antes de cazar
-            try:
-                precio_check = get_precio_robusto(sym)
-                if not es_rango_exclusivo_FIX(sym, precio_check):
-                    continue  # Evita $80448.40 y $80448.41 duplicadas
-            except: pass
+            # FIX LOBO: SIN CANDADO 0.40% EN 01 - YA NO FILTRA
+            # try:
+            #     precio_check = get_precio_robusto(sym)
+            #     if not es_rango_exclusivo_FIX(sym, precio_check):
+            #         continue
+            # except: pass
             ok=False; motivo=""; wr=0
             if nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
             elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
@@ -1000,7 +990,7 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
         candidatos.sort(key=lambda x: x[0], reverse=True)
         mejor = candidatos[0]
         return True, mejor[1], mejor[2], mejor[3], mejor[4]
-    return False, f"V59.5.4 40/40 Esperando RSI 5-28 o 52/58/65 o LOBO/TIBURON + DETECTOR REAL + 0.40% exclusivo", MONEDAS_ACTIVAS[0], None, 0
+    return False, f"V59.5.4 40/40 Esperando RSI 5-28 o 52/58/65 o LOBO/TIBURON + DETECTOR REAL", MONEDAS_ACTIVAS[0], None, 0
 
 def detectar_BI_CEREBRO(regimen):
     return detectar_BI_CEREBRO_DISTRIBUIDA(regimen)
@@ -1061,7 +1051,7 @@ def cargar_datos():
         CONTADOR_NEGRA_POR_REGIMEN = {}
         CONTADOR_TP_EXPANSION = 0.0
         ESCAPE_BLOCK = {}; ESCAPES_TIMELINE = []; PAUSA_GLOBAL_HASTA = 0; BAJISTA_PROFUNDO_HASTA = 0; BLOQUEO_LONG_TOTAL_HASTA = 0
-        print("V59.5.4 FIX - ARRANQUE CONSERVA ORDENES + 40/40 EXCLUSIVOS + TOP20 FIX")
+        print("V59.5.4 FIX - ARRANQUE CONSERVA ORDENES + 40/40 SIN CANDADO + TOP20 FIX")
         return
     except Exception as e:
         print(f"V59.5.4 cargar error {e}")
@@ -1173,7 +1163,7 @@ def escanear_candidatas_y_proponer():
 
 def motor_v45():
     global CONTADOR_TP_EXPANSION, BTC_PRECIOS_15M, CONTADOR_SL_NEGRA_SEGUIDOS, INDICE_RONDA_DISTRIBUIDA
-    print(f">>> MOTOR V59.5.4 FINAL FIX {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} - 40/40 EXCLUSIVOS + 12H/6H + TOP20 FIX + COMPOUND")
+    print(f">>> MOTOR V59.5.4 FINAL FIX {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} - 40/40 SIN CANDADO + 12H/6H + TOP20 FIX + COMPOUND")
     time.sleep(5)
     while True:
         try:
@@ -1215,7 +1205,7 @@ def motor_v45():
                         if es_rescate:
                             tp_usar = tp_rescate_escalonado(pos)
                         elif es_mojarra_inmortal:
-                            tp_usar = get_tp_variable_mojarra(pos)  # FIX 12H/6H
+                            tp_usar = get_tp_variable_mojarra(pos)
                         else:
                             tp_usar = pos.get("tp", TP_FIJO_RATA)
                             if pos.get("estrategia") in ["LOBO","LOBO_NEGRO"]: tp_usar = TP_FIJO_LOBO
@@ -1278,9 +1268,8 @@ def motor_v45():
                     else: max_permitido = MAX_PIRANA_POR_MONEDA
                     if counts_global.get(key_global, 0) >= max_permitido: continue
                     if len(existentes) >= max_permitido: continue
-                    # FIX COMPOUND MOJARRA
                     if estrategia_elegida in ["MOJARRA","MOJARRITA","MOJARRITA_SUPERVIVENCIA"]:
-                        usdt_a_usar = get_usdt_compound_mojarra(u["balance"])  # FIX COMPOUND
+                        usdt_a_usar = get_usdt_compound_mojarra(u["balance"])
                     elif estrategia_elegida in ["LOBO","TIBURON"]: usdt_a_usar = max(15, u["balance"]*0.05)
                     else: usdt_a_usar = max(10, u["balance"]*0.035)
                     if estrategia_elegida in ["LOBO","LOBO_NEGRO"]: tp_final = TP_FIJO_LOBO
@@ -1290,10 +1279,7 @@ def motor_v45():
                     else: tp_final = TP_FIJO_RATA
                     print(f"CAZANDO V59.5.4 FIX {symbol_elegido} {estrategia_elegida} {motivo} {len(existentes)+1}/{max_permitido} ${usdt_a_usar} TP{tp_final}% 40/40")
                     lado = "SELL" if estrategia_elegida in NEGRAS else "BUY"
-                    # FIX EXCLUSIVO antes de ejecutar
-                    if not es_rango_exclusivo_FIX(symbol_elegido, get_precio_robusto(symbol_elegido)):
-                        print(f"V59.5.4 FIX RANGO NO EXCLUSIVO {symbol_elegido} SKIP 0.40%")
-                        continue
+                    # FIX LOBO: SIN CANDADO 0.40% - DIRECTO A CAZAR
                     exito, res, precio = ejecutar_orden_real(symbol_elegido, lado, usdt_a_usar)
                     if exito:
                         ULTIMO_TRADE[key_lock]=time.time()
@@ -1328,7 +1314,7 @@ def get_menu():
 def start(m):
     try:
         u=get_user_data(m.chat.id)
-        estado_txt = f"V59.5.4 FIX FINAL {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} ANTI-FALSO 40/40" if u["prendido"] else "APAGADO"
+        estado_txt = f"V59.5.4 FIX FINAL {len(MONEDAS_ACTIVAS)}/{MAX_MONEDAS} SIN CANDADO" if u["prendido"] else "APAGADO"
         regs="\n".join([f"{k}:{v.split()[0]}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO['regimen'].split()[0]
         bot.send_message(m.chat.id,f"V59.5.4 FIX FINAL CEREBRO {estado_txt}\n{regs}\nBal ${u['balance']:.2f}\n{WEB_URL}",reply_markup=get_menu())
     except Exception as e: print(f"START ERROR {e}")
@@ -1358,7 +1344,7 @@ def balance(m):
         if count_vieja>0 and count_nueva>0: en_juego_txt = f"{len(posiciones)} ordenes ({count_vieja}x$350 + {count_nueva}x${MOJARRA_USDT:.0f})"
         elif count_vieja>0: en_juego_txt = f"{len(posiciones)} x $350 (viejas hasta TP)"
         else: en_juego_txt = f"{len(posiciones)} x ${MOJARRA_USDT:.0f} (V59.5.4 FIX 40/40)"
-        msg = f"🐺 V59.5.4 FIX FINAL {len(posiciones)}/40\n━━━━━━━━━━━━━━\n📊 REGIMENES:\n{regs_txt}\n💰 BALANCE:\nTotal: ${total:.2f}\nHoy: ${u.get('neto_hoy',0):+.2f} ({u.get('ganadas',0)} devoradas)\nAcumulado: ${total_acum:+.2f}\nEn Juego: ${en_juego:.0f} ({en_juego_txt})\nDisponible: ${disponible:.2f}\n\n🎯 V59.5.4 FIX: 40/40 EXCLUSIVOS 0.40% | TP 0.5%->12H 0.3%->6H ciclo | LOBO 1.2% FIJO | COMPOUND MOJARRA $10->$20 | ORDEN LINEAL: MOJARRA->PIRANA_BLANCA->RATITA_BLANCA->RATA\n{WEB_URL}"
+        msg = f"🐺 V59.5.4 FIX FINAL {len(posiciones)}/40\n━━━━━━━━━━━━━━\n📊 REGIMENES:\n{regs_txt}\n💰 BALANCE:\nTotal: ${total:.2f}\nHoy: ${u.get('neto_hoy',0):+.2f} ({u.get('ganadas',0)} devoradas)\nAcumulado: ${total_acum:+.2f}\nEn Juego: ${en_juego:.0f} ({en_juego_txt})\nDisponible: ${disponible:.2f}\n\n🎯 V59.5.4 FIX: 40/40 SIN CANDADO | TP 0.5%->12H 0.3%->6H ciclo | LOBO 1.2% FIJO | COMPOUND MOJARRA $10->$20\n{WEB_URL}"
         bot.send_message(m.chat.id, msg, reply_markup=get_menu())
     except Exception as e: print(f"BALANCE ERROR: {e}")
 
@@ -1396,7 +1382,7 @@ def ordenes(m):
                 if p.get("estrategia") in ["LOBO","TIBURON"] and not es_rescate: tag += " FIJO"
                 msg += f"{i}. {sym} {p.get('estrategia')} ${entrada:.2f} -> ${tp_precio:.2f} | +{tp_pct:.1f}% | ${usdt:.0f} {tag} | {hace}\n"
             except: continue
-        msg += f"\nEn Juego Total: ${total_juego:.0f} | 40/40 EXCLUSIVOS 0.40%"
+        msg += f"\nEn Juego Total: ${total_juego:.0f} | 40/40 SIN CANDADO"
         bot.send_message(m.chat.id, msg, reply_markup=get_menu())
     except Exception as e: print(f"ORDENES ERROR: {e}")
 
@@ -1418,12 +1404,12 @@ def historial(m):
 @bot.message_handler(func=lambda m: m.text=="PRENDER")
 def prender(m):
     u=get_user_data(m.chat.id); u["prendido"]=True; guardar_datos()
-    bot.send_message(m.chat.id,f"MANADA PRENDIDA V59.5.4 FIX FINAL 40/40\nDETECTOR ANTI-FALSO Vol+ATR+ADX+EMA+15m\nTP 0.5%->12H 0.3%->6H ciclo LOBO 1.2% FIJO TIBURON 5-10% FIJO\nBANCAR ESCALONADO 0-12H orig 12-24H 0.8% 24-36H 0.5% 36H+ 0.3%\n01 MOJARRA 52/58/65 + MOJARRITA 5-28 $10->$20 COMPOUND x5 + x5 = 40/40 EXCLUSIVOS 0.40%",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"MANADA PRENDIDA V59.5.4 FIX FINAL 40/40\nSIN CANDADO 0.40% - TP 0.5%->12H 0.3%->6H ciclo LOBO 1.2% FIJO TIBURON 5-10% FIJO\n01 MOJARRA 52/58/65 + MOJARRITA 5-28 $10->$20 COMPOUND x5 + x5 = 40/40",reply_markup=get_menu())
 
 @bot.message_handler(func=lambda m: m.text=="EVOLUCIONAR")
 def evolucionar(m):
     regs="\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()])
-    bot.send_message(m.chat.id,f"V59.5.4 FIX FINAL 40/40 CLIMA ANTI-FALSO + 0.40% EXCLUSIVO + COMPOUND\n{regs}",reply_markup=get_menu())
+    bot.send_message(m.chat.id,f"V59.5.4 FIX FINAL 40/40 SIN CANDADO\n{regs}",reply_markup=get_menu())
 
 def info_sym(sym):
     try:
@@ -1485,7 +1471,7 @@ def api_data():
         target=ADMINS_IDS[0]
         if target not in USUARIOS: get_user_data(target)
         u=USUARIOS[target]
-        bandas_txt = "V59.5.4 FIX FINAL 40/40 EXCLUSIVOS 0.40% + 12H/6H + TOP20 FIX + COMPOUND"
+        bandas_txt = "V59.5.4 FIX FINAL 40/40 SIN CANDADO 0.40% + 12H/6H + TOP20 FIX + COMPOUND"
         ganancia_total = u["balance"]-u["capital_inicial"]
         return jsonify({"balance":u["balance"],"capital_inicial":u["capital_inicial"],"neto_hoy":u["neto_hoy"],"modo":u["modo"],"mercado":u["mercado"],"regimen_btc":ESTADO.get("regimen","LINEAL"),"regimenes":ESTADO.get("regimenes",{}),"estrategias":u["estrategias"],"monedas":MONEDAS_ACTIVAS,"ganancia_total":ganancia_total,"bandas":BANDAS_ACTIVAS,"bandas_txt":bandas_txt,"posiciones":POSICIONES_ABIERTAS.get(target,[]),"precios":{},"meta_proxima":META_PROFIT_PARA_EXPANDIR,"tps_actual":CONTADOR_TP_EXPANSION,"v51_contadores":CONTADOR_POR_REGIMEN,"v51_niveles":EVOLUCION_NIVEL,"v56_contadores_negra":CONTADOR_NEGRA_POR_REGIMEN,"v56_niveles_negra":EVOLUCION_NIVEL_NEGRA})
     except Exception as e:
@@ -1494,18 +1480,18 @@ def api_data():
 if True:
     cargar_datos()
     for sym in MONEDAS_ACTIVAS:
-        ESTADO["regimenes"].setdefault(sym, "LINEAL_MUERTO Inicializado V59.5.4 FIX FINAL 40/40")
+        ESTADO["regimenes"].setdefault(sym, "LINEAL_MUERTO Inicializado V59.5.4 FIX FINAL 40/40 SIN CANDADO")
         REG_ANT.setdefault(sym, "LINEAL_MUERTO")
     t = threading.Thread(target=motor_v45, daemon=False); t.start()
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)), debug=False, use_reloader=False), daemon=False).start()
-    print("V59.5.3 FINAL - LISTO PARA REAL - ANTI-FALSO ALCISTA Y BAJISTA + BANCAR ESCALONADO + TP VARIABLE SOLO MOJARRA")
+    print("V59.5.3 FINAL - LISTO PARA REAL - SIN CANDADO + TP VARIABLE 0.5%->12H 0.3%")
     import logging
     logging.getLogger('telebot').setLevel(logging.ERROR)
     while True:
         try:
             try:
                 bot.delete_webhook(drop_pending_updates=True)
-                print("V59.5.4 FIX Webhook borrado - polling unico FINAL 40/40")
+                print("V59.5.4 FIX Webhook borrado - polling unico FINAL 40/40 SIN CANDADO")
                 time.sleep(3)
             except Exception as e_wh: print(f"Webhook {e_wh}")
             bot.infinity_polling(timeout=60, long_polling_timeout=60, allowed_updates=["message", "callback_query"], skip_pending=True)
