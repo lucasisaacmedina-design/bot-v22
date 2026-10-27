@@ -1,4 +1,4 @@
-# ==================== V59.5.4 FINAL FIX PARTE 1 COMPLETA - 40/40 EXCLUSIVOS + 12H/6H + ORDEN MOJARRA->PIRANA_BLANCA->RATITA_BLANCA->RATA ====================
+# ==================== V59.5.4 FINAL FIX PARTE 1 COMPLETA - 40/40 EXCLUSIVOS + 12H/6H + ORDEN MOJARRA->PIRANA_BLANCA->RATITA_BLANCA->RATA - FIX BTC REAL ====================
 import os, json, threading, time, requests, math
 from datetime import datetime
 from flask import Flask, render_template_string, jsonify, request
@@ -465,16 +465,30 @@ ESTADO={"btc":0,"bnb":0,"regimen":"LINEAL","regimen_detalle":"Iniciando","regime
 USUARIOS={}; LOCK=threading.Lock()
 POSICIONES_ABIERTAS = {}; BANDAS_ACTIVAS = {}; ULTIMO_TRADE = {}; ULTIMO_PENSAMIENTO = 0; ULTIMO_CAZANDO = {}
 def ahora_art(): return datetime.now(TZ)
+
+# --- FIX BTC 0.0 REAL - UNICO CAMBIO ---
 def get_precio_robusto(symbol):
     try:
-        if client: return float(client.get_symbol_ticker(symbol=symbol)['price'])
+        if client:
+            p = float(client.get_symbol_ticker(symbol=symbol)['price'])
+            if p > 0:
+                return p
     except: pass
     for base in ["https://data-api.binance.vision","https://api.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com"]:
         try:
             r = requests.get(f"{base}/api/v3/ticker/price?symbol={symbol}", timeout=4)
-            if r.status_code==200: return float(r.json()['price'])
+            if r.status_code==200:
+                p = float(r.json()['price'])
+                if p > 0:
+                    return p
         except: pass
+    try:
+        r = requests.get(f"https://data-api.binance.vision/api/v3/ticker/price?symbol={symbol}", timeout=8)
+        if r.status_code==200:
+            return float(r.json()['price'])
+    except: pass
     return ESTADO.get("btc" if "BTC" in symbol else "bnb",0) or 0.0
+
 def get_velas(symbol="BTCUSDT", interval="5m", limit=200):
     try:
         if client:
@@ -852,23 +866,25 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
 INDICE_RONDA_DISTRIBUIDA = 0
 
 def obtener_top_20_rentables_binance():
-    try:
-        r = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=8)
-        data = r.json()
-        out = []
-        for t in data:
-            s = t["symbol"]
-            if not s.endswith("USDT"): continue
-            if s in MONEDAS_ACTIVAS or s in ["USDTUSDT","USDCUSDT","FDUSDUSDT","BUSDUSDT"]: continue
-            if is_moneda_bloqueada(s): continue
-            out.append((s, float(t.get("priceChangePercent",0))))
-        out.sort(key=lambda x: x[1], reverse=True)
-        top = [x[0] for x in out[:20]]
-        print(f"V59.5.4 FIX TOP20: {top} ANTI-FALSO")
-        return top
-    except Exception as e:
-        print(f"V59.5.4 TOP20 error {e} -> fallback CANDIDATAS")
-        return CANDIDATAS
+    for base in ["https://data-api.binance.vision","https://api.binance.com","https://api1.binance.com"]:
+        try:
+            r = requests.get(f"{base}/api/v3/ticker/24hr", timeout=8)
+            data = r.json()
+            out = []
+            for t in data:
+                s = t["symbol"]
+                if not s.endswith("USDT"): continue
+                if s in MONEDAS_ACTIVAS or s in ["USDTUSDT","USDCUSDT","FDUSDUSDT","BUSDUSDT"]: continue
+                if is_moneda_bloqueada(s): continue
+                out.append((s, float(t.get("priceChangePercent",0))))
+            out.sort(key=lambda x: x[1], reverse=True)
+            top = [x[0] for x in out[:20]]
+            print(f"V59.5.4 FIX TOP20: {top} ANTI-FALSO {base}")
+            return top
+        except:
+            continue
+    print(f"V59.5.4 TOP20 error -> fallback CANDIDATAS")
+    return CANDIDATAS
 
 def detectar_mejor_candidata():
     mejor = None; mejor_wr = 0
@@ -961,12 +977,6 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
             if counts_global.get(key_global, 0) >= max_perm: continue
             key_lock = f"{sym}_{nombre}"
             if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < 30: continue
-            # FIX LOBO: SIN CANDADO 0.40% EN 01 - YA NO FILTRA
-            # try:
-            #     precio_check = get_precio_robusto(sym)
-            #     if not es_rango_exclusivo_FIX(sym, precio_check):
-            #         continue
-            # except: pass
             ok=False; motivo=""; wr=0
             if nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
             elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
@@ -1279,7 +1289,6 @@ def motor_v45():
                     else: tp_final = TP_FIJO_RATA
                     print(f"CAZANDO V59.5.4 FIX {symbol_elegido} {estrategia_elegida} {motivo} {len(existentes)+1}/{max_permitido} ${usdt_a_usar} TP{tp_final}% 40/40")
                     lado = "SELL" if estrategia_elegida in NEGRAS else "BUY"
-                    # FIX LOBO: SIN CANDADO 0.40% - DIRECTO A CAZAR
                     exito, res, precio = ejecutar_orden_real(symbol_elegido, lado, usdt_a_usar)
                     if exito:
                         ULTIMO_TRADE[key_lock]=time.time()
