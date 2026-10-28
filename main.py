@@ -967,8 +967,7 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
             else: max_perm = MAX_PIRANA_POR_MONEDA
             key_global = (sym, nombre)
             if counts_global.get(key_global, 0) >= max_perm: continue
-            key_lock = f"{sym}_{nombre}"
-            if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < 30: continue
+            # --- SIN CANDADO V59.5.4 - BORRADO CHECK DE 30 SEGUNDOS ---
             ok=False; motivo=""; wr=0
             if nombre=="MOJARRA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRA")
             elif nombre=="MOJARRITA": ok,motivo,wr = detectar_RATA_sym(sym, "MOJARRITA")
@@ -1260,8 +1259,7 @@ def motor_v45():
                     counts_global, _ = contar_posiciones_globales()
                     key_global = (symbol_elegido, estrategia_elegida)
                     existentes = [p for p in POSICIONES_ABIERTAS.get(user_id,[]) if p.get('symbol')==symbol_elegido and p.get('estrategia')==estrategia_elegida]
-                    key_lock = f"{symbol_elegido}_{estrategia_elegida}"
-                    if key_lock in ULTIMO_TRADE and (time.time() - ULTIMO_TRADE[key_lock]) < 30: continue
+                    # --- SIN CANDADO V59.5.4 - BORRADO CHECK DE 30 SEGUNDOS ---
                     if estrategia_elegida == "MOJARRA": max_permitido = MAX_MOJARRA_POR_MONEDA
                     elif estrategia_elegida in ["MOJARRITA","MOJARRITA_SUPERVIVENCIA"]: max_permitido = MAX_MOJARRITA_POR_MONEDA
                     elif estrategia_elegida in ["LOBO","TIBURON","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN"]: max_permitido = 1
@@ -1281,7 +1279,8 @@ def motor_v45():
                     lado = "SELL" if estrategia_elegida in NEGRAS else "BUY"
                     exito, res, precio = ejecutar_orden_real(symbol_elegido, lado, usdt_a_usar)
                     if exito:
-                        ULTIMO_TRADE[key_lock]=time.time()
+                        # ULTIMO_TRADE se guarda solo para log, no bloquea
+                        ULTIMO_TRADE[f"{symbol_elegido}_{estrategia_elegida}"]=time.time()
                         INDICE_RONDA_DISTRIBUIDA = (INDICE_RONDA_DISTRIBUIDA + 1) % len(MONEDAS_ACTIVAS)
                         pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_final, "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat(), "max_pnl": 0.0, "max_precio": precio, "es_rescate": False, "tp_original": tp_final, "dt_rescate": time.time(), "timestamp": time.time()}
                         POSICIONES_ABIERTAS[user_id].append(pos)
