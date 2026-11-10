@@ -1,4 +1,4 @@
-# ==================== V61.1 IDEA MADRE PARTE 1 COMPLETA - 40/40 + BAJISTA_SUAVE / BAJISTA_FUERTE / CRASH ====================
+# ==================== V61.1 IDEA MADRE PARTE 1 COMPLETA - 40/40 + BAJISTA_SUAVE / BAJISTA_FUERTE / CRASH - CORREGIDA ====================
 import os, json, threading, time, requests, math
 from datetime import datetime
 from flask import Flask, render_template_string, jsonify, request
@@ -173,7 +173,6 @@ RANGOS_DESDE_HASTA = {
 
 def candado(est, regimen, sym=None):
     r = regimen.split()[0] if regimen else "LINEAL"
-    # V61.1: BAJISTA viejo = BAJISTA_FUERTE nuevo (compatibilidad con posiciones viejas)
     if r == "BAJISTA": r = "BAJISTA_FUERTE"
     if est == "MOJARRITA_SUPERVIVENCIA": return r in ["BAJISTA_SUAVE", "BAJISTA_FUERTE", "CRASH", "SUPERVIVENCIA"]
     if r == "LINEAL_MUERTO": return est in ["MOJARRA","MOJARRITA"]
@@ -181,10 +180,8 @@ def candado(est, regimen, sym=None):
     if r == "ALCISTA": return est in ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATITA","RATA","LOBO"]
     if r == "ALCISTA_FUERTE": return est in ["MOJARRA","PIRANA_BLANCA","RATITA_BLANCA","RATITA","RATA","LOBO","TIBURON"]
     if r == "BAJISTA_SUAVE":
-        # V61.1: Primer escalon para abajo - solo NEGRAS chicas, espejo de LINEAL
         return est in ["MOJARRA_NEGRA","PIRANA_NEGRA","PIRAÑA_NEGRA","RATITA_NEGRA","MOJARRITA_SUPERVIVENCIA"]
     if r in ["BAJISTA_FUERTE","CRASH"]:
-        # V61.1: BAJISTA_FUERTE y CRASH - todas las NEGRAS
         return est in ["MOJARRA_NEGRA","PIRANA_NEGRA","PIRAÑA_NEGRA","RATITA_NEGRA","RATA_NEGRA","LOBO_NEGRO","TIBURON_NEGRO","KRAKEN","MOJARRITA_SUPERVIVENCIA"]
     if r == "SUPERVIVENCIA": return est in ["MOJARRITA_SUPERVIVENCIA"]
     return True
@@ -645,6 +642,7 @@ def get_umbral_adaptativo(regimen):
     elif reg == "LINEAL": return {"rsi_kraken": max(20, 29.0 + ajuste), "rsi_pirana": 38, "rsi_pirana_negra": 28, "vsa_kraken_base": 1.3, "adx_tiburon": 22}
     else: return {"rsi_kraken": max(18, 27.5 + ajuste), "rsi_pirana": 30, "rsi_pirana_negra": 28, "vsa_kraken_base": 1.6, "adx_tiburon": 20}
 
+# --- CORRECCION V61.1 DIAGNOSTICO 1: BAJISTA_SUAVE sin pedir RSI<50 obligado ---
 def detectar_regimen_sym(symbol):
     try:
         cambio24 = get_cambio_24h(symbol)
@@ -662,10 +660,10 @@ def detectar_regimen_sym(symbol):
         cambio_1h = 0
         if len(closes_1h) >= 2 and closes_1h[-2] != 0:
             cambio_1h = (precio - closes_1h[-2])/closes_1h[-2]*100
-        # CRASH - V61.1 - Ultimo escalon para abajo
+        # CRASH - V61.1
         if rent_14d < -0.12 and precio < ema200 and adx_1h >= 18:
             return "CRASH", f"CRASH V61.1 ADX{adx_1h:.0f} {rent_14d*100:.1f}% | ESTRATEGIA: {MAPA_ESTRATEGIA['CRASH']}"
-        # BAJISTA_FUERTE - V61.1 - Espejo de ALCISTA_FUERTE
+        # BAJISTA_FUERTE - V61.1 - Si hay tendencia fuerte, es FUERTE
         if precio < ema200 and adx_1h >= 12:
             return "BAJISTA_FUERTE", f"BAJISTA_FUERTE V61.1 EMA200 ADX{adx_1h:.0f} {rent_14d*100:.1f}% | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_FUERTE']}"
         if cambio24 <= -5.0 and adx_1h >= 30:
@@ -674,11 +672,12 @@ def detectar_regimen_sym(symbol):
             return "BAJISTA_FUERTE", f"BAJISTA_FUERTE V61.1 -2% 1H ADX{adx_1h:.0f} {cambio_1h:.1f}% | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_FUERTE']}"
         if cambio24 <= -8.0:
             return "BAJISTA_FUERTE", f"BAJISTA_FUERTE V61.1 -8% 24H {cambio24:.1f}% | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_FUERTE']}"
-        # BAJISTA_SUAVE - V61.1 - Primer escalon para abajo - Espejo de LINEAL
-        if precio < ema200 and cambio24 <= -1.0 and rsi_1h < 50:
+        # BAJISTA_SUAVE - V61.1 CORREGIDO - Sin pedir RSI<50 obligado
+        # Si esta abajo de EMA200 y cayo -1% o mas, es SUAVE aunque RSI este en 55 y ADX en 5
+        if precio < ema200 and cambio24 <= -1.0:
             return "BAJISTA_SUAVE", f"BAJISTA_SUAVE V61.1 <EMA200 {cambio24:.1f}% RSI{int(rsi_1h)} ADX{adx_1h:.0f} | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_SUAVE']}"
-        if precio < ema200 and cambio24 <= -2.0:
-            return "BAJISTA_SUAVE", f"BAJISTA_SUAVE V61.1 <EMA200 {cambio24:.1f}% | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_SUAVE']}"
+        if precio < ema200 and cambio24 <= -0.5 and rsi_1h < 50:
+            return "BAJISTA_SUAVE", f"BAJISTA_SUAVE V61.1 <EMA200 {cambio24:.1f}% RSI{int(rsi_1h)} ADX{adx_1h:.0f} | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_SUAVE']}"
         if precio < ema200 and 8 <= adx_1h < 12 and rsi_1h < 50:
             return "BAJISTA_SUAVE", f"BAJISTA_SUAVE V61.1 <EMA200 ADX{adx_1h:.0f} RSI{int(rsi_1h)} | ESTRATEGIA: {MAPA_ESTRATEGIA['BAJISTA_SUAVE']}"
         # ALCISTA - igual que antes, no se toca
@@ -698,6 +697,7 @@ def get_vol_requerido_auto(estrategia, reg_simple, adx, atr_pct=0):
     if estrategia in ["PIRANA_BLANCA", "PIRANA", "MOJARRA", "MOJARRITA", "RATITA"]: return 0.25
     return 1.2
 
+# --- CORRECCION V61.1 DIAGNOSTICO 3: RATA no bloquea por ADX en LINEAL_MUERTO / BAJISTA_SUAVE ---
 def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
     d5=get_velas(symbol,"5m",100)
     if not d5: return False,f"{symbol} Sin velas",0
@@ -712,19 +712,22 @@ def detectar_RATA_sym(symbol, estrategia_nombre="RATA"):
         if reg_simple in ["BAJISTA","BAJISTA_SUAVE","BAJISTA_FUERTE","CRASH","SUPERVIVENCIA"]:
             return True,f"[{symbol}] {estrategia_nombre} EMERGENCIA SUPERVIVENCIA RSI{int(rsi)}<20 {reg_simple} CAZA DESDE {r_min} HASTA {r_max} V61", 0.99
     try:
-        d1h_f = get_velas(symbol,"1h",50)
-        if d1h_f:
-            adx_f = adx_calc(d1h_f["highs"], d1h_f["lows"], d1h_f["closes"], 14)
-            vols_f = d1h_f["vols"]
-            vol_prom_f = sum(vols_f[-20:])/20 if len(vols_f)>=20 else 1
-            vol_act_f = vols_f[-1] if vols_f else 1
-            if adx_f < 12:
-                return False,f"[{symbol}] {estrategia_nombre} SIN FALSO ADX{adx_f:.0f}<12", 0.30
-            if vol_prom_f and vol_act_f < vol_prom_f*0.8:
-                return False,f"[{symbol}] {estrategia_nombre} SIN FALSO VOL bajo", 0.30
+        # CORREGIDO: En LINEAL_MUERTO y BAJISTA_SUAVE no se pide ADX>=12, porque ahi ADX es bajo por definicion
+        if reg_simple not in ["LINEAL_MUERTO","BAJISTA_SUAVE"]:
+            d1h_f = get_velas(symbol,"1h",50)
+            if d1h_f:
+                adx_f = adx_calc(d1h_f["highs"], d1h_f["lows"], d1h_f["closes"], 14)
+                vols_f = d1h_f["vols"]
+                vol_prom_f = sum(vols_f[-20:])/20 if len(vols_f)>=20 else 1
+                vol_act_f = vols_f[-1] if vols_f else 1
+                if adx_f < 12:
+                    return False,f"[{symbol}] {estrategia_nombre} SIN FALSO ADX{adx_f:.0f}<12", 0.30
+                if vol_prom_f and vol_act_f < vol_prom_f*0.8:
+                    return False,f"[{symbol}] {estrategia_nombre} SIN FALSO VOL bajo", 0.30
     except: pass
     return True,f"[{symbol}] {estrategia_nombre} CAZA RSI{int(rsi)} EN RANGO {RANGOS_DESDE_HASTA.get(estrategia_nombre)} {reg_simple} V61 TP{TP_FIJO_RATA}% FIJO", 0.90
 
+# --- CORRECCION V61.1 DIAGNOSTICO 2: SHORT en BAJISTA_SUAVE sin pedir ADX>=12 ---
 def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     d5=get_velas(symbol,"5m",100)
     d1h=get_velas(symbol,"1h",100)
@@ -737,6 +740,11 @@ def detectar_SHORT_sym(symbol, estrategia_nombre="MOJARRA_NEGRA"):
     precio = d1h["closes"][-1]
     ema200 = ema_calc(d1h["closes"], 200)
     adx = adx_calc(d1h["highs"], d1h["lows"], d1h["closes"], 14)
+    # CORREGIDO: BAJISTA_SUAVE caza sin pedir ADX>=12, BAJISTA_FUERTE/CRASH si lo piden
+    if reg_simple == "BAJISTA_SUAVE":
+        if precio < ema200 and 20 <= rsi <= 68:
+            return True,f"[{symbol}] {estrategia_nombre} V61.1 SHORT SUAVE RSI{int(rsi)} <EMA200 ADX{adx:.0f} {reg_simple}", 0.85
+        return False,f"[{symbol}] {estrategia_nombre} SUAVE RSI{int(rsi)} ADX{adx:.0f} espera V61.1 {reg_simple}", 0.30
     if precio < ema200 and adx >= 12 and 20 <= rsi <= 68:
         return True,f"[{symbol}] {estrategia_nombre} V61.1 SHORT RSI{int(rsi)} <EMA200 ADX{adx:.0f} {reg_simple}", 0.85
     return False,f"[{symbol}] {estrategia_nombre} RSI{int(rsi)} ADX{adx:.0f} espera V61.1 {reg_simple}", 0.30
@@ -839,12 +847,14 @@ def notificar_cierre(sym, tipo, precio_cierre, profit_usd, profit_pct, es_tp=Tru
                 except: pass
     except Exception as e: print(f"Error notificar_cierre: {e}")
                 
-# --- PARTE 2 V61.1 IDEA MADRE COMPLETA - 40/40 + BAJISTA_SUAVE / BAJISTA_FUERTE / CRASH + ESCALABLE 100 USD ---
+# --- PARTE 2 V61.1 IDEA MADRE COMPLETA - 40/40 + BAJISTA_SUAVE / BAJISTA_FUERTE / CRASH + ESCALABLE 100 USD - CORREGIDA ---
 INDICE_RONDA_DISTRIBUIDA = 0
 ESCALABLE_ESPERANDO_OK = False
 CANDIDATA_ESCALABLE = {"symbol": None, "profit": 0.0, "analisis": {}}
 
 def obtener_top_20_rentables_binance():
+    # CORREGIDO V61.1: Antes solo traia las 20 que mas subian (solo LONG).
+    # Ahora trae 20 que mas suben + 20 que mas caen, para poder proponer SHORT en mercado rojo.
     for base in ["https://data-api.binance.vision","https://api.binance.com","https://api1.binance.com"]:
         try:
             r = requests.get(f"{base}/api/v3/ticker/24hr", timeout=8)
@@ -857,15 +867,19 @@ def obtener_top_20_rentables_binance():
                 if is_moneda_bloqueada(s): continue
                 out.append((s, float(t.get("priceChangePercent",0))))
             out.sort(key=lambda x: x[1], reverse=True)
-            top = [x[0] for x in out[:20]]
-            print(f"V61.1 IDEA MADRE TOP20: {top} SIN FALSO {base}")
+            top_suben = [x[0] for x in out[:20]]
+            top_caen = [x[0] for x in out[-20:]]
+            top = top_suben + [s for s in top_caen if s not in top_suben]
+            print(f"V61.1 IDEA MADRE TOP40: {top} SIN FALSO {base} - 20 SUBEN + 20 CAEN")
             return top
         except:
             continue
-    print(f"V61.1 TOP20 error -> fallback CANDIDATAS")
+    print(f"V61.1 TOP40 error -> fallback CANDIDATAS")
     return CANDIDATAS
 
 def analizar_rentabilidad_moneda(sym):
+    # CORREGIDO V61.1: Antes solo sumaba puntos para LONG.
+    # Ahora calcula score LONG y score SHORT, y devuelve la direccion ganadora.
     try:
         d1h = get_velas(sym, "1h", 210)
         d5 = get_velas(sym, "5m", 100)
@@ -880,14 +894,26 @@ def analizar_rentabilidad_moneda(sym):
         vol_prom = sum(vols[-20:])/20 if len(vols)>=20 else 1
         vol_mult = vols[-1]/vol_prom if vol_prom else 1
         sobre_ema = (precio - ema200)/ema200*100 if ema200 else 0
-        score = 0
-        score += adx * 1.5
-        score += vol_mult * 10
-        if 48 <= rsi <= 62: score += 20
-        elif 60 <= rsi <= 80: score += 25
-        if precio > ema200: score += 15
-        if sobre_ema > 2: score += 10
-        return {"symbol": sym, "score": score, "adx": adx, "rsi": rsi, "sobre_ema": sobre_ema, "vol": vol_mult, "precio": precio}
+        # Score LONG - igual que antes
+        score_long = 0
+        score_long += adx * 1.5
+        score_long += vol_mult * 10
+        if 48 <= rsi <= 62: score_long += 20
+        elif 60 <= rsi <= 80: score_long += 25
+        if precio > ema200: score_long += 15
+        if sobre_ema > 2: score_long += 10
+        # Score SHORT - espejo de LONG
+        score_short = 0
+        score_short += adx * 1.5
+        score_short += vol_mult * 10
+        if 38 <= rsi <= 52: score_short += 20
+        elif 20 <= rsi <= 40: score_short += 25
+        if precio < ema200: score_short += 15
+        if sobre_ema < -2: score_short += 10
+        # Gana la direccion con mas score
+        if score_short > score_long:
+            return {"symbol": sym, "score": score_short, "adx": adx, "rsi": rsi, "sobre_ema": sobre_ema, "vol": vol_mult, "precio": precio, "direccion": "SHORT", "score_long": score_long, "score_short": score_short}
+        return {"symbol": sym, "score": score_long, "adx": adx, "rsi": rsi, "sobre_ema": sobre_ema, "vol": vol_mult, "precio": precio, "direccion": "LONG", "score_long": score_long, "score_short": score_short}
     except:
         return None
 
@@ -958,8 +984,6 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
     if ESCALABLE_ESPERANDO_OK:
         return False, f"ESCALABLE ESPERANDO OK TELEGRAM {CANDIDATA_ESCALABLE.get('symbol')} - PAUSA CAZA", MONEDAS_ACTIVAS[0], None, 0
     counts_global, _ = contar_posiciones_globales() if 'contar_posiciones_globales' in globals() else ({},0)
-    # V61.1: 40/40 es SOLO INMORTAL (MOJARRA+MOJARRITA). NO bloquea NEGRAS/LOBO/TIBURON/KRAKEN.
-    # Si las 29 viejas llenan el 40/40, las NEGRAS igual pueden cazar con su cupo aparte.
     total_inmortal, _por_moneda = contar_inmortal_40() if 'contar_inmortal_40' in globals() else (0, {})
     monedas_ordenadas = []
     for i in range(len(MONEDAS_ACTIVAS)):
@@ -979,10 +1003,8 @@ def detectar_BI_CEREBRO_DISTRIBUIDA(regimen):
         else: orden = ["MOJARRITA_SUPERVIVENCIA"]
         for nombre in orden:
             if not candado(nombre, reg_sym, sym=sym): continue
-            # V61.1: Bloqueo LONG real por moneda
             if nombre in ["MOJARRA","MOJARRITA","PIRANA_BLANCA","PIRANA","RATITA","RATITA_BLANCA","RATA","LOBO","TIBURON"]:
                 if es_bloqueo_long_total(sym): continue
-            # V61.1: Tope 40/40 solo para INMORTAL
             if nombre in ["MOJARRA","MOJARRITA","MOJARRITA_SUPERVIVENCIA"]:
                 if total_inmortal >= MAX_MONEDAS: continue
             if nombre == "MOJARRA": max_perm = MAX_MOJARRA_POR_MONEDA
@@ -1158,9 +1180,11 @@ def intentar_expandir(user_id_notify=None):
     rsi = analisis.get("rsi",0)
     sobre_ema = analisis.get("sobre_ema",0)
     vol = analisis.get("vol",0)
-    msg = f"🐺 LOBO ESCALABLE V61.1 IDEA MADRE\n━━━━━━━━━━━━━━\nHicimos ${CONTADOR_TP_EXPANSION:.2f} de ganancia real\n\nAnalicé las monedas más rentables ahora:\n\n🏆 MAS RENTABLE: {mejor_sym}\nADX: {adx:.1f} | RSI: {rsi:.0f}\nSobre EMA200: {sobre_ema:+.1f}%\nVol: {vol:.1f}x | Score: {score:.0f}\n\n¿Sumamos {mejor_sym} con esos ${CONTADOR_TP_EXPANSION:.0f}?\nActual: {len(MONEDAS_ACTIVAS)}/40 -> {len(MONEDAS_ACTIVAS)+1}/40\n\nTe espero para que empiece a trabajar con esos $100"
+    direccion = analisis.get("direccion","LONG")
+    # CORREGIDO: El mensaje ahora dice si es LONG o SHORT, para que no sumes una LONG en mercado rojo por error
+    msg = f"🐺 LOBO ESCALABLE V61.1 IDEA MADRE\n━━━━━━━━━━━━━━\nHicimos ${CONTADOR_TP_EXPANSION:.2f} de ganancia real\n\nAnalicé las monedas más rentables ahora:\n\n🏆 MAS RENTABLE: {mejor_sym} - {direccion}\nADX: {adx:.1f} | RSI: {rsi:.0f}\nSobre EMA200: {sobre_ema:+.1f}%\nVol: {vol:.1f}x | Score: {score:.0f}\n\n¿Sumamos {mejor_sym} ({direccion}) con esos ${CONTADOR_TP_EXPANSION:.0f}?\nActual: {len(MONEDAS_ACTIVAS)}/40 -> {len(MONEDAS_ACTIVAS)+1}/40\n\nTe espero para que empiece a trabajar con esos $100"
     kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton(f"✅ SI SUMAMOS {mejor_sym} con $100", callback_data=f"AUTH_ADD_{mejor_sym}"), types.InlineKeyboardButton(f"❌ NO", callback_data=f"REJECT_{mejor_sym}"))
+    kb.add(types.InlineKeyboardButton(f"✅ SI SUMAMOS {mejor_sym} ({direccion}) con $100", callback_data=f"AUTH_ADD_{mejor_sym}"), types.InlineKeyboardButton(f"❌ NO", callback_data=f"REJECT_{mejor_sym}"))
     try:
         targets = ADMINS_IDS if not user_id_notify else [user_id_notify]
         for uid in targets: bot.send_message(uid, msg, reply_markup=kb)
@@ -1234,6 +1258,8 @@ def motor_v45():
             verificar_tanque_bnb()
             mandar_pensamiento_telegram()
             escanear_candidatas_y_proponer()
+            # CORREGIDO V61.1: La ronda rota en cada vuelta, no solo cuando caza
+            INDICE_RONDA_DISTRIBUIDA = (INDICE_RONDA_DISTRIBUIDA + 1) % len(MONEDAS_ACTIVAS) if MONEDAS_ACTIVAS else 0
             for user_id in list(USUARIOS.keys()):
                 u=USUARIOS[user_id]
                 if user_id not in POSICIONES_ABIERTAS: POSICIONES_ABIERTAS[user_id] = []
@@ -1261,16 +1287,9 @@ def motor_v45():
                             elif pos.get("estrategia") in ["TIBURON","TIBURON_NEGRO"]: tp_usar = TP_FIJO_TIBURON_MIN
                             elif pos.get("estrategia") == "KRAKEN": tp_usar = TP_FIJO_KRAKEN
                             elif pos.get("estrategia") in ["RATA","RATA_NEGRA","RATITA","RATITA_BLANCA","RATITA_NEGRA","PIRANA_BLANCA","PIRANA_NEGRA"]: tp_usar = TP_FIJO_RATA
-                        if not es_mojarra_inmortal and not es_rescate and pnl_pct_actual <= -3.5:
-                            try:
-                                ejecutar_orden_real(pos["symbol"], "BUY" if es_short else "SELL", pos["usdt"])
-                                pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
-                                pnl = pnl_bruto - pos["usdt"] * COMISION_TOTAL/100
-                                u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
-                                POSICIONES_ABIERTAS[user_id].remove(pos)
-                                guardar_datos()
-                                continue
-                            except: pass
+                        # CORREGIDO V61.1: Se ELIMINO el corte fijo en -3.5% que mataba LOBO/TIBURON.
+                        # Ahora el SL es el de cada estrategia: pos["sl"] (-2.5 MOJARRA, -5 LOBO, -8 TIBURON/KRAKEN, etc.)
+                        # El cierre por SL se hace abajo con sl_price, respetando ese valor.
                         tp_price = pos["entrada"] * (1 + tp_usar/100) if not es_short else pos["entrada"] * (1 - tp_usar/100)
                         sl_price = pos["entrada"] * (1 + pos["sl"]/100) if not es_short else pos["entrada"] * (1 - pos["sl"]/100)
                         cerrar = None
@@ -1287,7 +1306,8 @@ def motor_v45():
                             es_tp = cerrar == "TP"
                             if es_tp:
                                 u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["ganadas"]+=1
-                                CONTADOR_TP_EXPANSION = max(0.0, u["balance"] - BALANCE_INICIAL)
+                                # CORREGIDO V61.1: Contador acumulativo. Antes era balance-10000 y retrocedia.
+                                if pnl > 0: CONTADOR_TP_EXPANSION += pnl
                                 intentar_expandir(user_id)
                             else:
                                 u["balance"]+=pnl; u["neto_hoy"]+=pnl; u["perdidas"]+=1
@@ -1329,7 +1349,6 @@ def motor_v45():
                     exito, res, precio = ejecutar_orden_real(symbol_elegido, lado, usdt_a_usar)
                     if exito:
                         ULTIMO_TRADE[f"{symbol_elegido}_{estrategia_elegida}"]=time.time()
-                        INDICE_RONDA_DISTRIBUIDA = (INDICE_RONDA_DISTRIBUIDA + 1) % len(MONEDAS_ACTIVAS)
                         pos = {"symbol": symbol_elegido, "estrategia": estrategia_elegida, "entrada": precio, "tp": tp_final, "sl": ESTRATEGIAS_V45[estrategia_elegida]["sl_neto"], "usdt": usdt_a_usar, "hora": ahora_art().isoformat(), "max_pnl": 0.0, "max_precio": precio, "es_rescate": False, "tp_original": tp_final, "dt_rescate": time.time(), "timestamp": time.time()}
                         POSICIONES_ABIERTAS[user_id].append(pos)
                         reg_simple = ESTADO.get("regimenes",{}).get(symbol_elegido,"LINEAL").split()[0]
