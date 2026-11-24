@@ -460,9 +460,12 @@ USUARIOS={}; LOCK=threading.Lock()
 POSICIONES_ABIERTAS = {}; BANDAS_ACTIVAS = {}; ULTIMO_TRADE = {}; ULTIMO_PENSAMIENTO = 0; ULTIMO_CAZANDO = {}
 def ahora_art(): return datetime.now(TZ)
 
+# --- CORREGIDO V61.1 FIX FALLBACK POR MONEDA: antes 600 para todo, de ahi el +$803 trucho de AVAX ---
+FALLBACK_PRECIOS = {"BTCUSDT": 65000.0, "BNBUSDT": 600.0, "AVAXUSDT": 20.0, "XRPUSDT": 1.0, "ETHUSDT": 3000.0, "SOLUSDT": 150.0, "DOGEUSDT": 0.15, "ADAUSDT": 0.5, "LINKUSDT": 15.0, "DOTUSDT": 5.0, "LTCUSDT": 80.0, "TRXUSDT": 0.25, "MATICUSDT": 0.5, "SHIBUSDT": 0.00002, "PEPEUSDT": 0.00001, "SUIUSDT": 1.0, "APTUSDT": 8.0, "ARBUSDT": 1.0, "OPUSDT": 2.0, "NEARUSDT": 4.0, "FILUSDT": 4.0, "INJUSDT": 20.0, "BONKUSDT": 0.00002}
+
 def get_precio_robusto(symbol):
     ultimo_key = "btc" if "BTC" in symbol else "bnb"
-    fallback_default = 65000.0 if "BTC" in symbol else 600.0
+    fallback_default = FALLBACK_PRECIOS.get(symbol, 100.0)
     try:
         if client:
             p = float(client.get_symbol_ticker(symbol=symbol)['price'])
@@ -930,6 +933,7 @@ def detectar_mejor_candidata():
     sym, score, _ = detectar_mejor_candidata_rentable()
     return sym, score
 
+# --- CORREGIDO V61.1 FIX HOY: antes split("$")[-1] agarraba el ultimo $, ahora el PRIMER $ que es el pnl real ---
 def calcular_profit_hoy_por_moneda(u):
     profit_map = {sym: {"profit":0.0, "count":0} for sym in MONEDAS_ACTIVAS}
     try:
@@ -938,9 +942,8 @@ def calcular_profit_hoy_por_moneda(u):
                 if sym in h:
                     try:
                         if "$" in h:
-                            parte = h.split("$")[-1]
                             import re
-                            m = re.search(r'([+-]?\d+\.\d+)', parte)
+                            m = re.search(r'\$([+-]?\d+\.\d+)', h)
                             if m:
                                 val = float(m.group(1))
                                 profit_map[sym]["profit"] += val
@@ -961,7 +964,8 @@ def mandar_pensamiento_telegram():
     global ULTIMO_PENSAMIENTO
     try:
         ahora = time.time()
-        if ahora - ULTIMO_PENSAMIENTO < 1800: return
+        # --- CORREGIDO V61.1 ACECHANDO 1 HORA: antes 1800 (30 min), ahora 3600 (60 min) ---
+        if ahora - ULTIMO_PENSAMIENTO < 3600: return
         ULTIMO_PENSAMIENTO = ahora
         regs_txt = "\n".join([f"{k}: {v}" for k,v in ESTADO.get("regimenes",{}).items()]) or ESTADO.get("regimen","LINEAL")
         bandas_txt = "V61.1 IDEA MADRE 40/40 - BAJISTA_SUAVE / BAJISTA_FUERTE / CRASH - TP 0.5%->12H 0.3% DEFINITIVO - RANGOS DESDE-HASTA"
@@ -1321,7 +1325,13 @@ def motor_v45():
                             if precio_actual <= tp_price: cerrar = "TP"
                             elif not es_mojarra_inmortal and not es_rescate and precio_actual >= sl_price: cerrar = "SL"
                         if cerrar:
-                            ejecutar_orden_real(pos["symbol"], "BUY" if es_short else "SELL", pos["usdt"])
+                            # --- CORREGIDO V61.1 FIX SIMULADO: si la orden es simulada NO sumamos plata que no entro ---
+                            ok_orden, res_orden, _precio_orden = ejecutar_orden_real(pos["symbol"], "BUY" if es_short else "SELL", pos["usdt"])
+                            if isinstance(res_orden, dict) and res_orden.get("simulado"):
+                                print(f"[SIMULADO] No sumo al balance {pos['symbol']} {pos.get('estrategia')} - orden no ejecutada en Binance")
+                                POSICIONES_ABIERTAS[user_id].remove(pos)
+                                guardar_datos()
+                                continue
                             pnl_bruto = (precio_actual - pos["entrada"]) / pos["entrada"] * pos["usdt"] if not es_short else (pos["entrada"] - precio_actual) / pos["entrada"] * pos["usdt"]
                             pnl = pnl_bruto - pos["usdt"] * COMISION_TOTAL/100
                             es_tp = cerrar == "TP"
